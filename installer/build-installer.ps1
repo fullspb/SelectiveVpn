@@ -72,4 +72,4 @@ Write-Host "Compiling installer..."
 & $iscc (Join-Path $installer "SelectiveVpn.iss")
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
 
-Write-Host "Done: $(Join-Path $installer 'output\SelectiveVpn-Setup-0.1.2.exe')"
+Write-Host "Done: $(Join-Path $installer 'output\SelectiveVpn-Setup-0.1.3.exe')"

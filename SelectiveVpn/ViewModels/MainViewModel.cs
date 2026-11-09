@@ -625,7 +625,6 @@ public sealed class MainViewModel : ViewModelBase
         CommandManager.InvalidateRequerySuggested();
         try
         {
-            await RefreshAddressListsAsync(_connectCts.Token);
             var request = new MihomoStartRequest(
                 ConfigPath!,
                 BuildRouteTargets(),
@@ -1051,29 +1050,6 @@ public sealed class MainViewModel : ViewModelBase
             return _rules.AddFolder(path);
 
         return _rules.AddExecutable(path);
-    }
-
-    private async Task RefreshAddressListsAsync(CancellationToken cancellationToken)
-    {
-        var lists = _rules.GetRules()
-            .Where(rule => rule.EffectiveKind == RouteKind.AddressList && !rule.SkipDomainResolve)
-            .ToArray();
-        if (lists.Length == 0)
-            return;
-
-        Report("Обновляю IP для списков адресов…");
-        foreach (var list in lists)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var resolved = await AddressListResolver.ResolveAsync(
-                list.EntryList,
-                cancellationToken: cancellationToken);
-            _rules.UpdateAddressListResolved(list.ExecutablePath, resolved.ResolvedIps);
-            Report($"Список «{list.ExecutablePath}»: {resolved.Message}");
-        }
-
-        ReloadApps();
-        Persist();
     }
 
     private RouteTarget[] BuildRouteTargets()
