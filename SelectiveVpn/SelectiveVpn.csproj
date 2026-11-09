@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\SelectiveVpn.ico</ApplicationIcon>
+    <RootNamespace>SelectiveVpn</RootNamespace>
+    <AssemblyName>SelectiveVpn</AssemblyName>
+    <Version>0.1.2</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Product>SelectiveVpn</Product>
+    <AssemblyTitle>SelectiveVpn</AssemblyTitle>
+    <Description>Выборочный VPN-клиент: Mihomo, AmneziaWG и правила процессов.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\SelectiveVpn.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SelectiveVpn.Core\SelectiveVpn.Core.csproj" />
+  </ItemGroup>
+
+</Project>

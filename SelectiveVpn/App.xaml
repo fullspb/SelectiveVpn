@@ -1,0 +1,49 @@
+﻿<Application x:Class="SelectiveVpn.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <SolidColorBrush x:Key="WindowBackground" Color="#F3F5F8"/>
+        <SolidColorBrush x:Key="WindowForeground" Color="#1C2430"/>
+        <SolidColorBrush x:Key="MutedForeground" Color="#5C677A"/>
+        <SolidColorBrush x:Key="CardBackground" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="CardBorder" Color="#E2E6ED"/>
+        <SolidColorBrush x:Key="Accent" Color="#1F4E8C"/>
+        <SolidColorBrush x:Key="ButtonBackground" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="ButtonForeground" Color="#1C2430"/>
+        <SolidColorBrush x:Key="ButtonBorder" Color="#D0D5DD"/>
+        <SolidColorBrush x:Key="PrimaryBackground" Color="#1F4E8C"/>
+        <SolidColorBrush x:Key="PrimaryForeground" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="PrimaryBorder" Color="#173E70"/>
+        <SolidColorBrush x:Key="FieldBackground" Color="#F7F8FA"/>
+        <SolidColorBrush x:Key="FieldBorder" Color="#E2E6ED"/>
+        <SolidColorBrush x:Key="InfoBackground" Color="#F3F7FC"/>
+        <SolidColorBrush x:Key="InfoBorder" Color="#D6E2F5"/>
+        <SolidColorBrush x:Key="InfoForeground" Color="#1F4E8C"/>
+        <SolidColorBrush x:Key="EmptyForeground" Color="#8B95A5"/>
+        <SolidColorBrush x:Key="PathForeground" Color="#667085"/>
+        <SolidColorBrush x:Key="StatusIdleBackground" Color="#FFF7EB"/>
+        <SolidColorBrush x:Key="StatusIdleBorder" Color="#F5D7A8"/>
+        <SolidColorBrush x:Key="StatusIdleForeground" Color="#8A5A00"/>
+        <SolidColorBrush x:Key="StatusConnectedBackground" Color="#E8F6EE"/>
+        <SolidColorBrush x:Key="StatusConnectedBorder" Color="#B7E0C6"/>
+        <SolidColorBrush x:Key="StatusConnectedForeground" Color="#1F7A45"/>
+        <SolidColorBrush x:Key="StatusConnectingBackground" Color="#EEF3FA"/>
+        <SolidColorBrush x:Key="StatusConnectingBorder" Color="#D3DDED"/>
+        <SolidColorBrush x:Key="StatusConnectingForeground" Color="#1F4E8C"/>
+        <SolidColorBrush x:Key="StatusErrorBackground" Color="#FDECEC"/>
+        <SolidColorBrush x:Key="StatusErrorBorder" Color="#F3C1C1"/>
+        <SolidColorBrush x:Key="StatusErrorForeground" Color="#A33B3B"/>
+        <SolidColorBrush x:Key="SidebarBackground" Color="#F7F8FB"/>
+        <SolidColorBrush x:Key="SidebarBorder" Color="#E2E6ED"/>
+        <SolidColorBrush x:Key="NavActiveBackground" Color="#E8EEF8"/>
+        <SolidColorBrush x:Key="NavActiveForeground" Color="#1F4E8C"/>
+        <SolidColorBrush x:Key="ListHoverBackground" Color="#E4EAF3"/>
+        <SolidColorBrush x:Key="ListSelectedBackground" Color="#D3E3FA"/>
+        <SolidColorBrush x:Key="DangerForeground" Color="#C24141"/>
+        <SolidColorBrush x:Key="DangerBackground" Color="#C24141"/>
+        <SolidColorBrush x:Key="DangerBorder" Color="#9A3030"/>
+        <SolidColorBrush x:Key="EyebrowForeground" Color="#5B6B8A"/>
+    </Application.Resources>
+</Application>
