@@ -87,6 +87,11 @@ Output: `installer\output\SelectiveVpn-Setup-<version>.exe`
 - Address lists can resolve domains to IPs when routing starts
 - Single-instance: launching again focuses the existing window
 
+## Privacy
+
+- [Privacy policy](docs/privacy.md) (RU / EN)
+- [Microsoft Store listing copy](docs/store-listing.md)
+
 ## Disclaimer
 
 SelectiveVpn is a personal / community client. You are responsible for complying with local law and your VPN provider’s terms. Do not commit or share private keys or subscription tokens in issues or PRs.
