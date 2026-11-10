@@ -95,23 +95,39 @@ public sealed class StubAppRuleStore : IAppRuleStore
         IReadOnlyList<string> resolvedIps,
         bool skipDomainResolve = false)
     {
-        var title = string.IsNullOrWhiteSpace(name) ? "Список адресов" : name.Trim();
-        if (title.Contains(',') || title.Contains('\''))
+        var desired = string.IsNullOrWhiteSpace(name) ? Loc.T("AddressList.DefaultName") : name.Trim();
+        if (desired.Contains(',') || desired.Contains('\''))
             return OperationResult.Fail("Название списка содержит недопустимый символ.");
 
         if (entries.Count == 0)
             return OperationResult.Fail("Список пуст. Добавьте домены или IP-адреса.");
 
-        if (_rules.Exists(rule =>
-                rule.EffectiveKind == RouteKind.AddressList
-                && string.Equals(rule.ExecutablePath, title, StringComparison.OrdinalIgnoreCase)))
-            return OperationResult.Fail("Список с таким названием уже есть.");
-
+        var title = AllocateUniqueAddressListTitle(desired);
         var ips = skipDomainResolve ? Array.Empty<string>() : resolvedIps.ToArray();
         _rules.Add(new AppRule(title, false, RouteKind.AddressList, entries.ToArray(), ips, skipDomainResolve));
         return OperationResult.Ok(
             Loc.Tf("Msg.ListAdded", title, AppRule.FormatListSummary(entries, ips)));
     }
+
+    private string AllocateUniqueAddressListTitle(string desired)
+    {
+        if (!AddressListTitleExists(desired))
+            return desired;
+
+        for (var n = 2; n < 10_000; n++)
+        {
+            var candidate = desired + " " + n;
+            if (!AddressListTitleExists(candidate))
+                return candidate;
+        }
+
+        return desired + " " + Guid.NewGuid().ToString("N")[..8];
+    }
+
+    private bool AddressListTitleExists(string title) =>
+        _rules.Exists(rule =>
+            rule.EffectiveKind == RouteKind.AddressList
+            && string.Equals(rule.ExecutablePath, title, StringComparison.OrdinalIgnoreCase));
 
     public OperationResult ReplaceAddressList(
         string currentName,

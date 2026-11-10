@@ -13,6 +13,48 @@
         Foreground="{DynamicResource WindowForeground}"
         FontFamily="Segoe UI"
         UseLayoutRounding="True">
+    <Window.Resources>
+        <Style x:Key="DialogButton" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonBackground}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,7"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.86"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.72"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="DialogPrimaryButton" TargetType="Button" BasedOn="{StaticResource DialogButton}">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}"/>
+            <Setter Property="Background" Value="{DynamicResource PrimaryBackground}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBorder}"/>
+        </Style>
+    </Window.Resources>
     <Border Margin="16" Background="{DynamicResource CardBackground}"
             BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
             CornerRadius="12" Padding="18">
@@ -39,7 +81,13 @@
                      CaretBrush="{DynamicResource WindowForeground}"/>
 
             <DockPanel Grid.Row="4" Margin="0,12,0,0" LastChildFill="True">
-                <TextBlock DockPanel.Dock="Top" Margin="0,0,0,4" Text="{DynamicResource AddressList.Addresses}" FontSize="12" Foreground="{DynamicResource MutedForeground}"/>
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" LastChildFill="False">
+                    <TextBlock VerticalAlignment="Center" Text="{DynamicResource AddressList.Addresses}" FontSize="12" Foreground="{DynamicResource MutedForeground}"/>
+                    <Button x:Name="YouTubePresetButton" DockPanel.Dock="Right" Margin="8,0,0,0"
+                            Content="{DynamicResource AddressList.PresetYouTube}"
+                            Style="{StaticResource DialogButton}" Padding="10,4" FontSize="12"
+                            Click="YouTubePresetClick" ToolTip="{DynamicResource AddressList.PresetYouTubeHint}"/>
+                </DockPanel>
                 <TextBox x:Name="AddressesBox"
                          AcceptsReturn="True"
                          TextWrapping="NoWrap"
@@ -71,13 +119,10 @@
                            Foreground="{DynamicResource MutedForeground}"
                            Text=""/>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button x:Name="CancelButton" Content="{DynamicResource Ui.Cancel}" MinWidth="96" Margin="0,0,8,0" Padding="12,7"
-                            Click="CancelClick" IsCancel="True"
-                            Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource ButtonForeground}"
-                            BorderBrush="{DynamicResource ButtonBorder}"/>
-                    <Button x:Name="AddButton" Content="{DynamicResource Ui.Add}" MinWidth="120" Padding="12,7" Click="AddClick" IsDefault="True"
-                            Background="{DynamicResource PrimaryBackground}" Foreground="{DynamicResource PrimaryForeground}"
-                            BorderBrush="{DynamicResource PrimaryBorder}"/>
+                    <Button x:Name="CancelButton" Content="{DynamicResource Ui.Cancel}" MinWidth="96" Margin="0,0,8,0"
+                            Style="{StaticResource DialogButton}" Click="CancelClick" IsCancel="True"/>
+                    <Button x:Name="AddButton" Content="{DynamicResource Ui.Add}" MinWidth="120"
+                            Style="{StaticResource DialogPrimaryButton}" Click="AddClick" IsDefault="True"/>
                 </StackPanel>
             </DockPanel>
         </Grid>

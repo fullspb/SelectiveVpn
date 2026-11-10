@@ -1,6 +1,6 @@
 #define MyAppName "SelectiveVpn"
 #ifndef MyAppVersion
-  #define MyAppVersion "0.1.8"
+  #define MyAppVersion "0.1.10"
 #endif
 #define MyAppExeName "SelectiveVpn.exe"
 #define MyAppId "{{8F4C2A91-6B37-4E5D-9C18-2A7D5E0B4F63}"

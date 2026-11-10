@@ -3,6 +3,9 @@
 installer/publish/
 installer/output/
 installer/redist/
+msix/publish/
+msix/layout/
+msix/output/
 *.user
 *.suo
 .vs/

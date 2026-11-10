@@ -47,6 +47,39 @@ public partial class AddressListPrompt : Window
 
     private void AddressesChanged(object sender, TextChangedEventArgs e) => UpdateLineCount();
 
+    private void YouTubePresetClick(object sender, RoutedEventArgs e)
+    {
+        if (_busy)
+            return;
+
+        var preset = DomainListPresets.YouTubeGoogle;
+        var existing = AddressesBox.Text?
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            ?? [];
+        var merged = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var line in existing.Concat(preset))
+        {
+            if (line.Length == 0 || !seen.Add(line))
+                continue;
+            merged.Add(line);
+        }
+
+        AddressesBox.Text = string.Join(Environment.NewLine, merged);
+        if (string.IsNullOrWhiteSpace(NameBox.Text)
+            || string.Equals(NameBox.Text.Trim(), Loc.T("AddressList.DefaultName"), StringComparison.OrdinalIgnoreCase))
+        {
+            NameBox.Text = Loc.T("AddressList.PresetYouTubeName");
+        }
+
+        // Domain-suffix + sniffer is enough; resolving googlevideo CDN IPs is noisy and stale.
+        SkipResolveBox.IsChecked = true;
+        SetStatus(Loc.Tf("AddressList.PresetApplied", Loc.T("AddressList.PresetYouTubeName"), preset.Count));
+        UpdateLineCount();
+        AddressesBox.CaretIndex = AddressesBox.Text.Length;
+        AddressesBox.Focus();
+    }
+
     private void UpdateLineCount()
     {
         var count = CountLines(AddressesBox.Text);
@@ -112,6 +145,7 @@ public partial class AddressListPrompt : Window
         _busy = true;
         _resolveCts = new CancellationTokenSource();
         AddButton.IsEnabled = false;
+        YouTubePresetButton.IsEnabled = false;
         NameBox.IsEnabled = false;
         AddressesBox.IsEnabled = false;
         SkipResolveBox.IsEnabled = false;
@@ -143,6 +177,7 @@ public partial class AddressListPrompt : Window
             _resolveCts = null;
             _busy = false;
             AddButton.IsEnabled = true;
+            YouTubePresetButton.IsEnabled = true;
             NameBox.IsEnabled = true;
             AddressesBox.IsEnabled = true;
             SkipResolveBox.IsEnabled = true;

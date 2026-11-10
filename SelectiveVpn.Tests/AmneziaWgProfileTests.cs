@@ -89,6 +89,10 @@ public class AmneziaWgProfileTests
         Assert.Contains("'DOMAIN-SUFFIX,example.com,VPN'", addresses);
         Assert.Contains("'IP-CIDR,1.2.3.4/32,VPN'", addresses);
         Assert.Contains("'IP-CIDR6,2001:db8::1/128,VPN'", addresses);
+        Assert.Contains("sniffer:", addresses);
+        Assert.Contains("force-dns-mapping: true", addresses);
+        Assert.Contains("enhanced-mode: fake-ip", addresses);
+        Assert.Contains("fake-ip-range: 198.18.0.1/16", addresses);
 
         var excluded = MihomoProfileWriter.Build(
             profile,
@@ -264,5 +268,16 @@ public class RouteAddressTests
     {
         Assert.False(RouteAddress.TryParse(input, out _, out _, out var error));
         Assert.False(string.IsNullOrWhiteSpace(error));
+    }
+
+    [Fact]
+    public void YouTube_preset_contains_core_cdn_domains()
+    {
+        var preset = DomainListPresets.YouTubeGoogle;
+        Assert.Contains("youtube.com", preset);
+        Assert.Contains("googlevideo.com", preset);
+        Assert.Contains("ytimg.com", preset);
+        Assert.Contains("googleapis.com", preset);
+        Assert.Equal(preset.Count, preset.Distinct(StringComparer.OrdinalIgnoreCase).Count());
     }
 }

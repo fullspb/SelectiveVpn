@@ -90,10 +90,14 @@
     <sys:String x:Key="ConfigEdit.Heading">Текст конфигурации</sys:String>
     <sys:String x:Key="AddressList.Title">Список адресов</sys:String>
     <sys:String x:Key="AddressList.Heading">Список доменов и IP</sys:String>
-    <sys:String x:Key="AddressList.Hint">По одному адресу в строке: домен, IP или CIDR. Домены при подключении можно сразу разрешить в IP.</sys:String>
+    <sys:String x:Key="AddressList.Hint">По одному адресу в строке: домен, IP или CIDR. Для сайтов вроде YouTube надёжнее домены (и пресет), чем устаревшие IP. После сохранения перезапустите маршрутизацию.</sys:String>
     <sys:String x:Key="AddressList.Name">Название списка</sys:String>
     <sys:String x:Key="AddressList.DefaultName">Список адресов</sys:String>
     <sys:String x:Key="AddressList.Addresses">Адреса</sys:String>
+    <sys:String x:Key="AddressList.PresetYouTube">YouTube / Google</sys:String>
+    <sys:String x:Key="AddressList.PresetYouTubeName">YouTube</sys:String>
+    <sys:String x:Key="AddressList.PresetYouTubeHint">Добавить типичные домены YouTube и Google. Список можно дополнить вручную.</sys:String>
+    <sys:String x:Key="AddressList.PresetApplied">Пресет «{0}»: добавлено доменов {1}. Сохраните список и перезапустите маршрутизацию.</sys:String>
     <sys:String x:Key="AddressList.SkipResolve">Не проверять домены сейчас (только сохранить список)</sys:String>
     <sys:String x:Key="AddressList.Domain1">домен</sys:String>
     <sys:String x:Key="AddressList.DomainFew">домена</sys:String>

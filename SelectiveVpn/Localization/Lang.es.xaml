@@ -83,10 +83,14 @@
     <sys:String x:Key="ConfigEdit.Heading">Texto de configuración</sys:String>
     <sys:String x:Key="AddressList.Title">Lista de direcciones</sys:String>
     <sys:String x:Key="AddressList.Heading">Dominios e IP</sys:String>
-    <sys:String x:Key="AddressList.Hint">Una dirección por línea: dominio, IP o CIDR. Los dominios se pueden resolver a IP al conectar.</sys:String>
+    <sys:String x:Key="AddressList.Hint">Una dirección por línea: dominio, IP o CIDR. Para sitios como YouTube, mejor dominios (y el preset) que IP antiguas. Reinicia el enrutamiento tras guardar.</sys:String>
     <sys:String x:Key="AddressList.Name">Nombre de la lista</sys:String>
     <sys:String x:Key="AddressList.DefaultName">Lista de direcciones</sys:String>
     <sys:String x:Key="AddressList.Addresses">Direcciones</sys:String>
+    <sys:String x:Key="AddressList.PresetYouTube">YouTube / Google</sys:String>
+    <sys:String x:Key="AddressList.PresetYouTubeName">YouTube</sys:String>
+    <sys:String x:Key="AddressList.PresetYouTubeHint">Añade dominios típicos de YouTube y Google. Puedes editar la lista después.</sys:String>
+    <sys:String x:Key="AddressList.PresetApplied">Preset “{0}”: se añadieron {1} dominios. Guarda la lista y reinicia el enrutamiento.</sys:String>
     <sys:String x:Key="AddressList.SkipResolve">No resolver dominios ahora (solo guardar la lista)</sys:String>
     <sys:String x:Key="AddressList.Domain1">dominio</sys:String>
     <sys:String x:Key="AddressList.DomainFew">dominios</sys:String>

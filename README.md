@@ -92,6 +92,14 @@ Output: `installer\output\SelectiveVpn-Setup-<version>.exe`
 - [Privacy policy](docs/privacy.md) (RU / EN)
 - [Microsoft Store listing copy](docs/store-listing.md)
 
+## Microsoft Store (MSIX)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File msix\build-msix.ps1
+```
+
+Output: `msix\output\SelectiveVpn-<version>-x64.msix`. Details: [docs/msix.md](docs/msix.md).
+
 ## Disclaimer
 
 SelectiveVpn is a personal / community client. You are responsible for complying with local law and your VPN provider’s terms. Do not commit or share private keys or subscription tokens in issues or PRs.

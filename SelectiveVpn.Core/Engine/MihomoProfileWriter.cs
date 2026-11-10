@@ -132,6 +132,20 @@ public static class MihomoProfileWriter
         builder.AppendLine("  strict-route: false");
         builder.AppendLine("  dns-hijack:");
         builder.AppendLine("    - any:53");
+
+        // Domain lists need SNI/Host sniffing: browsers often use DoH and connect by IP.
+        builder.AppendLine("sniffer:");
+        builder.AppendLine("  enable: true");
+        builder.AppendLine("  force-dns-mapping: true");
+        builder.AppendLine("  parse-pure-ip: true");
+        builder.AppendLine("  override-destination: true");
+        builder.AppendLine("  sniff:");
+        builder.AppendLine("    HTTP:");
+        builder.AppendLine("      ports: [80, 8080-8880]");
+        builder.AppendLine("    TLS:");
+        builder.AppendLine("      ports: [443, 8443]");
+        builder.AppendLine("    QUIC:");
+        builder.AppendLine("      ports: [443]");
     }
 
     private static void AppendDns(StringBuilder builder, IEnumerable<string> nameservers)
@@ -139,7 +153,14 @@ public static class MihomoProfileWriter
         builder.AppendLine("dns:");
         builder.AppendLine("  enable: true");
         builder.AppendLine("  ipv6: false");
-        builder.AppendLine("  enhanced-mode: normal");
+        builder.AppendLine("  enhanced-mode: fake-ip");
+        builder.AppendLine("  fake-ip-range: 198.18.0.1/16");
+        builder.AppendLine("  fake-ip-filter:");
+        builder.AppendLine("    - '*.lan'");
+        builder.AppendLine("    - '*.local'");
+        builder.AppendLine("    - localhost");
+        builder.AppendLine("    - '*.localhost'");
+        builder.AppendLine("    - '+.localdomain'");
         builder.AppendLine("  respect-rules: true");
         builder.AppendLine("  default-nameserver:");
         builder.AppendLine("    - 1.1.1.1");

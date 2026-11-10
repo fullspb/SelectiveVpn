@@ -83,10 +83,14 @@
     <sys:String x:Key="ConfigEdit.Heading">配置文本</sys:String>
     <sys:String x:Key="AddressList.Title">地址列表</sys:String>
     <sys:String x:Key="AddressList.Heading">域名与 IP</sys:String>
-    <sys:String x:Key="AddressList.Hint">每行一个地址：域名、IP 或 CIDR。连接时可解析域名为 IP。</sys:String>
+    <sys:String x:Key="AddressList.Hint">每行一个地址：域名、IP 或 CIDR。对于 YouTube 这类站点，域名（以及预设）比过期 IP 更可靠。保存后请重新启动路由。</sys:String>
     <sys:String x:Key="AddressList.Name">列表名称</sys:String>
     <sys:String x:Key="AddressList.DefaultName">地址列表</sys:String>
     <sys:String x:Key="AddressList.Addresses">地址</sys:String>
+    <sys:String x:Key="AddressList.PresetYouTube">YouTube / Google</sys:String>
+    <sys:String x:Key="AddressList.PresetYouTubeName">YouTube</sys:String>
+    <sys:String x:Key="AddressList.PresetYouTubeHint">添加常见的 YouTube 与 Google 域名。之后仍可手动编辑。</sys:String>
+    <sys:String x:Key="AddressList.PresetApplied">预设“{0}”：已添加 {1} 个域名。请保存列表并重新启动路由。</sys:String>
     <sys:String x:Key="AddressList.SkipResolve">现在不解析域名（仅保存列表）</sys:String>
     <sys:String x:Key="AddressList.Domain1">个域名</sys:String>
     <sys:String x:Key="AddressList.DomainFew">个域名</sys:String>
