@@ -88,6 +88,19 @@
     <sys:String x:Key="ConfigEdit.Title">Edit config</sys:String>
     <sys:String x:Key="AddressList.Title">Address list</sys:String>
     <sys:String x:Key="FullTunnel.Title">All traffic through VPN</sys:String>
+    <sys:String x:Key="Update.Title">Update</sys:String>
+    <sys:String x:Key="Update.Heading">Version {0} is available</sys:String>
+    <sys:String x:Key="Update.VersionLine">Current: {0} → new: {1}</sys:String>
+    <sys:String x:Key="Update.Ready">You can download the installer from GitHub.</sys:String>
+    <sys:String x:Key="Update.Download">Download</sys:String>
+    <sys:String x:Key="Update.Install">Install</sys:String>
+    <sys:String x:Key="Update.Downloading">Downloading…</sys:String>
+    <sys:String x:Key="Update.Downloaded">Downloaded. Ready to install.</sys:String>
+    <sys:String x:Key="Update.Canceled">Download canceled.</sys:String>
+    <sys:String x:Key="Update.DownloadFail">Could not download the update.</sys:String>
+    <sys:String x:Key="Update.StartingInstaller">Starting the installer…</sys:String>
+    <sys:String x:Key="Update.InstallFail">Could not start the installer.</sys:String>
+    <sys:String x:Key="Update.BadgeTip">A new version is available</sys:String>
     <sys:String x:Key="RemoveProfile.Title">Remove profile</sys:String>
     <sys:String x:Key="RemoveProfile.Heading">Remove this profile?</sys:String>
     <sys:String x:Key="RemoveProfile.Hint">Profile “{0}” will be removed from the list. The config file on disk will not be deleted.</sys:String>
@@ -105,10 +118,10 @@
     <sys:String x:Key="Status.NoProfile">No profile selected</sys:String>
     <sys:String x:Key="Status.EngineDefault">mihomo — downloads on connect</sys:String>
 
-    <sys:String x:Key="Hint.ExceptListed">All traffic goes through VPN except apps, folders and address lists in this list. An empty list sends everything through VPN.</sys:String>
-    <sys:String x:Key="Hint.IncludeListed">Files, folders and address lists of this profile go through VPN. An empty list sends all traffic through VPN.</sys:String>
-    <sys:String x:Key="Footer.ExceptListed">The list bypasses VPN. Everything else goes through VPN. Apps outside a selected folder are added separately.</sys:String>
-    <sys:String x:Key="Footer.IncludeListed">If the list is empty, all traffic goes through VPN. Apps outside a selected folder are added separately.</sys:String>
+    <sys:String x:Key="Hint.ExceptListed">All traffic goes through VPN except apps, folders and address lists in this list. For an EXE, its folder and child processes are included. An empty list sends everything through VPN.</sys:String>
+    <sys:String x:Key="Hint.IncludeListed">Files, folders and address lists of this profile go through VPN. For an EXE, its folder and child processes are included. An empty list sends all traffic through VPN.</sys:String>
+    <sys:String x:Key="Footer.ExceptListed">The list bypasses VPN. Everything else goes through VPN. An EXE includes its folder and child processes.</sys:String>
+    <sys:String x:Key="Footer.IncludeListed">If the list is empty, all traffic goes through VPN. An EXE includes its folder and child processes.</sys:String>
 
     <sys:String x:Key="Ip.CaptionIdle">External IP is checked through VPN only after routing starts.</sys:String>
     <sys:String x:Key="Ip.CaptionOffline">Routing is not running. No request was sent.</sys:String>
@@ -171,7 +184,8 @@
     <sys:String x:Key="Msg.AutoConnectUiError">UI error during auto-connect.</sys:String>
     <sys:String x:Key="Msg.RestoreUiError">UI error while restoring the connection.</sys:String>
     <sys:String x:Key="Msg.StopTunnelFail">Could not stop the tunnel before exit.</sys:String>
-    <sys:String x:Key="Msg.AppAdded">App added: {0}. After connect its traffic will go through VPN.</sys:String>
+    <sys:String x:Key="Msg.AppAdded">App added: {0}. After connect, it, processes in its folder, and child processes go through VPN.</sys:String>
+    <sys:String x:Key="Msg.ChildProcessesAdded">Child processes added: {0}.</sys:String>
     <sys:String x:Key="Msg.FolderAdded">Folder added: {0}. All programs inside will go through VPN after connect.</sys:String>
     <sys:String x:Key="Msg.AppExists">This app is already in the list.</sys:String>
     <sys:String x:Key="Msg.FolderExists">This folder is already in the list.</sys:String>

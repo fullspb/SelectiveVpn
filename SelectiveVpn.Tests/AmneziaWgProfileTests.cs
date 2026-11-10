@@ -54,6 +54,7 @@ public class AmneziaWgProfileTests
         Assert.Contains("respect-rules: true", yaml);
         Assert.Contains("stack: mixed", yaml);
         Assert.Contains(@"'PROCESS-PATH,C:\Apps\Example App\demo.exe,VPN'", yaml);
+        Assert.Contains(@"PROCESS-PATH-REGEX,(?i)^C:\\Apps\\Example\ App\\.*", yaml);
         Assert.Contains(@"PROCESS-PATH-REGEX,(?i)^C:\\Games\\Steam\\.*", yaml);
         Assert.Contains("vpn-ip-check", yaml);
         Assert.Contains("MATCH,DIRECT", yaml);
@@ -71,6 +72,7 @@ public class AmneziaWgProfileTests
             "controllersecretvalue",
             exceptListed: true);
         Assert.Contains(@"'PROCESS-PATH,C:\Apps\Example App\demo.exe,DIRECT'", exceptListed);
+        Assert.Contains(@"PROCESS-PATH-REGEX,(?i)^C:\\Apps\\Example\ App\\.*,DIRECT", exceptListed);
         Assert.Contains(@"PROCESS-PATH-REGEX,(?i)^C:\\Games\\Steam\\.*,DIRECT", exceptListed);
         Assert.Contains("MATCH,VPN", exceptListed);
         Assert.DoesNotContain("MATCH,DIRECT", exceptListed);

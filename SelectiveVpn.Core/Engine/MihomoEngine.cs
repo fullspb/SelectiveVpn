@@ -28,6 +28,10 @@ public sealed class MihomoEngine : IMihomoController
     private string? _configPath;
     private string? _providerCachePath;
     private string? _preferredNode;
+    private MihomoStartRequest? _activeRequest;
+    private CancellationTokenSource? _treeWatchCts;
+    private readonly HashSet<string> _knownChildPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _reloadGate = new();
 
     public MihomoEngine(string? rootDirectory = null, HttpMessageHandler? downloadHandler = null)
     {
@@ -177,6 +181,8 @@ public sealed class MihomoEngine : IMihomoController
             _apiSecret = secret;
             _configPath = configPath;
             _preferredNode = preferredNode;
+            _activeRequest = request;
+            StartProcessTreeWatch();
 
             var nodeNote = "";
             if (!string.IsNullOrWhiteSpace(preferredNode)
@@ -202,6 +208,7 @@ public sealed class MihomoEngine : IMihomoController
         }
         catch (OperationCanceledException)
         {
+            StopProcessTreeWatch();
             if (process is not null)
                 await StopProcessAsync(process, port, secret).ConfigureAwait(false);
 
@@ -210,6 +217,7 @@ public sealed class MihomoEngine : IMihomoController
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or HttpRequestException or UnauthorizedAccessException)
         {
+            StopProcessTreeWatch();
             if (process is not null)
                 await StopProcessAsync(process, port, secret).ConfigureAwait(false);
 
@@ -541,10 +549,12 @@ public sealed class MihomoEngine : IMihomoController
 
     public async Task<OperationResult> StopAsync(CancellationToken cancellationToken = default)
     {
+        StopProcessTreeWatch();
         var process = _process;
         if (process is null || process.HasExited)
         {
             _process = null;
+            _activeRequest = null;
             return OperationResult.Fail("Соединение не запущено.");
         }
 
@@ -552,6 +562,7 @@ public sealed class MihomoEngine : IMihomoController
         {
             await StopProcessAsync(process, _apiPort, _apiSecret).ConfigureAwait(false);
             _process = null;
+            _activeRequest = null;
             ForgetSecrets(_configPath);
             _providerCachePath = null;
             return OperationResult.Ok("Отключено. Процесс Mihomo остановлен, TUN выключен.");
@@ -564,6 +575,198 @@ public sealed class MihomoEngine : IMihomoController
         {
             cancellationToken.ThrowIfCancellationRequested();
         }
+    }
+
+    private void StartProcessTreeWatch()
+    {
+        StopProcessTreeWatch();
+        var request = _activeRequest;
+        if (request is null
+            || !OperatingSystem.IsWindows()
+            || !request.Targets.Any(target => target.EffectiveKind == RouteKind.File))
+        {
+            return;
+        }
+
+        _treeWatchCts = new CancellationTokenSource();
+        _ = WatchProcessTreeAsync(_treeWatchCts.Token);
+    }
+
+    private void StopProcessTreeWatch()
+    {
+        var cts = _treeWatchCts;
+        _treeWatchCts = null;
+        if (cts is null)
+            return;
+
+        try
+        {
+            cts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        cts.Dispose();
+        lock (_reloadGate)
+            _knownChildPaths.Clear();
+    }
+
+    private async Task WatchProcessTreeAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested && IsRunning)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            var request = _activeRequest;
+            if (request is null || !IsRunning)
+                return;
+
+            IReadOnlyList<string> discovered;
+            try
+            {
+#pragma warning disable CA1416 // Process tree expansion is Windows-only; guarded by OperatingSystem.IsWindows above.
+                discovered = ProcessTreeExpander.Expand(request.Targets);
+#pragma warning restore CA1416
+            }
+            catch (Exception)
+            {
+                continue;
+            }
+
+            int added;
+            bool changed;
+            lock (_reloadGate)
+            {
+                added = discovered.Count(path => !_knownChildPaths.Contains(path));
+                changed = !_knownChildPaths.SetEquals(discovered);
+                if (!changed)
+                    continue;
+
+                _knownChildPaths.Clear();
+                foreach (var path in discovered)
+                    _knownChildPaths.Add(path);
+            }
+
+            var reloaded = await ReloadExpandedConfigAsync(request, discovered, cancellationToken).ConfigureAwait(false);
+            if (reloaded && added > 0)
+                Publish("CHILD_PROCESSES_ADDED:" + added.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+    }
+
+    private async Task<bool> ReloadExpandedConfigAsync(
+        MihomoStartRequest request,
+        IReadOnlyList<string> childPaths,
+        CancellationToken cancellationToken)
+    {
+        var configPath = _configPath;
+        var port = _apiPort;
+        var secret = _apiSecret;
+        if (string.IsNullOrWhiteSpace(configPath)
+            || port <= 0
+            || string.IsNullOrWhiteSpace(secret)
+            || !IsRunning)
+        {
+            return false;
+        }
+
+        foreach (var path in childPaths)
+        {
+            if (string.IsNullOrWhiteSpace(path)
+                || path.Contains(',')
+                || path.Contains('\'')
+                || path.Contains('\n')
+                || path.Contains('\r'))
+            {
+                return false;
+            }
+        }
+
+        try
+        {
+            var merged = MergeTargets(request.Targets, childPaths);
+            string yaml;
+            if (SubscriptionProfile.IsSubscriptionPath(request.ConfigFilePath))
+            {
+                if (!SubscriptionProfile.TryRead(request.ConfigFilePath, out var subscription, out _))
+                    return false;
+                yaml = MihomoProfileWriter.BuildSubscription(
+                    subscription,
+                    merged,
+                    port,
+                    secret,
+                    _providerCachePath ?? Path.Combine(_runtimeDirectory, "providers", "subscription.yaml"),
+                    DeviceIdentity.GetHardwareId(Path.GetDirectoryName(_runtimeDirectory)),
+                    _ipCheckPort,
+                    request.ExceptListed);
+            }
+            else
+            {
+                var read = AmneziaWgConfigReader.ReadFile(request.ConfigFilePath);
+                if (!read.Succeeded || read.Profile is null)
+                    return false;
+                yaml = MihomoProfileWriter.Build(
+                    read.Profile,
+                    merged,
+                    port,
+                    secret,
+                    _ipCheckPort,
+                    request.ExceptListed);
+            }
+
+            await File.WriteAllTextAsync(
+                    configPath,
+                    yaml,
+                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            using var handler = new SocketsHttpHandler { UseProxy = false };
+            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(5) };
+            using var httpRequest = new HttpRequestMessage(
+                HttpMethod.Put,
+                $"http://127.0.0.1:{port}/configs?force=true");
+            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", secret);
+            httpRequest.Content = new StringContent(
+                JsonSerializer.Serialize(new { path = configPath.Replace('\\', '/') }),
+                Encoding.UTF8,
+                "application/json");
+            using var response = await client.SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+            return response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.NoContent;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is IOException or HttpRequestException or TaskCanceledException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static IReadOnlyList<RouteTarget> MergeTargets(
+        IReadOnlyList<RouteTarget> baseTargets,
+        IReadOnlyList<string> childPaths)
+    {
+        var expanded = AddressListResolver.Expand(baseTargets).ToList();
+        var seen = new HashSet<string>(
+            expanded.Where(target => target.EffectiveKind == RouteKind.File).Select(target => target.Path),
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var path in childPaths)
+        {
+            if (!seen.Add(path))
+                continue;
+            expanded.Add(new RouteTarget(path));
+        }
+
+        return expanded;
     }
 
     private Process CreateProcess(string exePath, string configPath)
@@ -591,8 +794,11 @@ public sealed class MihomoEngine : IMihomoController
         process.ErrorDataReceived += (_, args) => Remember(args.Data);
         process.Exited += (_, _) =>
         {
-            if (ReferenceEquals(_process, process))
-                EngineStopped?.Invoke(this, EventArgs.Empty);
+            if (!ReferenceEquals(_process, process))
+                return;
+            StopProcessTreeWatch();
+            _activeRequest = null;
+            EngineStopped?.Invoke(this, EventArgs.Empty);
         };
         return process;
     }

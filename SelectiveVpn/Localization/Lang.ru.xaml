@@ -88,6 +88,19 @@
     <sys:String x:Key="ConfigEdit.Title">Редактировать конфиг</sys:String>
     <sys:String x:Key="AddressList.Title">Список адресов</sys:String>
     <sys:String x:Key="FullTunnel.Title">Весь трафик через VPN</sys:String>
+    <sys:String x:Key="Update.Title">Обновление</sys:String>
+    <sys:String x:Key="Update.Heading">Доступна версия {0}</sys:String>
+    <sys:String x:Key="Update.VersionLine">Сейчас: {0} → новая: {1}</sys:String>
+    <sys:String x:Key="Update.Ready">Можно скачать установщик с GitHub.</sys:String>
+    <sys:String x:Key="Update.Download">Скачать</sys:String>
+    <sys:String x:Key="Update.Install">Установить</sys:String>
+    <sys:String x:Key="Update.Downloading">Скачивание…</sys:String>
+    <sys:String x:Key="Update.Downloaded">Скачано. Можно установить.</sys:String>
+    <sys:String x:Key="Update.Canceled">Скачивание отменено.</sys:String>
+    <sys:String x:Key="Update.DownloadFail">Не удалось скачать обновление.</sys:String>
+    <sys:String x:Key="Update.StartingInstaller">Запускаю установщик…</sys:String>
+    <sys:String x:Key="Update.InstallFail">Не удалось запустить установщик.</sys:String>
+    <sys:String x:Key="Update.BadgeTip">Доступна новая версия</sys:String>
     <sys:String x:Key="RemoveProfile.Title">Убрать профиль</sys:String>
     <sys:String x:Key="RemoveProfile.Heading">Убрать профиль?</sys:String>
     <sys:String x:Key="RemoveProfile.Hint">Профиль «{0}» будет убран из списка. Файл конфигурации на диске не удалится.</sys:String>
@@ -105,10 +118,10 @@
     <sys:String x:Key="Status.NoProfile">Профиль не выбран</sys:String>
     <sys:String x:Key="Status.EngineDefault">mihomo — скачается при подключении</sys:String>
 
-    <sys:String x:Key="Hint.ExceptListed">Через VPN идёт весь трафик, кроме приложений, папок и списков адресов из этого списка. Пустой список отправляет через VPN всё.</sys:String>
-    <sys:String x:Key="Hint.IncludeListed">Файлы, папки и списки адресов этого профиля идут через VPN. Пустой список отправляет через VPN весь трафик.</sys:String>
-    <sys:String x:Key="Footer.ExceptListed">Список обходит VPN. Всё остальное идёт через VPN. Программы вне выбранной папки добавляются отдельно.</sys:String>
-    <sys:String x:Key="Footer.IncludeListed">Если список пуст, через VPN идёт весь трафик. Программы вне выбранной папки добавляются отдельно.</sys:String>
+    <sys:String x:Key="Hint.ExceptListed">Через VPN идёт весь трафик, кроме приложений, папок и списков адресов из этого списка. Для EXE также учитываются процессы из его папки и дочерние процессы. Пустой список отправляет через VPN всё.</sys:String>
+    <sys:String x:Key="Hint.IncludeListed">Файлы, папки и списки адресов этого профиля идут через VPN. Для EXE также идут процессы из его папки и дочерние процессы. Пустой список отправляет через VPN весь трафик.</sys:String>
+    <sys:String x:Key="Footer.ExceptListed">Список обходит VPN. Всё остальное идёт через VPN. EXE включает свою папку и дочерние процессы.</sys:String>
+    <sys:String x:Key="Footer.IncludeListed">Если список пуст, через VPN идёт весь трафик. EXE включает свою папку и дочерние процессы.</sys:String>
 
     <sys:String x:Key="Ip.CaptionIdle">Проверка идёт через VPN только после запуска маршрутизации.</sys:String>
     <sys:String x:Key="Ip.CaptionOffline">Маршрутизация не запущена. Запрос не отправлялся.</sys:String>
@@ -171,7 +184,8 @@
     <sys:String x:Key="Msg.AutoConnectUiError">Ошибка интерфейса при автоподключении.</sys:String>
     <sys:String x:Key="Msg.RestoreUiError">Ошибка интерфейса при восстановлении подключения.</sys:String>
     <sys:String x:Key="Msg.StopTunnelFail">Не удалось остановить туннель перед выходом.</sys:String>
-    <sys:String x:Key="Msg.AppAdded">Приложение добавлено: {0}. После подключения его трафик пойдёт через VPN.</sys:String>
+    <sys:String x:Key="Msg.AppAdded">Приложение добавлено: {0}. После подключения через VPN пойдут оно, процессы из его папки и дочерние процессы.</sys:String>
+    <sys:String x:Key="Msg.ChildProcessesAdded">Добавлены дочерние процессы: {0}.</sys:String>
     <sys:String x:Key="Msg.FolderAdded">Папка добавлена: {0}. Все программы внутри неё пойдут через VPN после подключения.</sys:String>
     <sys:String x:Key="Msg.AppExists">Это приложение уже есть в списке.</sys:String>
     <sys:String x:Key="Msg.FolderExists">Эта папка уже есть в списке.</sys:String>

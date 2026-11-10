@@ -59,12 +59,26 @@ public partial class MainWindow : Window
         AppLanguage.LanguageChanged += OnLanguageChanged;
         DataContext = _viewModel;
         SourceInitialized += (_, _) => TitleBarTheme.Apply(this, AppTheme.UsesDarkChrome(_viewModel.ThemeId));
+        Loaded += OnLoadedCheckUpdates;
         if (connectOnStart)
             Loaded += OnLoadedConnect;
         else if (_viewModel.ConnectOnLaunch)
             Loaded += OnLoadedAutoConnect;
         WatchShutdownRequest();
         WatchActivateRequest();
+    }
+
+    private async void OnLoadedCheckUpdates(object sender, RoutedEventArgs e)
+    {
+        Loaded -= OnLoadedCheckUpdates;
+        try
+        {
+            await _viewModel.CheckForUpdatesAsync();
+        }
+        catch (Exception)
+        {
+            // Network / parse failures stay silent.
+        }
     }
 
     private void OnAppThemeChanged(object? sender, string theme)

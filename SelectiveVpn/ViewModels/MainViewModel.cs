@@ -41,6 +41,8 @@ public sealed class MainViewModel : ViewModelBase
     private string _outgoingTraffic = "0";
     private bool _exceptListed;
     private bool _suppressExceptListed;
+    private bool _updateAvailable;
+    private UpdateInfo? _pendingUpdate;
     private CancellationTokenSource? _connectCts;
     private CancellationTokenSource? _trafficCts;
     private readonly Dictionary<string, Dictionary<string, int>> _lastNodeDelays =
@@ -80,6 +82,7 @@ public sealed class MainViewModel : ViewModelBase
         UseAmberThemeCommand = new RelayCommand(() => ApplyTheme(AppTheme.Amber, persist: true), () => true, LogUnexpected);
         UseIndigoThemeCommand = new RelayCommand(() => ApplyTheme(AppTheme.Indigo, persist: true), () => true, LogUnexpected);
         OpenSettingsCommand = new RelayCommand(OpenSettings, () => true, LogUnexpected);
+        OpenUpdateCommand = new RelayCommand(OpenUpdate, () => UpdateAvailable, LogUnexpected);
 
         _settings = UserSettingsStore.Load(out var settingsExisted);
         RestoreSettings();
@@ -99,6 +102,23 @@ public sealed class MainViewModel : ViewModelBase
     public string ThemeId => _theme;
 
     public string VersionLabel { get; } = AppVersion.Current;
+
+    public bool UpdateAvailable
+    {
+        get => _updateAvailable;
+        private set
+        {
+            if (!SetProperty(ref _updateAvailable, value))
+                return;
+            CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
+    public UpdateInfo? PendingUpdate
+    {
+        get => _pendingUpdate;
+        private set => SetProperty(ref _pendingUpdate, value);
+    }
 
     public bool IsDarkTheme
     {
@@ -320,6 +340,8 @@ public sealed class MainViewModel : ViewModelBase
 
     public RelayCommand OpenSettingsCommand { get; }
 
+    public RelayCommand OpenUpdateCommand { get; }
+
     public bool ConnectOnLaunch => _settings.ConnectOnLaunch;
 
     public void SaveSettings() => Persist();
@@ -384,6 +406,16 @@ public sealed class MainViewModel : ViewModelBase
             return;
 
         await DisconnectAsync();
+    }
+
+    public async Task CheckForUpdatesAsync()
+    {
+        var update = await AppUpdateChecker.CheckLatestAsync().ConfigureAwait(true);
+        if (update is null)
+            return;
+
+        PendingUpdate = update;
+        UpdateAvailable = true;
     }
 
     private void BrowseConfig()
@@ -1176,6 +1208,25 @@ public sealed class MainViewModel : ViewModelBase
             Report(startupMessage);
     }
 
+    private void OpenUpdate()
+    {
+        if (PendingUpdate is null)
+            return;
+
+        var dialog = new SelectiveVpn.UpdatePrompt(
+            PendingUpdate,
+            PrepareForCloseAsync,
+            () =>
+            {
+                ApplicationExitRequested?.Invoke(this, EventArgs.Empty);
+                Application.Current?.Shutdown();
+            })
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        dialog.ShowDialog();
+    }
+
     private void OpenSettings()
     {
         var dialog = new SelectiveVpn.SettingsWindow(
@@ -1437,7 +1488,18 @@ public sealed class MainViewModel : ViewModelBase
     private void LogUnexpected(Exception exception)
         => Report($"{Loc.T("Msg.UiError")} {exception.GetType().Name}: {exception.Message}");
 
-    private void OnEngineMessage(object? sender, string message) => Dispatch(() => Report(message));
+    private void OnEngineMessage(object? sender, string message) => Dispatch(() =>
+    {
+        const string childPrefix = "CHILD_PROCESSES_ADDED:";
+        if (message.StartsWith(childPrefix, StringComparison.Ordinal)
+            && int.TryParse(message.AsSpan(childPrefix.Length), out var count))
+        {
+            Report(Loc.Tf("Msg.ChildProcessesAdded", count));
+            return;
+        }
+
+        Report(message);
+    });
 
     private void OnEngineStopped(object? sender, EventArgs e) => Dispatch(() =>
     {

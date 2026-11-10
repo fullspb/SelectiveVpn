@@ -167,14 +167,26 @@ public static class MihomoProfileWriter
         var listed = exceptListed ? "DIRECT" : "VPN";
         foreach (var target in targets)
         {
-            var rule = target.EffectiveKind switch
+            switch (target.EffectiveKind)
             {
-                RouteKind.Folder => FolderRule(target.Path, listed),
-                RouteKind.Domain => $"DOMAIN-SUFFIX,{target.Path},{listed}",
-                RouteKind.Ip => (target.Path.Contains(':') ? "IP-CIDR6," : "IP-CIDR,") + target.Path + "," + listed,
-                _ => $"PROCESS-PATH,{target.Path},{listed}"
-            };
-            builder.AppendLine("  - " + YamlSingle(rule));
+                case RouteKind.Folder:
+                    builder.AppendLine("  - " + YamlSingle(FolderRule(target.Path, listed)));
+                    break;
+                case RouteKind.Domain:
+                    builder.AppendLine("  - " + YamlSingle($"DOMAIN-SUFFIX,{target.Path},{listed}"));
+                    break;
+                case RouteKind.Ip:
+                    builder.AppendLine("  - " + YamlSingle(
+                        (target.Path.Contains(':') ? "IP-CIDR6," : "IP-CIDR,") + target.Path + "," + listed));
+                    break;
+                default:
+                    // Exact EXE plus its install folder so helpers next to the launcher match immediately.
+                    builder.AppendLine("  - " + YamlSingle($"PROCESS-PATH,{target.Path},{listed}"));
+                    var parent = Path.GetDirectoryName(target.Path);
+                    if (!string.IsNullOrWhiteSpace(parent))
+                        builder.AppendLine("  - " + YamlSingle(FolderRule(parent, listed)));
+                    break;
+            }
         }
 
         builder.AppendLine(exceptListed ? "  - MATCH,VPN" : "  - MATCH,DIRECT");

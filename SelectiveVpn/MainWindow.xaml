@@ -647,12 +647,61 @@
             </StackPanel>
         </ScrollViewer>
 
-            <TextBlock Grid.Row="1"
-                       Margin="0,0,20,8"
-                       HorizontalAlignment="Right"
-                       FontSize="11"
-                       Foreground="{DynamicResource MutedForeground}"
-                       Text="{Binding VersionLabel}"/>
+            <Button Grid.Row="1"
+                    Margin="0,0,16,6"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    Padding="6,2"
+                    Cursor="Hand"
+                    Command="{Binding OpenUpdateCommand}"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Focusable="False"
+                    ToolTip="{DynamicResource Update.BadgeTip}">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding UpdateAvailable}" Value="False">
+                                <Setter Property="IsHitTestVisible" Value="False"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                                <Setter Property="ToolTip" Value="{x:Null}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding VersionLabel}"
+                               FontSize="11"
+                               Foreground="{DynamicResource MutedForeground}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="!"
+                               Margin="4,0,0,0"
+                               FontSize="13"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource DangerForeground}"
+                               VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding UpdateAvailable}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Button>
         </Grid>
     </Grid>
     </Viewbox>
