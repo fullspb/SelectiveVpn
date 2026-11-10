@@ -39,6 +39,7 @@
     <sys:String x:Key="Ui.Delete">Удалить</sys:String>
     <sys:String x:Key="Ui.Log">Журнал</sys:String>
     <sys:String x:Key="Ui.Cancel">Отмена</sys:String>
+    <sys:String x:Key="Ui.Continue">Продолжить</sys:String>
     <sys:String x:Key="Ui.Save">Сохранить</sys:String>
     <sys:String x:Key="Ui.Add">Добавить</sys:String>
     <sys:String x:Key="Ui.Select">Выбрать</sys:String>
@@ -86,8 +87,26 @@
     <sys:String x:Key="AppPicker.Hint">Выберите программу из списка установленных или укажите .exe вручную.</sys:String>
 
     <sys:String x:Key="ConfigEdit.Title">Редактировать конфиг</sys:String>
+    <sys:String x:Key="ConfigEdit.Heading">Текст конфигурации</sys:String>
     <sys:String x:Key="AddressList.Title">Список адресов</sys:String>
+    <sys:String x:Key="AddressList.Heading">Список доменов и IP</sys:String>
+    <sys:String x:Key="AddressList.Hint">По одному адресу в строке: домен, IP или CIDR. Домены при подключении можно сразу разрешить в IP.</sys:String>
+    <sys:String x:Key="AddressList.Name">Название списка</sys:String>
+    <sys:String x:Key="AddressList.DefaultName">Список адресов</sys:String>
+    <sys:String x:Key="AddressList.Addresses">Адреса</sys:String>
+    <sys:String x:Key="AddressList.SkipResolve">Не проверять домены сейчас (только сохранить список)</sys:String>
+    <sys:String x:Key="AddressList.Domain1">домен</sys:String>
+    <sys:String x:Key="AddressList.DomainFew">домена</sys:String>
+    <sys:String x:Key="AddressList.DomainMany">доменов</sys:String>
+    <sys:String x:Key="AddressList.Reading">Читаю список…</sys:String>
+    <sys:String x:Key="AddressList.Canceling">Отмена…</sys:String>
+    <sys:String x:Key="AddressList.ResolveCanceled">Разрешение доменов отменено.</sys:String>
+    <sys:String x:Key="AddressList.ResolveFail">Не удалось разрешить домены.</sys:String>
+    <sys:String x:Key="AddressList.SkipResolveResult">Домены не проверялись. В списке: {0}.</sys:String>
     <sys:String x:Key="FullTunnel.Title">Весь трафик через VPN</sys:String>
+    <sys:String x:Key="FullTunnel.Heading">Список приложений пуст</sys:String>
+    <sys:String x:Key="FullTunnel.Hint">Без правил через VPN пойдёт весь трафик этого компьютера. Добавьте приложения или папки, если нужен выборочный режим.</sys:String>
+    <sys:String x:Key="FullTunnel.Remember">Больше не спрашивать</sys:String>
     <sys:String x:Key="Update.Title">Обновление</sys:String>
     <sys:String x:Key="Update.Heading">Доступна версия {0}</sys:String>
     <sys:String x:Key="Update.VersionLine">Сейчас: {0} → новая: {1}</sys:String>

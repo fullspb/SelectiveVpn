@@ -35,7 +35,7 @@ public partial class AddressListPrompt : Window
         };
     }
 
-    public string ListName { get; private set; } = "Список адресов";
+    public string ListName { get; private set; } = Loc.T("AddressList.DefaultName");
 
     public IReadOnlyList<string> Entries { get; private set; } = [];
 
@@ -73,12 +73,12 @@ public partial class AddressListPrompt : Window
         var mod100 = count % 100;
         var mod10 = count % 10;
         var word = mod100 is >= 11 and <= 14
-            ? "доменов"
+            ? Loc.T("AddressList.DomainMany")
             : mod10 == 1
-                ? "домен"
+                ? Loc.T("AddressList.Domain1")
                 : mod10 is >= 2 and <= 4
-                    ? "домена"
-                    : "доменов";
+                    ? Loc.T("AddressList.DomainFew")
+                    : Loc.T("AddressList.DomainMany");
         return $"{count} {word}";
     }
 
@@ -87,7 +87,7 @@ public partial class AddressListPrompt : Window
         if (_busy)
             return;
 
-        SetStatus("Читаю список…");
+        SetStatus(Loc.T("AddressList.Reading"));
         var parsed = AddressListResolver.Parse(AddressesBox.Text);
         if (!parsed.Succeeded)
         {
@@ -95,14 +95,16 @@ public partial class AddressListPrompt : Window
             return;
         }
 
-        ListName = string.IsNullOrWhiteSpace(NameBox.Text) ? "Список адресов" : NameBox.Text.Trim();
+        ListName = string.IsNullOrWhiteSpace(NameBox.Text)
+            ? Loc.T("AddressList.DefaultName")
+            : NameBox.Text.Trim();
         SkipDomainResolve = SkipResolveBox.IsChecked == true;
         Entries = parsed.Entries;
 
         if (SkipDomainResolve)
         {
             ResolvedIps = [];
-            ResultMessage = $"Домены не проверялись. В списке: {AppRule.FormatListSummary(parsed.Entries, [])}.";
+            ResultMessage = Loc.Tf("AddressList.SkipResolveResult", AppRule.FormatListSummary(parsed.Entries, []));
             DialogResult = true;
             return;
         }
@@ -129,11 +131,11 @@ public partial class AddressListPrompt : Window
         }
         catch (OperationCanceledException)
         {
-            ShowError("Разрешение доменов отменено.");
+            ShowError(Loc.T("AddressList.ResolveCanceled"));
         }
         catch (Exception)
         {
-            ShowError("Не удалось разрешить домены.");
+            ShowError(Loc.T("AddressList.ResolveFail"));
         }
         finally
         {
@@ -151,7 +153,7 @@ public partial class AddressListPrompt : Window
     {
         if (_busy && _resolveCts is not null)
         {
-            SetStatus("Отмена…");
+            SetStatus(Loc.T("AddressList.Canceling"));
             _resolveCts.Cancel();
             return;
         }

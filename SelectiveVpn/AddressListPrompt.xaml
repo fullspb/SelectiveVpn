@@ -69,7 +69,7 @@
                            VerticalAlignment="Center"
                            FontSize="12"
                            Foreground="{DynamicResource MutedForeground}"
-                           Text="0 доменов"/>
+                           Text=""/>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button x:Name="CancelButton" Content="{DynamicResource Ui.Cancel}" MinWidth="96" Margin="0,0,8,0" Padding="12,7"
                             Click="CancelClick" IsCancel="True"

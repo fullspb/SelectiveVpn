@@ -39,6 +39,7 @@
     <sys:String x:Key="Ui.Delete">Remove</sys:String>
     <sys:String x:Key="Ui.Log">Log</sys:String>
     <sys:String x:Key="Ui.Cancel">Cancel</sys:String>
+    <sys:String x:Key="Ui.Continue">Continue</sys:String>
     <sys:String x:Key="Ui.Save">Save</sys:String>
     <sys:String x:Key="Ui.Add">Add</sys:String>
     <sys:String x:Key="Ui.Select">Select</sys:String>
@@ -86,8 +87,26 @@
     <sys:String x:Key="AppPicker.Hint">Pick an installed program from the list or choose an .exe manually.</sys:String>
 
     <sys:String x:Key="ConfigEdit.Title">Edit config</sys:String>
+    <sys:String x:Key="ConfigEdit.Heading">Configuration text</sys:String>
     <sys:String x:Key="AddressList.Title">Address list</sys:String>
+    <sys:String x:Key="AddressList.Heading">Domains and IPs</sys:String>
+    <sys:String x:Key="AddressList.Hint">One address per line: domain, IP, or CIDR. Domains can be resolved to IPs on connect.</sys:String>
+    <sys:String x:Key="AddressList.Name">List name</sys:String>
+    <sys:String x:Key="AddressList.DefaultName">Address list</sys:String>
+    <sys:String x:Key="AddressList.Addresses">Addresses</sys:String>
+    <sys:String x:Key="AddressList.SkipResolve">Don't resolve domains now (only save the list)</sys:String>
+    <sys:String x:Key="AddressList.Domain1">domain</sys:String>
+    <sys:String x:Key="AddressList.DomainFew">domains</sys:String>
+    <sys:String x:Key="AddressList.DomainMany">domains</sys:String>
+    <sys:String x:Key="AddressList.Reading">Reading list…</sys:String>
+    <sys:String x:Key="AddressList.Canceling">Canceling…</sys:String>
+    <sys:String x:Key="AddressList.ResolveCanceled">Domain resolve canceled.</sys:String>
+    <sys:String x:Key="AddressList.ResolveFail">Could not resolve domains.</sys:String>
+    <sys:String x:Key="AddressList.SkipResolveResult">Domains were not checked. In list: {0}.</sys:String>
     <sys:String x:Key="FullTunnel.Title">All traffic through VPN</sys:String>
+    <sys:String x:Key="FullTunnel.Heading">App list is empty</sys:String>
+    <sys:String x:Key="FullTunnel.Hint">With no rules, all traffic from this PC will go through VPN. Add apps or folders if you want selective routing.</sys:String>
+    <sys:String x:Key="FullTunnel.Remember">Don't ask again</sys:String>
     <sys:String x:Key="Update.Title">Update</sys:String>
     <sys:String x:Key="Update.Heading">Version {0} is available</sys:String>
     <sys:String x:Key="Update.VersionLine">Current: {0} → new: {1}</sys:String>

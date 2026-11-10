@@ -10,7 +10,7 @@
     <ApplicationIcon>Assets\SelectiveVpn.ico</ApplicationIcon>
     <RootNamespace>SelectiveVpn</RootNamespace>
     <AssemblyName>SelectiveVpn</AssemblyName>
-    <Version>0.1.6</Version>
+    <Version>0.1.7</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>SelectiveVpn</Product>
     <AssemblyTitle>SelectiveVpn</AssemblyTitle>
