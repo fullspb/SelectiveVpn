@@ -8,8 +8,9 @@
         Icon="pack://application:,,,/Assets/SelectiveVpn.ico"
         Height="860"
         Width="1120"
-        MinHeight="480"
-        MinWidth="640"
+        MinHeight="860"
+        MinWidth="1120"
+        ResizeMode="CanMinimize"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource WindowBackground}"
         FontFamily="Segoe UI"
@@ -229,6 +230,15 @@
                         HorizontalContentAlignment="Center"
                         Margin="2,8,2,0"
                         Command="{Binding BrowseConfigCommand}"/>
+
+                <Button DockPanel.Dock="Bottom"
+                        Content="Добавить по ссылке"
+                        Style="{StaticResource ActionButton}"
+                        FontWeight="SemiBold"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        Margin="2,8,2,0"
+                        Command="{Binding ImportSubscriptionCommand}"/>
 
                 <UniformGrid DockPanel.Dock="Bottom" Columns="3" Margin="0,8,0,0">
                     <Button Content="Светлая" Command="{Binding UseLightThemeCommand}">
@@ -473,8 +483,25 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Внешний IP" Foreground="{DynamicResource MutedForeground}" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="1" Text="{Binding ExternalIp}" FontSize="18" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource DangerForeground}" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding ExternalIp}" FontSize="18" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource DangerForeground}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding ConnectedServer}" FontSize="14"
+                                           Foreground="{DynamicResource MutedForeground}"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                           Margin="12,0,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ConnectedServer}" Value="">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
                             <Button Grid.Column="2" Content="Обновить" Style="{StaticResource ActionButton}"
                                     Command="{Binding RefreshIpCommand}" Margin="12,0,0,0"/>
                         </Grid>
@@ -485,6 +512,32 @@
                                     Command="{Binding ConnectCommand}" Margin="0,0,8,8"/>
                             <Button Content="Остановить" Style="{StaticResource ActionButton}"
                                     Command="{Binding DisconnectCommand}" Margin="0,0,8,8"/>
+                            <Button Content="Серверы"
+                                    Command="{Binding ManageServersCommand}" Margin="0,0,8,8">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource ActionButton}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSubscriptionProfile}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                            <Button Content="Редактировать"
+                                    Command="{Binding EditConfigCommand}" Margin="0,0,8,8">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource ActionButton}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsWireGuardProfile}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                             <Button Content="Убрать профиль" Style="{StaticResource DangerButton}"
                                     Command="{Binding RemoveProfileCommand}" Margin="0,0,8,8"/>
                         </WrapPanel>

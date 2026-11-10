@@ -3,8 +3,9 @@ using System.Text.Json;
 namespace SelectiveVpn.Engine;
 
 /// <summary>
-/// Суммирует байты соединений, которые прошли через прокси awg.
-/// Прямые соединения не учитываются. Закрытые соединения остаются в итоге.
+/// Суммирует байты соединений, которые прошли через группу VPN
+/// (AWG-прокси или узел подписки). Прямые соединения не учитываются.
+/// Закрытые соединения остаются в итоге.
 /// </summary>
 public sealed class VpnTrafficCounter
 {
@@ -75,8 +76,14 @@ public sealed class VpnTrafficCounter
 
         foreach (var chain in chains.EnumerateArray())
         {
-            if (string.Equals(chain.GetString(), "awg", StringComparison.OrdinalIgnoreCase))
+            var name = chain.GetString();
+            // Группа VPN есть и у AWG, и у подписок (vless и т.п.).
+            // awg оставляем на случай старых снимков API без группы в chains.
+            if (string.Equals(name, "VPN", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "awg", StringComparison.OrdinalIgnoreCase))
+            {
                 return true;
+            }
         }
 
         return false;

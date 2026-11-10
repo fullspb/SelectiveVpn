@@ -16,45 +16,8 @@ public static class MihomoProfileWriter
         bool exceptListed = false)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("allow-lan: false");
-        builder.AppendLine("mode: rule");
-        builder.AppendLine("log-level: info");
-        builder.AppendLine("find-process-mode: always");
-        builder.AppendLine("ipv6: true");
-        builder.AppendLine("external-controller: " + Quote($"127.0.0.1:{apiPort.ToString(CultureInfo.InvariantCulture)}"));
-        builder.AppendLine("secret: " + Quote(apiSecret));
-        if (vpnCheckPort > 0)
-        {
-            builder.AppendLine("listeners:");
-            builder.AppendLine("  - name: vpn-ip-check");
-            builder.AppendLine("    type: mixed");
-            builder.AppendLine("    listen: 127.0.0.1");
-            builder.AppendLine("    port: " + vpnCheckPort.ToString(CultureInfo.InvariantCulture));
-            builder.AppendLine("    proxy: awg");
-        }
-
-        builder.AppendLine("tun:");
-        builder.AppendLine("  enable: true");
-        builder.AppendLine("  stack: mixed");
-        builder.AppendLine("  auto-route: true");
-        builder.AppendLine("  auto-detect-interface: true");
-        builder.AppendLine("  strict-route: false");
-        builder.AppendLine("  dns-hijack:");
-        builder.AppendLine("    - any:53");
-        builder.AppendLine("dns:");
-        builder.AppendLine("  enable: true");
-        builder.AppendLine("  ipv6: false");
-        builder.AppendLine("  enhanced-mode: normal");
-        builder.AppendLine("  respect-rules: true");
-        builder.AppendLine("  default-nameserver:");
-        builder.AppendLine("    - 1.1.1.1");
-        builder.AppendLine("    - 8.8.8.8");
-        builder.AppendLine("  nameserver:");
-        foreach (var server in Nameservers(profile))
-            builder.AppendLine("    - " + Quote(server));
-        builder.AppendLine("  proxy-server-nameserver:");
-        builder.AppendLine("    - 1.1.1.1");
-        builder.AppendLine("    - 8.8.8.8");
+        AppendPreamble(builder, apiPort, apiSecret, vpnCheckPort, outboundProxy: "awg");
+        AppendDns(builder, Nameservers(profile));
         builder.AppendLine("proxies:");
         builder.AppendLine("  - name: awg");
         builder.AppendLine("    type: wireguard");
@@ -80,11 +43,125 @@ public static class MihomoProfileWriter
         builder.AppendLine("    type: select");
         builder.AppendLine("    proxies:");
         builder.AppendLine("      - awg");
+        AppendRules(builder, targets, exceptListed);
+        return builder.ToString();
+    }
+
+    public static string BuildSubscription(
+        SubscriptionProfile subscription,
+        IReadOnlyList<RouteTarget> targets,
+        int apiPort,
+        string apiSecret,
+        string providerCachePath,
+        string hardwareId,
+        int vpnCheckPort = 0,
+        bool exceptListed = false)
+    {
+        var builder = new StringBuilder();
+        AppendPreamble(builder, apiPort, apiSecret, vpnCheckPort, outboundProxy: "VPN");
+        AppendDns(builder, ["udp://1.1.1.1", "udp://8.8.8.8"]);
+        builder.AppendLine("proxy-providers:");
+        builder.AppendLine("  subscription:");
+        builder.AppendLine("    type: http");
+        builder.AppendLine("    url: " + Quote(subscription.Url));
+        builder.AppendLine("    path: " + Quote(providerCachePath.Replace('\\', '/')));
+        builder.AppendLine("    interval: 3600");
+        builder.AppendLine("    health-check:");
+        builder.AppendLine("      enable: true");
+        builder.AppendLine("      url: https://www.gstatic.com/generate_204");
+        builder.AppendLine("      interval: 300");
+        builder.AppendLine("      lazy: true");
+        builder.AppendLine("    header:");
+        builder.AppendLine("      User-Agent:");
+        builder.AppendLine("        - " + Quote("SelectiveVpn/" + MihomoRelease.Version));
+        builder.AppendLine("      x-hwid:");
+        builder.AppendLine("        - " + Quote(hardwareId));
+        builder.AppendLine("      x-device-os:");
+        builder.AppendLine("        - " + Quote("Windows"));
+        builder.AppendLine("      x-ver-os:");
+        builder.AppendLine("        - " + Quote(Environment.OSVersion.Version.ToString()));
+        builder.AppendLine("      x-device-model:");
+        builder.AppendLine("        - " + Quote("SelectiveVpn"));
+        builder.AppendLine("proxy-groups:");
+        builder.AppendLine("  - name: " + Quote(SubscriptionProfile.AutoNodeName));
+        builder.AppendLine("    type: url-test");
+        builder.AppendLine("    use:");
+        builder.AppendLine("      - subscription");
+        builder.AppendLine("    url: https://www.gstatic.com/generate_204");
+        builder.AppendLine("    interval: 300");
+        builder.AppendLine("    tolerance: 100");
+        builder.AppendLine("  - name: VPN");
+        builder.AppendLine("    type: select");
+        builder.AppendLine("    proxies:");
+        builder.AppendLine("      - " + Quote(SubscriptionProfile.AutoNodeName));
+        builder.AppendLine("    use:");
+        builder.AppendLine("      - subscription");
+        AppendRules(builder, targets, exceptListed);
+        return builder.ToString();
+    }
+
+    private static void AppendPreamble(
+        StringBuilder builder,
+        int apiPort,
+        string apiSecret,
+        int vpnCheckPort,
+        string outboundProxy)
+    {
+        builder.AppendLine("allow-lan: false");
+        builder.AppendLine("mode: rule");
+        builder.AppendLine("log-level: info");
+        builder.AppendLine("find-process-mode: always");
+        builder.AppendLine("ipv6: true");
+        builder.AppendLine("external-controller: " + Quote($"127.0.0.1:{apiPort.ToString(CultureInfo.InvariantCulture)}"));
+        builder.AppendLine("secret: " + Quote(apiSecret));
+        if (vpnCheckPort > 0)
+        {
+            builder.AppendLine("listeners:");
+            builder.AppendLine("  - name: vpn-ip-check");
+            builder.AppendLine("    type: mixed");
+            builder.AppendLine("    listen: 127.0.0.1");
+            builder.AppendLine("    port: " + vpnCheckPort.ToString(CultureInfo.InvariantCulture));
+            builder.AppendLine("    proxy: " + outboundProxy);
+        }
+
+        builder.AppendLine("tun:");
+        builder.AppendLine("  enable: true");
+        builder.AppendLine("  stack: mixed");
+        builder.AppendLine("  auto-route: true");
+        builder.AppendLine("  auto-detect-interface: true");
+        builder.AppendLine("  strict-route: false");
+        builder.AppendLine("  dns-hijack:");
+        builder.AppendLine("    - any:53");
+    }
+
+    private static void AppendDns(StringBuilder builder, IEnumerable<string> nameservers)
+    {
+        builder.AppendLine("dns:");
+        builder.AppendLine("  enable: true");
+        builder.AppendLine("  ipv6: false");
+        builder.AppendLine("  enhanced-mode: normal");
+        builder.AppendLine("  respect-rules: true");
+        builder.AppendLine("  default-nameserver:");
+        builder.AppendLine("    - 1.1.1.1");
+        builder.AppendLine("    - 8.8.8.8");
+        builder.AppendLine("  nameserver:");
+        foreach (var server in nameservers)
+            builder.AppendLine("    - " + Quote(server));
+        builder.AppendLine("  proxy-server-nameserver:");
+        builder.AppendLine("    - 1.1.1.1");
+        builder.AppendLine("    - 8.8.8.8");
+    }
+
+    private static void AppendRules(
+        StringBuilder builder,
+        IReadOnlyList<RouteTarget> targets,
+        bool exceptListed)
+    {
         builder.AppendLine("rules:");
         if (targets.Count == 0)
         {
             builder.AppendLine("  - MATCH,VPN");
-            return builder.ToString();
+            return;
         }
 
         var listed = exceptListed ? "DIRECT" : "VPN";
@@ -101,7 +178,6 @@ public static class MihomoProfileWriter
         }
 
         builder.AppendLine(exceptListed ? "  - MATCH,VPN" : "  - MATCH,DIRECT");
-        return builder.ToString();
     }
 
     private static void AppendAmnezia(StringBuilder builder, AmneziaWgProfile profile)

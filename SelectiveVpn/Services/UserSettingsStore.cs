@@ -96,7 +96,7 @@ internal sealed class UserSettings
 
     public List<SavedProfile> Profiles { get; set; } = [];
 
-    public string Theme { get; set; } = AppTheme.Light;
+    public string Theme { get; set; } = AppTheme.Dark;
 
     public bool SkipFullTunnelWarning { get; set; }
 
@@ -106,7 +106,7 @@ internal sealed class UserSettings
 
     public static UserSettings CreateDefault() => new()
     {
-        Theme = AppTheme.Light,
+        Theme = AppTheme.Dark,
         Apps = [],
         Targets = [],
         Profiles = []

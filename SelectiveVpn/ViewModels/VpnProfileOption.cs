@@ -1,4 +1,5 @@
 using System.IO;
+using SelectiveVpn.Engine;
 
 namespace SelectiveVpn.ViewModels;
 
@@ -10,12 +11,20 @@ public sealed class VpnProfileOption : ViewModelBase
     public VpnProfileOption(string configPath)
     {
         ConfigPath = configPath;
-        Name = Path.GetFileNameWithoutExtension(configPath);
+        Name = ResolveName(configPath);
     }
 
     public string ConfigPath { get; }
 
     public string Name { get; }
+
+    private static string ResolveName(string configPath)
+    {
+        if (SubscriptionProfile.TryRead(configPath, out var subscription, out _))
+            return subscription.Title;
+
+        return Path.GetFileNameWithoutExtension(configPath);
+    }
 
     public bool IsActive
     {

@@ -26,6 +26,8 @@ public sealed class MihomoEngine : IMihomoController
     private int _ipCheckPort;
     private string? _apiSecret;
     private string? _configPath;
+    private string? _providerCachePath;
+    private string? _preferredNode;
 
     public MihomoEngine(string? rootDirectory = null, HttpMessageHandler? downloadHandler = null)
     {
@@ -46,6 +48,8 @@ public sealed class MihomoEngine : IMihomoController
     public bool IsEngineAvailable => MihomoRelease.TryGetAsset(System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture, out _);
 
     public bool IsRunning => _process is { HasExited: false };
+
+    public string? ProviderCachePath => _providerCachePath;
 
     public async Task<OperationResult> StartAsync(
         MihomoStartRequest request,
@@ -75,17 +79,11 @@ public sealed class MihomoEngine : IMihomoController
         string? configPath = null;
         try
         {
-            Publish("Читаю конфигурацию AmneziaWG локально.");
-            var read = AmneziaWgConfigReader.ReadFile(request.ConfigFilePath);
-            if (!read.Succeeded || read.Profile is null)
-                return OperationResult.Fail(read.Message);
-
             var binary = await EnsureBinaryAsync(request.CustomEnginePath, cancellationToken).ConfigureAwait(false);
             if (!binary.Succeeded)
                 return OperationResult.Fail(binary.Error);
 
             _secrets.Clear();
-            _secrets.AddRange(read.Profile.SecretValues());
             port = ReserveLoopbackPort();
             var ipCheckPort = ReserveLoopbackPort();
             secret = RandomNumberGenerator.GetHexString(32);
@@ -93,15 +91,66 @@ public sealed class MihomoEngine : IMihomoController
 
             Directory.CreateDirectory(_runtimeDirectory);
             configPath = Path.Combine(_runtimeDirectory, "config.yaml");
-            var yaml = MihomoProfileWriter.Build(
-                read.Profile,
-                AddressListResolver.Expand(request.Targets),
-                port,
-                secret,
-                ipCheckPort,
-                request.ExceptListed);
-            await File.WriteAllTextAsync(configPath, yaml, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), cancellationToken)
-                .ConfigureAwait(false);
+            string summary;
+            string ignored = "";
+            string? preferredNode = null;
+            if (SubscriptionProfile.IsSubscriptionPath(request.ConfigFilePath))
+            {
+                Publish("Готовлю подписку для Mihomo.");
+                if (!SubscriptionProfile.TryRead(request.ConfigFilePath, out var subscription, out var subError))
+                    return OperationResult.Fail(subError);
+
+                var providersDir = Path.Combine(_runtimeDirectory, "providers");
+                Directory.CreateDirectory(providersDir);
+                var providerCache = Path.Combine(providersDir, "subscription.yaml");
+                try
+                {
+                    if (File.Exists(providerCache))
+                        File.Delete(providerCache);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // stale cache is fine; mihomo will refresh
+                }
+
+                var yaml = MihomoProfileWriter.BuildSubscription(
+                    subscription,
+                    AddressListResolver.Expand(request.Targets),
+                    port,
+                    secret,
+                    providerCache,
+                    DeviceIdentity.GetHardwareId(Path.GetDirectoryName(_runtimeDirectory)),
+                    ipCheckPort,
+                    request.ExceptListed);
+                await File.WriteAllTextAsync(configPath, yaml, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), cancellationToken)
+                    .ConfigureAwait(false);
+                summary = subscription.Describe();
+                preferredNode = subscription.EffectiveSelectedNode;
+                _providerCachePath = providerCache;
+            }
+            else
+            {
+                Publish("Читаю конфигурацию AmneziaWG локально.");
+                var read = AmneziaWgConfigReader.ReadFile(request.ConfigFilePath);
+                if (!read.Succeeded || read.Profile is null)
+                    return OperationResult.Fail(read.Message);
+
+                _secrets.AddRange(read.Profile.SecretValues());
+                var yaml = MihomoProfileWriter.Build(
+                    read.Profile,
+                    AddressListResolver.Expand(request.Targets),
+                    port,
+                    secret,
+                    ipCheckPort,
+                    request.ExceptListed);
+                await File.WriteAllTextAsync(configPath, yaml, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), cancellationToken)
+                    .ConfigureAwait(false);
+                summary = read.Profile.Describe();
+                ignored = read.Profile.IgnoredParameters.Count == 0
+                    ? ""
+                    : " Локальные параметры проигнорированы: " + string.Join(", ", read.Profile.IgnoredParameters) + ".";
+                _providerCachePath = null;
+            }
 
             Publish("Запускаю Mihomo.");
             process = CreateProcess(binary.Path, configPath);
@@ -127,9 +176,21 @@ public sealed class MihomoEngine : IMihomoController
             _ipCheckPort = ipCheckPort;
             _apiSecret = secret;
             _configPath = configPath;
-            var ignored = read.Profile.IgnoredParameters.Count == 0
-                ? ""
-                : " Локальные параметры проигнорированы: " + string.Join(", ", read.Profile.IgnoredParameters) + ".";
+            _preferredNode = preferredNode;
+
+            var nodeNote = "";
+            if (!string.IsNullOrWhiteSpace(preferredNode)
+                && !preferredNode.Equals(SubscriptionProfile.AutoNodeName, StringComparison.OrdinalIgnoreCase))
+            {
+                var selected = await SelectVpnNodeAsync(preferredNode, cancellationToken).ConfigureAwait(false);
+                nodeNote = selected.Succeeded
+                    ? $" Сервер: {SubscriptionProfile.DisplayNodeName(preferredNode)}."
+                    : $" Сервер «{preferredNode}» пока не выбран: {selected.Message}";
+            }
+            else if (!string.IsNullOrWhiteSpace(preferredNode))
+            {
+                nodeNote = " Сервер: авто.";
+            }
 
             var scope = request.Targets.Count == 0
                 ? "Весь трафик идёт через VPN."
@@ -137,7 +198,7 @@ public sealed class MihomoEngine : IMihomoController
                     ? $"Исключений из VPN: {request.Targets.Count}. Остальной трафик идёт через VPN."
                     : $"Целей через VPN: {request.Targets.Count}. Остальной трафик идёт напрямую.";
             return OperationResult.Ok(
-                $"Подключено. {read.Profile.Describe()}. {scope}{ignored}");
+                $"Подключено. {summary}. {scope}{ignored}{nodeNote}");
         }
         catch (OperationCanceledException)
         {
@@ -216,6 +277,262 @@ public sealed class MihomoEngine : IMihomoController
         return CurrentTraffic();
     }
 
+    public async Task<OperationResult> SelectVpnNodeAsync(string nodeName, CancellationToken cancellationToken = default)
+    {
+        if (!IsRunning || _apiPort <= 0 || string.IsNullOrWhiteSpace(_apiSecret))
+            return OperationResult.Fail("Маршрутизация не запущена.");
+
+        var target = string.IsNullOrWhiteSpace(nodeName) ? SubscriptionProfile.AutoNodeName : nodeName.Trim();
+        try
+        {
+            using var handler = new SocketsHttpHandler { UseProxy = false };
+            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(8) };
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"http://127.0.0.1:{_apiPort}/proxies/VPN");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiSecret);
+            request.Content = new StringContent(
+                JsonSerializer.Serialize(new { name = target }),
+                Encoding.UTF8,
+                "application/json");
+
+            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.NoContent)
+            {
+                _preferredNode = target;
+                return OperationResult.Ok($"Выбран сервер: {SubscriptionProfile.DisplayNodeName(target)}.");
+            }
+
+            return OperationResult.Fail("Не удалось переключить сервер в Mihomo.");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
+        {
+            return OperationResult.Fail("Не удалось переключить сервер в Mihomo.");
+        }
+    }
+
+    public async Task<string?> GetActiveVpnNodeAsync(CancellationToken cancellationToken = default)
+    {
+        if (!IsRunning || _apiPort <= 0 || string.IsNullOrWhiteSpace(_apiSecret))
+            return null;
+
+        try
+        {
+            using var handler = new SocketsHttpHandler { UseProxy = false };
+            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(5) };
+            var current = await ReadProxyNowAsync(client, "VPN", cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(current))
+                return string.IsNullOrWhiteSpace(_preferredNode) ? null : _preferredNode;
+
+            for (var depth = 0; depth < 4; depth++)
+            {
+                var nested = await ReadProxyNowAsync(client, current, cancellationToken).ConfigureAwait(false);
+                if (string.IsNullOrWhiteSpace(nested)
+                    || nested.Equals(current, StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+
+                current = nested;
+            }
+
+            return current;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException or JsonException)
+        {
+            return string.IsNullOrWhiteSpace(_preferredNode) ? null : _preferredNode;
+        }
+    }
+
+    public async Task<IReadOnlyList<VpnNodeInfo>> ListVpnNodesAsync(CancellationToken cancellationToken = default)
+    {
+        if (IsRunning && _apiPort > 0 && !string.IsNullOrWhiteSpace(_apiSecret))
+        {
+            try
+            {
+                using var handler = new SocketsHttpHandler { UseProxy = false };
+                using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(8) };
+                using var request = new HttpRequestMessage(HttpMethod.Get, $"http://127.0.0.1:{_apiPort}/proxies/VPN");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiSecret);
+                using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                    using var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("all", out var all) && all.ValueKind == JsonValueKind.Array)
+                    {
+                        var names = all.EnumerateArray()
+                            .Select(item => item.GetString())
+                            .Where(name => !string.IsNullOrWhiteSpace(name))
+                            .Select(name => name!)
+                            .ToArray();
+                        return SubscriptionNodeCatalog.WithAuto(
+                            names.Where(n => !n.Equals(SubscriptionProfile.AutoNodeName, StringComparison.OrdinalIgnoreCase)));
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException or JsonException)
+            {
+            }
+        }
+
+        if (SubscriptionNodeCatalog.TryListFromProviderCache(_providerCachePath, out var cached, out _))
+            return SubscriptionNodeCatalog.WithAuto(cached);
+
+        return SubscriptionNodeCatalog.WithAuto([]);
+    }
+
+    private async Task<string?> ReadProxyNowAsync(
+        HttpClient client,
+        string proxyName,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"http://127.0.0.1:{_apiPort}/proxies/{Uri.EscapeDataString(proxyName)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiSecret);
+        using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.TryGetProperty("now", out var now) ? now.GetString() : null;
+    }
+
+    public async Task<IReadOnlyDictionary<string, int>> MeasureVpnNodeDelaysAsync(
+        IEnumerable<string> nodeNames,
+        CancellationToken cancellationToken = default)
+    {
+        var targets = nodeNames
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .Where(name => !name.Equals(SubscriptionProfile.AutoNodeName, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (targets.Length == 0)
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        if (!IsRunning || _apiPort <= 0 || string.IsNullOrWhiteSpace(_apiSecret))
+            return targets.ToDictionary(name => name, _ => 0, StringComparer.OrdinalIgnoreCase);
+
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var groupDelays = await TryMeasureGroupDelaysAsync(SubscriptionProfile.AutoNodeName, cancellationToken)
+            .ConfigureAwait(false);
+        if (groupDelays.Count > 0)
+        {
+            foreach (var name in targets)
+                result[name] = groupDelays.TryGetValue(name, out var delay) ? delay : 0;
+            return result;
+        }
+
+        using var gate = new SemaphoreSlim(6);
+        var tasks = targets.Select(async name =>
+        {
+            await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var delay = await MeasureSingleNodeDelayAsync(name, cancellationToken).ConfigureAwait(false);
+                return (name, delay);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        });
+
+        foreach (var item in await Task.WhenAll(tasks).ConfigureAwait(false))
+            result[item.name] = item.delay;
+
+        return result;
+    }
+
+    private async Task<Dictionary<string, int>> TryMeasureGroupDelaysAsync(
+        string groupName,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var handler = new SocketsHttpHandler { UseProxy = false };
+            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(90) };
+            var url =
+                $"http://127.0.0.1:{_apiPort}/group/{Uri.EscapeDataString(groupName)}/delay"
+                + "?url=" + Uri.EscapeDataString("https://www.gstatic.com/generate_204")
+                + "&timeout=4000";
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiSecret);
+            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            using var doc = JsonDocument.Parse(json);
+            var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var property in doc.RootElement.EnumerateObject())
+            {
+                if (property.Value.ValueKind == JsonValueKind.Number
+                    && property.Value.TryGetInt32(out var delay))
+                {
+                    map[property.Name] = delay;
+                }
+            }
+
+            return map;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException or JsonException)
+        {
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private async Task<int> MeasureSingleNodeDelayAsync(string nodeName, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var handler = new SocketsHttpHandler { UseProxy = false };
+            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(8) };
+            var url =
+                $"http://127.0.0.1:{_apiPort}/proxies/{Uri.EscapeDataString(nodeName)}/delay"
+                + "?url=" + Uri.EscapeDataString("https://www.gstatic.com/generate_204")
+                + "&timeout=4000";
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiSecret);
+            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                return 0;
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("delay", out var delay)
+                   && delay.TryGetInt32(out var value)
+                ? value
+                : 0;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException or JsonException)
+        {
+            return 0;
+        }
+    }
+
     private VpnTraffic CurrentTraffic()
     {
         lock (_traffic)
@@ -236,6 +553,7 @@ public sealed class MihomoEngine : IMihomoController
             await StopProcessAsync(process, _apiPort, _apiSecret).ConfigureAwait(false);
             _process = null;
             ForgetSecrets(_configPath);
+            _providerCachePath = null;
             return OperationResult.Ok("Отключено. Процесс Mihomo остановлен, TUN выключен.");
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException)

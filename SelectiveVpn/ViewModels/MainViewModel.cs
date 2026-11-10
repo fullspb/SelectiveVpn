@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Input;
 using SelectiveVpn.Abstractions;
@@ -27,13 +28,14 @@ public sealed class MainViewModel : ViewModelBase
     private bool _disconnecting;
     private bool _expectExit;
     private bool _isDarkTheme;
-    private string _theme = AppTheme.Light;
+    private string _theme = AppTheme.Dark;
     private string _statusText = "Маршрутизация остановлена";
     private string _statusKind = "disconnected";
     private string _statusDetail = "Маршрутизация остановлена. Приложения ходят напрямую.";
     private string _profileName = "Профиль не выбран";
     private string _engineLabel = "mihomo — скачается при подключении";
     private string _externalIp = "—";
+    private string _connectedServer = "";
     private string _ipCaption = "Проверка идёт через VPN только после запуска маршрутизации.";
     private string _incomingTraffic = "0 Б";
     private string _outgoingTraffic = "0 Б";
@@ -41,6 +43,8 @@ public sealed class MainViewModel : ViewModelBase
     private bool _suppressExceptListed;
     private CancellationTokenSource? _connectCts;
     private CancellationTokenSource? _trafficCts;
+    private readonly Dictionary<string, Dictionary<string, int>> _lastNodeDelays =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public MainViewModel(
         IMihomoController mihomo,
@@ -56,7 +60,10 @@ public sealed class MainViewModel : ViewModelBase
         ConnectCommand = new RelayCommand(ConnectAsync, () => !IsBusy && !IsConnected, LogUnexpected);
         DisconnectCommand = new RelayCommand(DisconnectAsync, CanDisconnect, LogUnexpected);
         BrowseConfigCommand = new RelayCommand(BrowseConfig, () => !IsBusy, LogUnexpected);
+        ImportSubscriptionCommand = new RelayCommand(ImportSubscriptionAsync, () => !IsBusy, LogUnexpected);
         RemoveProfileCommand = new RelayCommand(RemoveProfile, () => !IsBusy && Profiles.Count > 0, LogUnexpected);
+        ManageServersCommand = new RelayCommand(ManageServersAsync, () => !IsBusy && IsSubscriptionProfile, LogUnexpected);
+        EditConfigCommand = new RelayCommand(EditConfig, () => !IsBusy && IsWireGuardProfile, LogUnexpected);
         SelectProfileCommand = new ParameterRelayCommand(SelectProfile, () => !IsBusy, LogUnexpected);
         AddAppCommand = new RelayCommand(AddApp, () => !IsBusy, LogUnexpected);
         AddFolderCommand = new RelayCommand(AddFolder, () => !IsBusy, LogUnexpected);
@@ -133,6 +140,12 @@ public sealed class MainViewModel : ViewModelBase
         private set => SetProperty(ref _externalIp, value);
     }
 
+    public string ConnectedServer
+    {
+        get => _connectedServer;
+        private set => SetProperty(ref _connectedServer, value);
+    }
+
     public string IpCaption
     {
         get => _ipCaption;
@@ -166,9 +179,16 @@ public sealed class MainViewModel : ViewModelBase
             {
                 UpdateProfileName();
                 OnPropertyChanged(nameof(HasProfile));
+                OnPropertyChanged(nameof(IsSubscriptionProfile));
+                OnPropertyChanged(nameof(IsWireGuardProfile));
+                CommandManager.InvalidateRequerySuggested();
             }
         }
     }
+
+    public bool IsSubscriptionProfile => SubscriptionProfile.IsSubscriptionPath(ConfigPath);
+
+    public bool IsWireGuardProfile => HasProfile && !IsSubscriptionProfile;
 
     public ObservableCollection<VpnProfileOption> Profiles { get; } = [];
 
@@ -256,7 +276,13 @@ public sealed class MainViewModel : ViewModelBase
 
     public RelayCommand BrowseConfigCommand { get; }
 
+    public RelayCommand ImportSubscriptionCommand { get; }
+
     public RelayCommand RemoveProfileCommand { get; }
+
+    public RelayCommand ManageServersCommand { get; }
+
+    public RelayCommand EditConfigCommand { get; }
 
     public ParameterRelayCommand SelectProfileCommand { get; }
 
@@ -382,6 +408,31 @@ public sealed class MainViewModel : ViewModelBase
             return;
         }
 
+        RegisterProfileFromPath(
+            fullPath,
+            $"Добавлен профиль «{{0}}». Список приложений и папок у него свой и пока пуст.");
+    }
+
+    private async Task ImportSubscriptionAsync()
+    {
+        if (IsBusy)
+            return;
+
+        var dialog = new SelectiveVpn.SubscriptionImportPrompt
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.SavedPath))
+            return;
+
+        var detail = string.IsNullOrWhiteSpace(dialog.ResultMessage)
+            ? $"Импортирован профиль «{{0}}»."
+            : dialog.ResultMessage + " Профиль «{0}» добавлен в список.";
+        RegisterProfileFromPath(dialog.SavedPath, detail);
+    }
+
+    private void RegisterProfileFromPath(string fullPath, string createdMessageFormat)
+    {
         Persist();
         var created = FindProfile(fullPath) is null;
         if (created)
@@ -392,9 +443,12 @@ public sealed class MainViewModel : ViewModelBase
 
         SwitchTo(fullPath);
         if (!created)
+        {
+            Report($"Профиль «{ProfileName}» уже был в списке — выбран снова.");
             return;
+        }
 
-        Report($"Добавлен профиль «{ProfileName}». Список приложений и папок у него свой и пока пуст.");
+        Report(string.Format(CultureInfo.InvariantCulture, createdMessageFormat, ProfileName));
         if (IsConnected)
             Report("Запущенный туннель останется прежним, пока маршрутизацию не остановить и не запустить снова.");
     }
@@ -409,6 +463,174 @@ public sealed class MainViewModel : ViewModelBase
 
         Persist();
         SwitchTo(option.ConfigPath);
+    }
+
+    private async Task ManageServersAsync()
+    {
+        if (!IsSubscriptionProfile || string.IsNullOrWhiteSpace(ConfigPath))
+            return;
+
+        if (!SubscriptionProfile.TryRead(ConfigPath, out var subscription, out var error))
+        {
+            Report(error);
+            return;
+        }
+
+        var nodes = WithCachedDelays(await LoadSubscriptionNodesAsync(subscription).ConfigureAwait(true));
+        var dialog = new SelectiveVpn.ServerPickerPrompt(
+            nodes,
+            subscription.EffectiveSelectedNode,
+            async ct => WithCachedDelays(
+                await LoadSubscriptionNodesAsync(subscription, forceRefresh: true, ct).ConfigureAwait(false)),
+            async (names, ct) =>
+            {
+                var delays = await _mihomo.MeasureVpnNodeDelaysAsync(names, ct).ConfigureAwait(false);
+                RememberNodeDelays(delays);
+                return delays;
+            },
+            canPing: IsConnected)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dialog.ShowDialog() != true)
+            return;
+
+        if (!SubscriptionProfile.TrySaveSelectedNode(ConfigPath, dialog.SelectedNodeName, out var saveError))
+        {
+            Report(saveError);
+            return;
+        }
+
+        if (IsConnected)
+        {
+            var applied = await _mihomo.SelectVpnNodeAsync(dialog.SelectedNodeName).ConfigureAwait(true);
+            Report(applied.Succeeded
+                ? applied.Message
+                : $"Сервер сохранён в профиле, но сейчас не применён: {applied.Message}");
+            if (applied.Succeeded)
+            {
+                await RefreshConnectedServerAsync().ConfigureAwait(true);
+                _ = RefreshIpAsync();
+            }
+
+            return;
+        }
+
+        Report($"Сервер сохранён: {SubscriptionProfile.DisplayNodeName(dialog.SelectedNodeName)}. Применится при следующем запуске.");
+    }
+
+    private IReadOnlyList<VpnNodeInfo> WithCachedDelays(IReadOnlyList<VpnNodeInfo> nodes)
+    {
+        if (string.IsNullOrWhiteSpace(ConfigPath)
+            || !_lastNodeDelays.TryGetValue(ConfigPath, out var delays)
+            || delays.Count == 0)
+        {
+            return nodes;
+        }
+
+        return SubscriptionNodeCatalog.ApplyDelays(nodes, delays, sortByDelay: false);
+    }
+
+    private void RememberNodeDelays(IReadOnlyDictionary<string, int> delays)
+    {
+        if (string.IsNullOrWhiteSpace(ConfigPath) || delays.Count == 0)
+            return;
+
+        if (!_lastNodeDelays.TryGetValue(ConfigPath, out var cached))
+        {
+            cached = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            _lastNodeDelays[ConfigPath] = cached;
+        }
+
+        foreach (var pair in delays)
+            cached[pair.Key] = pair.Value;
+    }
+
+    private async Task<IReadOnlyList<VpnNodeInfo>> LoadSubscriptionNodesAsync(
+        SubscriptionProfile subscription,
+        bool forceRefresh = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (_mihomo.IsRunning)
+        {
+            var live = await _mihomo.ListVpnNodesAsync(cancellationToken).ConfigureAwait(false);
+            if (live.Count > 1)
+                return live;
+        }
+
+        if (!forceRefresh
+            && SubscriptionNodeCatalog.TryListFromProviderCache(_mihomo.ProviderCachePath, out var cached, out _)
+            && cached.Count > 0)
+        {
+            return SubscriptionNodeCatalog.WithAuto(cached);
+        }
+
+        try
+        {
+            using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            var hwid = DeviceIdentity.GetHardwareId();
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "SelectiveVpn/" + MihomoRelease.Version);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("x-hwid", hwid);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("x-device-os", "Windows");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("x-device-model", "SelectiveVpn");
+            var bytes = await client.GetByteArrayAsync(subscription.Url, cancellationToken).ConfigureAwait(false);
+            var payload = System.Text.Encoding.UTF8.GetString(bytes);
+            var names = SubscriptionNodeCatalog.ExtractNames(payload);
+            if (names.Count > 0)
+            {
+                subscription.NodeCount = names.Count;
+                try
+                {
+                    SubscriptionProfile.SaveToPath(ConfigPath!, subscription);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                }
+
+                return SubscriptionNodeCatalog.WithAuto(names);
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException or OperationCanceledException)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                throw;
+        }
+
+        return SubscriptionNodeCatalog.WithAuto([]);
+    }
+
+    private void EditConfig()
+    {
+        if (!IsWireGuardProfile || string.IsNullOrWhiteSpace(ConfigPath))
+            return;
+
+        if (!File.Exists(ConfigPath))
+        {
+            Report("Файл конфигурации не найден.");
+            return;
+        }
+
+        string content;
+        try
+        {
+            content = File.ReadAllText(ConfigPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Report("Не удалось прочитать файл конфигурации.");
+            return;
+        }
+
+        var dialog = new SelectiveVpn.ConfigEditPrompt(ConfigPath, content)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dialog.ShowDialog() != true)
+            return;
+
+        Report(dialog.ResultMessage);
+        if (IsConnected)
+            Report("Чтобы применить правки, остановите маршрутизацию и запустите снова.");
     }
 
     private void RemoveProfile()
@@ -462,6 +684,18 @@ public sealed class MainViewModel : ViewModelBase
             return;
         }
 
+        if (SubscriptionProfile.IsSubscriptionPath(ConfigPath))
+        {
+            if (!SubscriptionProfile.TryRead(ConfigPath, out var subscription, out var error))
+            {
+                Report(error);
+                return;
+            }
+
+            Report($"Подписка подходит: {subscription.Describe()}. Подключение не запускалось.");
+            return;
+        }
+
         var read = AmneziaWgConfigReader.ReadFile(ConfigPath);
         if (!read.Succeeded || read.Profile is null)
         {
@@ -476,11 +710,14 @@ public sealed class MainViewModel : ViewModelBase
 
     private void AddApp()
     {
-        var path = _files.PickExecutable();
-        if (string.IsNullOrWhiteSpace(path))
+        var dialog = new SelectiveVpn.AppPickerPrompt(_files.PickExecutable)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.SelectedExecutablePath))
             return;
 
-        var result = _rules.AddExecutable(path);
+        var result = _rules.AddExecutable(dialog.SelectedExecutablePath);
         ReloadApps();
         Report(result.Message);
         if (!result.Succeeded)
@@ -620,6 +857,7 @@ public sealed class MainViewModel : ViewModelBase
         _connectCts = new CancellationTokenSource();
         IsBusy = true;
         ExternalIp = "—";
+        ConnectedServer = "";
         IpCaption = "Проверка идёт через VPN только после запуска маршрутизации.";
         SetStatus("Запуск…", "connecting");
         CommandManager.InvalidateRequerySuggested();
@@ -730,10 +968,12 @@ public sealed class MainViewModel : ViewModelBase
         if (!_mihomo.IsRunning)
         {
             ExternalIp = "—";
+            ConnectedServer = "";
             IpCaption = "Маршрутизация не запущена. Запрос не отправлялся.";
             return;
         }
 
+        _ = RefreshConnectedServerAsync();
         IpCaption = "Запрос идёт через VPN…";
         var attempts = waitForTunnel ? 4 : 1;
         OperationResult result = OperationResult.Fail("Не удалось получить внешний IP через VPN.");
@@ -754,6 +994,7 @@ public sealed class MainViewModel : ViewModelBase
             if (!_mihomo.IsRunning)
             {
                 ExternalIp = "—";
+                ConnectedServer = "";
                 IpCaption = "Маршрутизация не запущена. Запрос не отправлялся.";
                 return;
             }
@@ -772,6 +1013,7 @@ public sealed class MainViewModel : ViewModelBase
             {
                 ExternalIp = result.Message;
                 IpCaption = "Внешний IP VPN · проверка через api.ipify.org";
+                await RefreshConnectedServerAsync().ConfigureAwait(true);
                 Report("Внешний IP обновлён.");
                 return;
             }
@@ -782,7 +1024,29 @@ public sealed class MainViewModel : ViewModelBase
 
         ExternalIp = "—";
         IpCaption = result.Message;
+        await RefreshConnectedServerAsync().ConfigureAwait(true);
         Report(result.Message);
+    }
+
+    private async Task RefreshConnectedServerAsync()
+    {
+        if (!IsSubscriptionProfile || !_mihomo.IsRunning)
+        {
+            ConnectedServer = "";
+            return;
+        }
+
+        try
+        {
+            var node = await _mihomo.GetActiveVpnNodeAsync().ConfigureAwait(true);
+            ConnectedServer = string.IsNullOrWhiteSpace(node)
+                ? ""
+                : "· " + SubscriptionProfile.DisplayNodeName(node);
+        }
+        catch (Exception)
+        {
+            // Не мешаем основному UI, если API узла временно недоступен.
+        }
     }
 
     private async Task DisconnectAsync()
@@ -814,6 +1078,7 @@ public sealed class MainViewModel : ViewModelBase
             Report(result.Message);
             IsConnected = _mihomo.IsRunning;
             ExternalIp = "—";
+            ConnectedServer = "";
             IpCaption = "Проверка идёт через VPN только после запуска маршрутизации.";
             SetStatus(
                 IsConnected ? "Маршрутизация запущена" : "Маршрутизация остановлена",
@@ -1104,9 +1369,19 @@ public sealed class MainViewModel : ViewModelBase
 
     private void UpdateProfileName()
     {
-        ProfileName = string.IsNullOrWhiteSpace(ConfigPath)
-            ? "Профиль не выбран"
-            : Path.GetFileNameWithoutExtension(ConfigPath);
+        if (string.IsNullOrWhiteSpace(ConfigPath))
+        {
+            ProfileName = "Профиль не выбран";
+            return;
+        }
+
+        if (SubscriptionProfile.TryRead(ConfigPath, out var subscription, out _))
+        {
+            ProfileName = subscription.Title;
+            return;
+        }
+
+        ProfileName = Path.GetFileNameWithoutExtension(ConfigPath);
     }
 
     private void UpdateEngineLabel()
@@ -1148,6 +1423,7 @@ public sealed class MainViewModel : ViewModelBase
 
         IsConnected = false;
         ExternalIp = "—";
+        ConnectedServer = "";
         IpCaption = "Проверка идёт через VPN только после запуска маршрутизации.";
         SetStatus("Ошибка", "error");
         Report("Процесс Mihomo завершился. Туннель остановлен.");

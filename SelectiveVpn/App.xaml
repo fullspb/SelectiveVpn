@@ -45,5 +45,92 @@
         <SolidColorBrush x:Key="DangerBackground" Color="#C24141"/>
         <SolidColorBrush x:Key="DangerBorder" Color="#9A3030"/>
         <SolidColorBrush x:Key="EyebrowForeground" Color="#5B6B8A"/>
+
+        <Style x:Key="ThemedScrollBarThumb" TargetType="Thumb">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="Bd"
+                                Background="{DynamicResource MutedForeground}"
+                                CornerRadius="6"
+                                Margin="2"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Accent}"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Accent}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ThemedScrollBarPageButton" TargetType="RepeatButton">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border Background="Transparent"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <ControlTemplate x:Key="ThemedVerticalScrollBar" TargetType="ScrollBar">
+            <Grid Background="{DynamicResource CardBorder}">
+                <Track x:Name="PART_Track" IsDirectionReversed="True" Focusable="False"
+                       ViewportSize="NaN">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ThemedScrollBarPageButton}" Command="ScrollBar.PageUpCommand"/>
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb Style="{StaticResource ThemedScrollBarThumb}"
+                               MinHeight="48" Width="14" HorizontalAlignment="Center"/>
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ThemedScrollBarPageButton}" Command="ScrollBar.PageDownCommand"/>
+                    </Track.IncreaseRepeatButton>
+                </Track>
+            </Grid>
+        </ControlTemplate>
+
+        <ControlTemplate x:Key="ThemedHorizontalScrollBar" TargetType="ScrollBar">
+            <Grid Background="{DynamicResource CardBorder}">
+                <Track x:Name="PART_Track" Focusable="False" ViewportSize="NaN">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ThemedScrollBarPageButton}" Command="ScrollBar.PageLeftCommand"/>
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb Style="{StaticResource ThemedScrollBarThumb}"
+                               MinWidth="48" Height="14" VerticalAlignment="Center"/>
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ThemedScrollBarPageButton}" Command="ScrollBar.PageRightCommand"/>
+                    </Track.IncreaseRepeatButton>
+                </Track>
+            </Grid>
+        </ControlTemplate>
+
+        <Style TargetType="ScrollBar">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="MinWidth" Value="16"/>
+            <Setter Property="Template" Value="{StaticResource ThemedVerticalScrollBar}"/>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Width" Value="Auto"/>
+                    <Setter Property="MinWidth" Value="0"/>
+                    <Setter Property="Height" Value="16"/>
+                    <Setter Property="MinHeight" Value="16"/>
+                    <Setter Property="Template" Value="{StaticResource ThemedHorizontalScrollBar}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Application.Resources>
 </Application>

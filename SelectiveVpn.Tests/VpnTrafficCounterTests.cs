@@ -60,6 +60,23 @@ public class VpnTrafficCounterTests
     }
 
     [Fact]
+    public void Counts_subscription_vless_chains_through_vpn_group()
+    {
+        var counter = new VpnTrafficCounter();
+        counter.Apply("""
+            {
+              "connections": [
+                {"id":"direct","upload":500,"download":700,"chains":["DIRECT"]},
+                {"id":"vless","upload":1200,"download":3400,"chains":["ru Игровой [Wi-Fi]","Авто (лучший)","VPN"]}
+              ]
+            }
+            """);
+
+        Assert.Equal(3400, counter.IncomingBytes);
+        Assert.Equal(1200, counter.OutgoingBytes);
+    }
+
+    [Fact]
     public void Reset_clears_the_session()
     {
         var counter = new VpnTrafficCounter();

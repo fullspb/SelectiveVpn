@@ -26,4 +26,17 @@ public interface IMihomoController
     Task<OperationResult> QueryExitIpAsync(CancellationToken cancellationToken = default);
 
     Task<VpnTraffic> QueryVpnTrafficAsync(CancellationToken cancellationToken = default);
+
+    Task<OperationResult> SelectVpnNodeAsync(string nodeName, CancellationToken cancellationToken = default);
+
+    /// <summary>Текущий листовой узел группы VPN (с раскрытием AUTO), или null.</summary>
+    Task<string?> GetActiveVpnNodeAsync(CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<VpnNodeInfo>> ListVpnNodesAsync(CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyDictionary<string, int>> MeasureVpnNodeDelaysAsync(
+        IEnumerable<string> nodeNames,
+        CancellationToken cancellationToken = default);
+
+    string? ProviderCachePath { get; }
 }
