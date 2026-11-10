@@ -1,20 +1,44 @@
+param(
+    [string]$Version = ""
+)
+
 $ErrorActionPreference = "Stop"
 $installer = Split-Path -Parent $MyInvocation.MyCommand.Path
 $root = Split-Path -Parent $installer
 $publish = Join-Path $installer "publish"
 $redist = Join-Path $installer "redist"
+$csproj = Join-Path $root "SelectiveVpn\SelectiveVpn.csproj"
+$iss = Join-Path $installer "SelectiveVpn.iss"
 $zipName = "mihomo-windows-amd64-compatible-v1.19.33.zip"
 $zip = Join-Path $redist $zipName
 $url = "https://github.com/MetaCubeX/mihomo/releases/download/v1.19.33/$zipName"
 $expected = "7aaf636a4f2172dcd8ec34ac4f52797b059195e5afd6409508c963e545f8864d"
 
+function Get-ProjectVersion([string]$path) {
+    [xml]$xml = Get-Content -Raw -Path $path
+    $node = $xml.Project.PropertyGroup | ForEach-Object { $_.Version } | Where-Object { $_ } | Select-Object -First 1
+    if (-not $node) { throw "Version not found in $path" }
+    return [string]$node
+}
+
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $Version = Get-ProjectVersion $csproj
+}
+$Version = $Version.Trim().TrimStart('v', 'V')
+if ($Version -notmatch '^\d+\.\d+\.\d+') {
+    throw "Invalid version: $Version"
+}
+
+Write-Host "Building SelectiveVpn $Version"
+
 Write-Host "Publishing self-contained SelectiveVpn..."
-dotnet publish (Join-Path $root "SelectiveVpn\SelectiveVpn.csproj") `
+dotnet publish $csproj `
     -c Release `
     -r win-x64 `
     --self-contained true `
     -p:DebugType=none `
     -p:DebugSymbols=false `
+    -p:Version=$Version `
     -o $publish
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed" }
 
@@ -69,7 +93,9 @@ $iscc = @(
 if (-not $iscc) { throw "Inno Setup compiler ISCC.exe was not found" }
 
 Write-Host "Compiling installer..."
-& $iscc (Join-Path $installer "SelectiveVpn.iss")
+& $iscc "/DMyAppVersion=$Version" $iss
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
 
-Write-Host "Done: $(Join-Path $installer 'output\SelectiveVpn-Setup-0.1.7.exe')"
+$setup = Join-Path $installer "output\SelectiveVpn-Setup-$Version.exe"
+if (-not (Test-Path $setup)) { throw "Installer not found: $setup" }
+Write-Host "Done: $setup"

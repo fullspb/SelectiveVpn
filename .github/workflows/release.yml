@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version without v prefix (e.g. 0.1.8). Empty = from csproj."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          $version = "${{ github.event.inputs.version }}"
+          if ([string]::IsNullOrWhiteSpace($version) -and "${{ github.ref_type }}" -eq "tag") {
+            $version = "${{ github.ref_name }}"
+          }
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            [xml]$xml = Get-Content -Raw SelectiveVpn/SelectiveVpn.csproj
+            $version = @($xml.Project.PropertyGroup | ForEach-Object { $_.Version } | Where-Object { $_ })[0]
+          }
+          $version = $version.Trim().TrimStart('v', 'V')
+          if ($version -notmatch '^\d+\.\d+\.\d+') {
+            throw "Invalid version: $version"
+          }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Release version: $version"
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --version=6.4.3 -y --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          ./installer/build-installer.ps1 -Version "${{ steps.ver.outputs.version }}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $version = "${{ steps.ver.outputs.version }}"
+          $tag = "v$version"
+          $setup = "installer/output/SelectiveVpn-Setup-$version.exe"
+          if (-not (Test-Path $setup)) { throw "Missing $setup" }
+
+          $notes = @"
+          ## SelectiveVpn $version
+
+          ### Install
+          Download ``SelectiveVpn-Setup-$version.exe`` and run the installer.
+          "@
+
+          $existing = gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $setup --clobber
+            gh release edit $tag --title "SelectiveVpn $version" --notes $notes
+          } else {
+            gh release create $tag $setup --title "SelectiveVpn $version" --notes $notes
+          }

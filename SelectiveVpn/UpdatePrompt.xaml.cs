@@ -46,7 +46,7 @@ public partial class UpdatePrompt : Window
 
         _busy = true;
         DownloadButton.IsEnabled = false;
-        CancelButton.IsEnabled = false;
+        // Cancel stays enabled so the user can abort the download.
         ProgressBar.Visibility = Visibility.Visible;
         PercentText.Visibility = Visibility.Visible;
         ProgressBar.Value = 0;
