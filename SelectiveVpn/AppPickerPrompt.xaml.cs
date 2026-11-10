@@ -36,7 +36,7 @@ public partial class AppPickerPrompt : Window
     private async Task LoadAppsAsync()
     {
         EmptyText.Visibility = Visibility.Visible;
-        EmptyText.Text = "Загружаю список приложений…";
+        EmptyText.Text = Loc.T("Msg.AppsLoading");
         AppList.IsEnabled = false;
         AddButton.IsEnabled = false;
 
@@ -47,8 +47,8 @@ public partial class AppPickerPrompt : Window
         }
         catch (Exception)
         {
-            EmptyText.Text = "Не удалось загрузить список. Можно добавить .exe вручную.";
-            SetStatus("Список приложений недоступен.");
+            EmptyText.Text = Loc.T("Msg.AppsLoadFail");
+            SetStatus(Loc.T("Msg.AppsUnavailable"));
         }
 
         _apps = apps;
@@ -56,8 +56,8 @@ public partial class AppPickerPrompt : Window
         AddButton.IsEnabled = true;
         ApplyFilter(SearchBox.Text);
         SetStatus(_apps.Count > 0
-            ? $"Найдено приложений: {_apps.Count}."
-            : "Список пуст. Нажмите «Добавить EXE» или проверьте права доступа.");
+            ? Loc.Tf("Msg.AppsFound", _apps.Count)
+            : Loc.T("Msg.AppsEmpty"));
     }
 
     private void SearchBox_OnTextChanged(object sender, TextChangedEventArgs e)
@@ -85,8 +85,8 @@ public partial class AppPickerPrompt : Window
         {
             EmptyText.Visibility = Visibility.Visible;
             EmptyText.Text = _apps.Count == 0
-                ? "Список пуст. Нажмите «Добавить EXE»."
-                : "Ничего не найдено.";
+                ? Loc.T("Msg.AppsNone")
+                : Loc.T("Msg.AppsNoMatch");
         }
         else
         {
@@ -116,7 +116,7 @@ public partial class AppPickerPrompt : Window
     {
         if (AppList.SelectedItem is not InstalledAppInfo app)
         {
-            SetStatus("Выберите приложение из списка или нажмите «Добавить EXE».");
+            SetStatus(Loc.T("Msg.AppsPick"));
             return;
         }
 

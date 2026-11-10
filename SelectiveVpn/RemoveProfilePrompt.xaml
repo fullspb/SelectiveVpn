@@ -1,0 +1,33 @@
+<Window x:Class="SelectiveVpn.RemoveProfilePrompt"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource RemoveProfile.Title}"
+        Width="440"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource WindowForeground}"
+        FontFamily="Segoe UI"
+        UseLayoutRounding="True">
+    <Border Margin="20" Background="{DynamicResource CardBackground}"
+            BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
+            CornerRadius="12" Padding="18">
+        <StackPanel>
+            <TextBlock Text="{DynamicResource RemoveProfile.Heading}" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock x:Name="HintText" Margin="0,10,0,0" TextWrapping="Wrap"
+                       Foreground="{DynamicResource MutedForeground}"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                <Button Content="{DynamicResource Ui.Cancel}" MinWidth="96" Margin="0,0,8,0" Padding="12,7"
+                        Click="CancelClick" IsCancel="True"
+                        Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource ButtonForeground}"
+                        BorderBrush="{DynamicResource ButtonBorder}"/>
+                <Button Content="{DynamicResource Ui.RemoveProfile}" MinWidth="140" Padding="12,7"
+                        Click="RemoveClick" IsDefault="True"
+                        Background="{DynamicResource DangerBackground}" Foreground="#FFFFFF"
+                        BorderBrush="{DynamicResource DangerBorder}"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

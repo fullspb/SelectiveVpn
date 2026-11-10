@@ -91,12 +91,14 @@ public partial class ServerPickerPrompt : Window
 
     private void UpdateHeaderLabels()
     {
+        var name = Loc.T("Ui.Name");
+        var delay = Loc.T("Ui.Delay");
         NameHeaderButton.Content = _sortColumn == SortColumn.Name
-            ? (_sortAscending ? "Имя ▾" : "Имя ▴")
-            : "Имя";
+            ? (_sortAscending ? name + " ▾" : name + " ▴")
+            : name;
         DelayHeaderButton.Content = _sortColumn == SortColumn.Delay
-            ? (_sortAscending ? "Задержка ▾" : "Задержка ▴")
-            : "Задержка";
+            ? (_sortAscending ? delay + " ▾" : delay + " ▴")
+            : delay;
     }
 
     private void SortByNameClick(object sender, RoutedEventArgs e)

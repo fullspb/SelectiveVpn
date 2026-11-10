@@ -26,6 +26,7 @@ internal static class UserSettingsStore
             settings.Targets ??= [];
             settings.Profiles ??= [];
             settings.Theme = AppTheme.Normalize(settings.Theme);
+            settings.Language = AppLanguage.Normalize(settings.Language);
             if (settings.Targets.Count == 0 && settings.Apps.Count > 0)
             {
                 settings.Targets = settings.Apps
@@ -66,6 +67,7 @@ internal static class UserSettingsStore
         settings.Targets ??= [];
         settings.Profiles ??= [];
         settings.Theme = AppTheme.Normalize(settings.Theme);
+        settings.Language = AppLanguage.Normalize(settings.Language);
         foreach (var profile in settings.Profiles)
         {
             profile.Targets ??= [];
@@ -98,6 +100,8 @@ internal sealed class UserSettings
 
     public string Theme { get; set; } = AppTheme.Dark;
 
+    public string Language { get; set; } = AppLanguage.Auto;
+
     public bool SkipFullTunnelWarning { get; set; }
 
     public bool LaunchWithWindows { get; set; }
@@ -107,6 +111,7 @@ internal sealed class UserSettings
     public static UserSettings CreateDefault() => new()
     {
         Theme = AppTheme.Dark,
+        Language = AppLanguage.Auto,
         Apps = [],
         Targets = [],
         Profiles = []

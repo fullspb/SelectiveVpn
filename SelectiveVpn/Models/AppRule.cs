@@ -1,4 +1,5 @@
 using System.IO;
+using SelectiveVpn.Services;
 
 namespace SelectiveVpn.Models;
 
@@ -48,11 +49,11 @@ public sealed record AppRule(
 
     public string KindLabel => EffectiveKind switch
     {
-        RouteKind.Folder => "Папка",
-        RouteKind.Domain => "Домен",
-        RouteKind.Ip => "IP",
-        RouteKind.AddressList => "Список",
-        _ => "Приложение"
+        RouteKind.Folder => Loc.T("Kind.Folder"),
+        RouteKind.Domain => Loc.T("Kind.Domain"),
+        RouteKind.Ip => Loc.T("Kind.Ip"),
+        RouteKind.AddressList => Loc.T("Kind.AddressList"),
+        _ => Loc.T("Kind.App")
     };
 
     public static string FormatListSummary(IReadOnlyList<string> entries, IReadOnlyList<string> resolvedIps)

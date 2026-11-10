@@ -1,5 +1,5 @@
 #define MyAppName "SelectiveVpn"
-#define MyAppVersion "0.1.4"
+#define MyAppVersion "0.1.5"
 #define MyAppExeName "SelectiveVpn.exe"
 #define MyAppId "{{8F4C2A91-6B37-4E5D-9C18-2A7D5E0B4F63}"
 

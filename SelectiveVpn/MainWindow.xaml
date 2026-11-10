@@ -193,7 +193,7 @@
                 BorderThickness="0,0,1,0"
                 Padding="12,16,12,14">
             <DockPanel LastChildFill="True">
-                <TextBlock DockPanel.Dock="Top" Margin="6,0,0,8" Style="{StaticResource SectionLabel}" Text="ПРОФИЛИ"/>
+                <TextBlock DockPanel.Dock="Top" Margin="6,0,0,8" Style="{StaticResource SectionLabel}" Text="{DynamicResource Ui.Profiles}"/>
 
                 <Border DockPanel.Dock="Bottom" Margin="2,10,2,0" Padding="10,8" CornerRadius="10"
                         Background="{DynamicResource FieldBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1">
@@ -203,18 +203,18 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="Входящий" FontSize="10" Foreground="{DynamicResource MutedForeground}"/>
+                            <TextBlock Text="{DynamicResource Ui.Incoming}" FontSize="10" Foreground="{DynamicResource MutedForeground}"/>
                             <TextBlock Margin="0,2,0,0" Text="{Binding IncomingTraffic}" FontSize="13" FontWeight="SemiBold"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1">
-                            <TextBlock Text="Исходящий" FontSize="10" Foreground="{DynamicResource MutedForeground}"/>
+                            <TextBlock Text="{DynamicResource Ui.Outgoing}" FontSize="10" Foreground="{DynamicResource MutedForeground}"/>
                             <TextBlock Margin="0,2,0,0" Text="{Binding OutgoingTraffic}" FontSize="13" FontWeight="SemiBold"/>
                         </StackPanel>
                     </Grid>
                 </Border>
 
                 <Button DockPanel.Dock="Bottom"
-                        Content="Настройки"
+                        Content="{DynamicResource Ui.Settings}"
                         Style="{StaticResource ActionButton}"
                         FontWeight="SemiBold"
                         HorizontalAlignment="Stretch"
@@ -223,7 +223,7 @@
                         Command="{Binding OpenSettingsCommand}"/>
 
                 <Button DockPanel.Dock="Bottom"
-                        Content="Добавить профиль"
+                        Content="{DynamicResource Ui.AddProfile}"
                         Style="{StaticResource PrimaryButton}"
                         FontWeight="SemiBold"
                         HorizontalAlignment="Stretch"
@@ -232,7 +232,7 @@
                         Command="{Binding BrowseConfigCommand}"/>
 
                 <Button DockPanel.Dock="Bottom"
-                        Content="Добавить по ссылке"
+                        Content="{DynamicResource Ui.AddByLink}"
                         Style="{StaticResource ActionButton}"
                         FontWeight="SemiBold"
                         HorizontalAlignment="Stretch"
@@ -241,7 +241,7 @@
                         Command="{Binding ImportSubscriptionCommand}"/>
 
                 <UniformGrid DockPanel.Dock="Bottom" Columns="3" Margin="0,8,0,0">
-                    <Button Content="Светлая" Command="{Binding UseLightThemeCommand}">
+                    <Button Content="{DynamicResource Ui.ThemeLight}" Command="{Binding UseLightThemeCommand}">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource ThemeChoice}">
                                 <Style.Triggers>
@@ -253,7 +253,7 @@
                             </Style>
                         </Button.Style>
                     </Button>
-                    <Button Content="Тёмная" Command="{Binding UseDarkThemeCommand}">
+                    <Button Content="{DynamicResource Ui.ThemeDark}" Command="{Binding UseDarkThemeCommand}">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource ThemeChoice}">
                                 <Style.Triggers>
@@ -265,7 +265,7 @@
                             </Style>
                         </Button.Style>
                     </Button>
-                    <Button Content="Зелёная" Command="{Binding UseGreenThemeCommand}">
+                    <Button Content="{DynamicResource Ui.ThemeGreen}" Command="{Binding UseGreenThemeCommand}">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource ThemeChoice}">
                                 <Style.Triggers>
@@ -289,7 +289,7 @@
                             </Style>
                         </Button.Style>
                     </Button>
-                    <Button Content="Янтарь" Command="{Binding UseAmberThemeCommand}">
+                    <Button Content="{DynamicResource Ui.ThemeAmber}" Command="{Binding UseAmberThemeCommand}">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource ThemeChoice}">
                                 <Style.Triggers>
@@ -301,7 +301,7 @@
                             </Style>
                         </Button.Style>
                     </Button>
-                    <Button Content="Индиго" Command="{Binding UseIndigoThemeCommand}">
+                    <Button Content="{DynamicResource Ui.ThemeIndigo}" Command="{Binding UseIndigoThemeCommand}">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource ThemeChoice}">
                                 <Style.Triggers>
@@ -465,7 +465,7 @@
                                     </TextBlock>
                                 </StackPanel>
                             </Border>
-                            <TextBlock Text="Подключение" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource Ui.Connection}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </DockPanel>
 
                         <Grid Margin="0,14,0,0">
@@ -473,7 +473,7 @@
                                 <ColumnDefinition Width="140"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Состояние" Foreground="{DynamicResource MutedForeground}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource Ui.State}" Foreground="{DynamicResource MutedForeground}" VerticalAlignment="Center"/>
                             <TextBlock Grid.Column="1" Text="{Binding StatusDetail}" TextWrapping="Wrap" VerticalAlignment="Center"/>
                         </Grid>
                         <Grid Margin="0,10,0,0">
@@ -482,7 +482,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Внешний IP" Foreground="{DynamicResource MutedForeground}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource Ui.ExternalIp}" Foreground="{DynamicResource MutedForeground}" VerticalAlignment="Center"/>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding ExternalIp}" FontSize="18" FontWeight="SemiBold"
                                            Foreground="{DynamicResource DangerForeground}" VerticalAlignment="Center"/>
@@ -502,17 +502,17 @@
                                     </TextBlock.Style>
                                 </TextBlock>
                             </StackPanel>
-                            <Button Grid.Column="2" Content="Обновить" Style="{StaticResource ActionButton}"
+                            <Button Grid.Column="2" Content="{DynamicResource Ui.Refresh}" Style="{StaticResource ActionButton}"
                                     Command="{Binding RefreshIpCommand}" Margin="12,0,0,0"/>
                         </Grid>
                         <TextBlock Margin="140,4,0,0" Style="{StaticResource Hint}" Text="{Binding IpCaption}"/>
 
                         <WrapPanel Margin="0,16,0,0">
-                            <Button Content="Запустить" Style="{StaticResource PrimaryButton}"
+                            <Button Content="{DynamicResource Ui.Start}" Style="{StaticResource PrimaryButton}"
                                     Command="{Binding ConnectCommand}" Margin="0,0,8,8"/>
-                            <Button Content="Остановить" Style="{StaticResource ActionButton}"
+                            <Button Content="{DynamicResource Ui.Stop}" Style="{StaticResource ActionButton}"
                                     Command="{Binding DisconnectCommand}" Margin="0,0,8,8"/>
-                            <Button Content="Серверы"
+                            <Button Content="{DynamicResource Ui.Servers}"
                                     Command="{Binding ManageServersCommand}" Margin="0,0,8,8">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource ActionButton}">
@@ -525,7 +525,7 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <Button Content="Редактировать"
+                            <Button Content="{DynamicResource Ui.Edit}"
                                     Command="{Binding EditConfigCommand}" Margin="0,0,8,8">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource ActionButton}">
@@ -538,7 +538,7 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <Button Content="Убрать профиль" Style="{StaticResource DangerButton}"
+                            <Button Content="{DynamicResource Ui.RemoveProfile}" Style="{StaticResource DangerButton}"
                                     Command="{Binding RemoveProfileCommand}" Margin="0,0,8,8"/>
                         </WrapPanel>
                     </StackPanel>
@@ -551,14 +551,13 @@
                                     Background="{DynamicResource PrimaryBackground}" VerticalAlignment="Center"/>
                             <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" FontSize="12"
                                        Foreground="{DynamicResource MutedForeground}">
-                                <Run Text="{Binding TargetCount, Mode=OneWay}"/>
-                                <Run Text=" в списке"/>
+                                <Run Text="{Binding TargetCount, Mode=OneWay}"/><Run Text="{Binding InListLabel, Mode=OneWay}"/>
                             </TextBlock>
-                            <TextBlock Text="Приложения через VPN" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource Ui.AppsThroughVpn}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </DockPanel>
                         <TextBlock Margin="0,8,0,10" Style="{StaticResource Hint}" Text="{Binding AppsHint}"/>
                         <CheckBox Margin="0,0,0,12" Style="{StaticResource Switch}"
-                                  Content="Всё через VPN, кроме списка"
+                                  Content="{DynamicResource Ui.ExceptListed}"
                                   IsChecked="{Binding ExceptListed, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                   IsEnabled="{Binding HasProfile}"/>
 
@@ -583,7 +582,7 @@
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>
-                                <TextBlock Text="Список пуст"
+                                <TextBlock Text="{DynamicResource Ui.ListEmpty}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                            Foreground="{DynamicResource EmptyForeground}">
                                     <TextBlock.Style>
@@ -601,13 +600,13 @@
                         </Border>
 
                         <WrapPanel Margin="0,12,0,0">
-                            <Button Content="Добавить приложение" Style="{StaticResource ActionButton}"
+                            <Button Content="{DynamicResource Ui.AddApp}" Style="{StaticResource ActionButton}"
                                     Command="{Binding AddAppCommand}" Margin="0,0,8,0"/>
-                            <Button Content="Добавить папку" Style="{StaticResource ActionButton}"
+                            <Button Content="{DynamicResource Ui.AddFolder}" Style="{StaticResource ActionButton}"
                                     Command="{Binding AddFolderCommand}" Margin="0,0,8,0"/>
-                            <Button Content="Добавить список" Style="{StaticResource ActionButton}"
+                            <Button Content="{DynamicResource Ui.AddList}" Style="{StaticResource ActionButton}"
                                     Command="{Binding AddAddressListCommand}" Margin="0,0,8,0"/>
-                            <Button Content="Редактировать"
+                            <Button Content="{DynamicResource Ui.Edit}"
                                     Command="{Binding EditAddressListCommand}"
                                     Margin="0,0,8,0">
                                 <Button.Style>
@@ -621,7 +620,7 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <Button Content="Удалить" Style="{StaticResource DangerButton}"
+                            <Button Content="{DynamicResource Ui.Delete}" Style="{StaticResource DangerButton}"
                                     Command="{Binding RemoveCommand}"/>
                         </WrapPanel>
                     </StackPanel>
@@ -632,7 +631,7 @@
                         <DockPanel>
                             <Border DockPanel.Dock="Left" Width="3" Height="16" CornerRadius="2" Margin="0,0,10,0"
                                     Background="{DynamicResource PrimaryBackground}" VerticalAlignment="Center"/>
-                            <TextBlock Text="Журнал" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource Ui.Log}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </DockPanel>
                         <Border Margin="0,10,0,0" Background="{DynamicResource FieldBackground}" CornerRadius="8" Padding="4">
                             <ListBox x:Name="EventLogList"

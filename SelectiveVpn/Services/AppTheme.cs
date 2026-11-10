@@ -308,21 +308,30 @@ internal static class AppTheme
         return normalized is Dark or Green or Oled or Amber or Indigo;
     }
 
+    public static event EventHandler<string>? ThemeChanged;
+
+    public static IReadOnlyDictionary<string, string> ColorsFor(string? theme)
+        => Palette(Normalize(theme));
+
+    public static bool TryGetColor(string? theme, string key, out Color color)
+    {
+        if (!Palette(Normalize(theme)).TryGetValue(key, out var hex))
+        {
+            color = default;
+            return false;
+        }
+
+        color = (Color)ColorConverter.ConvertFromString(hex);
+        return true;
+    }
+
     public static void Apply(string? theme)
     {
         if (Application.Current is null)
             return;
 
         var normalized = Normalize(theme);
-        var colors = normalized switch
-        {
-            Dark => DarkColors,
-            Green => GreenColors,
-            Oled => OledColors,
-            Amber => AmberColors,
-            Indigo => IndigoColors,
-            _ => LightColors
-        };
+        var colors = Palette(normalized);
         var resources = Application.Current.Resources;
         foreach (var (key, hex) in colors)
         {
@@ -333,5 +342,18 @@ internal static class AppTheme
 
         foreach (Window window in Application.Current.Windows)
             TitleBarTheme.Apply(window, UsesDarkChrome(normalized));
+
+        ThemeChanged?.Invoke(null, normalized);
     }
+
+    private static Dictionary<string, string> Palette(string normalized)
+        => normalized switch
+        {
+            Dark => DarkColors,
+            Green => GreenColors,
+            Oled => OledColors,
+            Amber => AmberColors,
+            Indigo => IndigoColors,
+            _ => LightColors
+        };
 }

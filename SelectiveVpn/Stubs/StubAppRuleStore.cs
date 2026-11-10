@@ -2,6 +2,7 @@ using System.IO;
 using SelectiveVpn.Abstractions;
 using SelectiveVpn.Engine;
 using SelectiveVpn.Models;
+using SelectiveVpn.Services;
 
 namespace SelectiveVpn.Stubs;
 
@@ -20,7 +21,7 @@ public sealed class StubAppRuleStore : IAppRuleStore
     public OperationResult AddExecutable(string executablePath)
     {
         if (string.IsNullOrWhiteSpace(executablePath))
-            return OperationResult.Fail("Путь к приложению не указан.");
+            return OperationResult.Fail(Loc.T("Msg.NeedAppPath"));
 
         string fullPath;
         try
@@ -29,27 +30,26 @@ public sealed class StubAppRuleStore : IAppRuleStore
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or IOException)
         {
-            return OperationResult.Fail("Некорректный путь к приложению.");
+            return OperationResult.Fail(Loc.T("Msg.BadAppPath"));
         }
 
         if (!File.Exists(fullPath))
-            return OperationResult.Fail("Файл приложения не найден.");
+            return OperationResult.Fail(Loc.T("Msg.AppNotFound"));
 
         if (!string.Equals(Path.GetExtension(fullPath), ".exe", StringComparison.OrdinalIgnoreCase))
-            return OperationResult.Fail("Можно добавить только файл .exe.");
+            return OperationResult.Fail(Loc.T("Msg.NeedExe"));
 
         if (_rules.Exists(rule => string.Equals(rule.ExecutablePath, fullPath, StringComparison.OrdinalIgnoreCase)))
-            return OperationResult.Fail("Это приложение уже есть в списке.");
+            return OperationResult.Fail(Loc.T("Msg.AppExists"));
 
         _rules.Add(new AppRule(fullPath));
-        return OperationResult.Ok(
-            $"Приложение добавлено: {Path.GetFileName(fullPath)}. После подключения его трафик пойдёт через VPN.");
+        return OperationResult.Ok(Loc.Tf("Msg.AppAdded", Path.GetFileName(fullPath)));
     }
 
     public OperationResult AddFolder(string folderPath)
     {
         if (string.IsNullOrWhiteSpace(folderPath))
-            return OperationResult.Fail("Путь к папке не указан.");
+            return OperationResult.Fail(Loc.T("Msg.NeedFolderPath"));
 
         string fullPath;
         try
@@ -58,22 +58,21 @@ public sealed class StubAppRuleStore : IAppRuleStore
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or IOException)
         {
-            return OperationResult.Fail("Некорректный путь к папке.");
+            return OperationResult.Fail(Loc.T("Msg.BadFolderPath"));
         }
 
         if (fullPath.Contains(',') || fullPath.Contains('\''))
-            return OperationResult.Fail("Путь папки содержит недопустимый символ.");
+            return OperationResult.Fail(Loc.T("Msg.BadFolderChar"));
 
         if (!Directory.Exists(fullPath))
-            return OperationResult.Fail("Папка не найдена.");
+            return OperationResult.Fail(Loc.T("Msg.FolderNotFound"));
 
         fullPath = fullPath.TrimEnd('\\');
         if (_rules.Exists(rule => string.Equals(rule.ExecutablePath, fullPath, StringComparison.OrdinalIgnoreCase)))
-            return OperationResult.Fail("Эта папка уже есть в списке.");
+            return OperationResult.Fail(Loc.T("Msg.FolderExists"));
 
         _rules.Add(new AppRule(fullPath, true));
-        return OperationResult.Ok(
-            $"Папка добавлена: {new DirectoryInfo(fullPath).Name}. Все программы внутри неё пойдут через VPN после подключения.");
+        return OperationResult.Ok(Loc.Tf("Msg.FolderAdded", new DirectoryInfo(fullPath).Name));
     }
 
     public OperationResult AddAddress(string address)
@@ -82,12 +81,12 @@ public sealed class StubAppRuleStore : IAppRuleStore
             return OperationResult.Fail(error);
 
         if (_rules.Exists(rule => string.Equals(rule.ExecutablePath, normalized, StringComparison.OrdinalIgnoreCase)))
-            return OperationResult.Fail("Этот адрес уже есть в списке.");
+            return OperationResult.Fail(Loc.T("Msg.AddressExists"));
 
         _rules.Add(new AppRule(normalized, false, kind));
         return kind == RouteKind.Ip
-            ? OperationResult.Ok($"IP-адрес добавлен: {normalized}. Правило применится при следующем запуске маршрутизации.")
-            : OperationResult.Ok($"Домен добавлен: {normalized}. Он и его поддомены войдут в правило при следующем запуске маршрутизации.");
+            ? OperationResult.Ok(Loc.Tf("Msg.ListAdded", normalized, Loc.T("Kind.Ip")))
+            : OperationResult.Ok(Loc.Tf("Msg.ListAdded", normalized, Loc.T("Kind.Domain")));
     }
 
     public OperationResult AddAddressList(
@@ -111,7 +110,7 @@ public sealed class StubAppRuleStore : IAppRuleStore
         var ips = skipDomainResolve ? Array.Empty<string>() : resolvedIps.ToArray();
         _rules.Add(new AppRule(title, false, RouteKind.AddressList, entries.ToArray(), ips, skipDomainResolve));
         return OperationResult.Ok(
-            $"Список «{title}» добавлен: {AppRule.FormatListSummary(entries, ips)}. Правило применится при следующем запуске маршрутизации.");
+            Loc.Tf("Msg.ListAdded", title, AppRule.FormatListSummary(entries, ips)));
     }
 
     public OperationResult ReplaceAddressList(
@@ -143,7 +142,7 @@ public sealed class StubAppRuleStore : IAppRuleStore
         var ips = skipDomainResolve ? Array.Empty<string>() : resolvedIps.ToArray();
         _rules[index] = new AppRule(title, false, RouteKind.AddressList, entries.ToArray(), ips, skipDomainResolve);
         return OperationResult.Ok(
-            $"Список «{title}» обновлён: {AppRule.FormatListSummary(entries, ips)}. Изменения применятся после перезапуска маршрутизации.");
+            Loc.Tf("Msg.ListUpdated", title, AppRule.FormatListSummary(entries, ips)));
     }
 
     public OperationResult UpdateAddressListResolved(string name, IReadOnlyList<string> resolvedIps)

@@ -17,11 +17,11 @@ public partial class AddressListPrompt : Window
         InitializeComponent();
         if (existing is not null && existing.IsAddressList)
         {
-            Title = "Редактировать список";
+            Title = Loc.T("Ui.Edit") + " — " + Loc.T("AddressList.Title");
             NameBox.Text = existing.ExecutablePath;
             AddressesBox.Text = string.Join(Environment.NewLine, existing.EntryList);
             SkipResolveBox.IsChecked = existing.SkipDomainResolve;
-            AddButton.Content = "Сохранить";
+            AddButton.Content = Loc.T("Ui.Save");
         }
 
         UpdateLineCount();

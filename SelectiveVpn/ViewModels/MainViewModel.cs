@@ -29,16 +29,16 @@ public sealed class MainViewModel : ViewModelBase
     private bool _expectExit;
     private bool _isDarkTheme;
     private string _theme = AppTheme.Dark;
-    private string _statusText = "Маршрутизация остановлена";
+    private string _statusText = "";
     private string _statusKind = "disconnected";
-    private string _statusDetail = "Маршрутизация остановлена. Приложения ходят напрямую.";
-    private string _profileName = "Профиль не выбран";
-    private string _engineLabel = "mihomo — скачается при подключении";
+    private string _statusDetail = "";
+    private string _profileName = "";
+    private string _engineLabel = "";
     private string _externalIp = "—";
     private string _connectedServer = "";
-    private string _ipCaption = "Проверка идёт через VPN только после запуска маршрутизации.";
-    private string _incomingTraffic = "0 Б";
-    private string _outgoingTraffic = "0 Б";
+    private string _ipCaption = "";
+    private string _incomingTraffic = "0";
+    private string _outgoingTraffic = "0";
     private bool _exceptListed;
     private bool _suppressExceptListed;
     private CancellationTokenSource? _connectCts;
@@ -83,13 +83,15 @@ public sealed class MainViewModel : ViewModelBase
 
         _settings = UserSettingsStore.Load(out var settingsExisted);
         RestoreSettings();
+        RefreshLocalizedStrings();
+        AppLanguage.LanguageChanged += (_, _) => Dispatch(RefreshLocalizedStrings);
 
         var rights = WindowsElevation.IsElevated()
-            ? "Права администратора уже есть."
-            : "Для TUN Windows запросит права администратора.";
-        Report($"Интерфейс запущен. Туннель не создан. {rights}");
+            ? Loc.T("Msg.AdminOk")
+            : Loc.T("Msg.AdminNeeded");
+        Report(Loc.Tf("Msg.UiStarted", rights));
         if (settingsExisted)
-            Report("Сохранённые настройки загружены.");
+            Report(Loc.T("Msg.SettingsLoaded"));
     }
 
     public event EventHandler? ApplicationExitRequested;
@@ -222,12 +224,14 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     public string AppsHint => ExceptListed
-        ? "Через VPN идёт весь трафик, кроме приложений, папок и списков адресов из этого списка. Пустой список отправляет через VPN всё."
-        : "Файлы, папки и списки адресов этого профиля идут через VPN. Пустой список отправляет через VPN весь трафик.";
+        ? Loc.T("Hint.ExceptListed")
+        : Loc.T("Hint.IncludeListed");
 
     public string AppsFooter => ExceptListed
-        ? "Список обходит VPN. Всё остальное идёт через VPN. Программы вне выбранной папки добавляются отдельно."
-        : "Если список пуст, через VPN идёт весь трафик. Программы вне выбранной папки добавляются отдельно.";
+        ? Loc.T("Footer.ExceptListed")
+        : Loc.T("Footer.IncludeListed");
+
+    public string InListLabel => Loc.T("Ui.InList");
 
     public int TargetCount => Apps.Count;
 
@@ -324,7 +328,7 @@ public sealed class MainViewModel : ViewModelBase
 
     public Task ConnectOnLaunchAsync()
     {
-        Report("Автоподключение при запуске.");
+        Report(Loc.T("Msg.AutoConnect"));
         return ConnectAsync();
     }
 
@@ -334,7 +338,7 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (!ConnectSessionStore.TryTake(out var configPath, out var targets, out var exceptListed))
         {
-            Report("Не удалось восстановить выбранные файлы после запроса прав.");
+            Report(Loc.T("Msg.RestoreAppsFail"));
             return;
         }
 
@@ -367,7 +371,7 @@ public sealed class MainViewModel : ViewModelBase
         Persist();
         if (string.IsNullOrWhiteSpace(ConfigPath))
         {
-            Report("Сохранённый сеанс не содержит конфигурацию. Туннель не запускался.");
+            Report(Loc.T("Msg.SessionNoConfig"));
             return;
         }
 
@@ -398,19 +402,17 @@ public sealed class MainViewModel : ViewModelBase
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or IOException)
         {
-            Report("Некорректный путь к конфигурации.");
+            Report(Loc.T("Msg.ConfigBadPath"));
             return;
         }
 
         if (!File.Exists(fullPath))
         {
-            Report("Файл конфигурации не найден.");
+            Report(Loc.T("Msg.ConfigMissing"));
             return;
         }
 
-        RegisterProfileFromPath(
-            fullPath,
-            $"Добавлен профиль «{{0}}». Список приложений и папок у него свой и пока пуст.");
+        RegisterProfileFromPath(fullPath, Loc.T("Msg.ProfileAdded"));
     }
 
     private async Task ImportSubscriptionAsync()
@@ -426,8 +428,8 @@ public sealed class MainViewModel : ViewModelBase
             return;
 
         var detail = string.IsNullOrWhiteSpace(dialog.ResultMessage)
-            ? $"Импортирован профиль «{{0}}»."
-            : dialog.ResultMessage + " Профиль «{0}» добавлен в список.";
+            ? Loc.T("Msg.ProfileImported")
+            : dialog.ResultMessage + " " + Loc.T("Msg.ProfileImported");
         RegisterProfileFromPath(dialog.SavedPath, detail);
     }
 
@@ -444,13 +446,13 @@ public sealed class MainViewModel : ViewModelBase
         SwitchTo(fullPath);
         if (!created)
         {
-            Report($"Профиль «{ProfileName}» уже был в списке — выбран снова.");
+            Report(Loc.Tf("Msg.ProfileReselected", ProfileName));
             return;
         }
 
         Report(string.Format(CultureInfo.InvariantCulture, createdMessageFormat, ProfileName));
         if (IsConnected)
-            Report("Запущенный туннель останется прежним, пока маршрутизацию не остановить и не запустить снова.");
+            Report(Loc.T("Msg.TunnelUnchanged"));
     }
 
     private void SelectProfile(object? parameter)
@@ -506,7 +508,7 @@ public sealed class MainViewModel : ViewModelBase
             var applied = await _mihomo.SelectVpnNodeAsync(dialog.SelectedNodeName).ConfigureAwait(true);
             Report(applied.Succeeded
                 ? applied.Message
-                : $"Сервер сохранён в профиле, но сейчас не применён: {applied.Message}");
+                : Loc.Tf("Msg.ServerSavedOffline", applied.Message));
             if (applied.Succeeded)
             {
                 await RefreshConnectedServerAsync().ConfigureAwait(true);
@@ -516,7 +518,7 @@ public sealed class MainViewModel : ViewModelBase
             return;
         }
 
-        Report($"Сервер сохранён: {SubscriptionProfile.DisplayNodeName(dialog.SelectedNodeName)}. Применится при следующем запуске.");
+        Report(Loc.Tf("Msg.ServerSavedLive", SubscriptionProfile.DisplayNodeName(dialog.SelectedNodeName)));
     }
 
     private IReadOnlyList<VpnNodeInfo> WithCachedDelays(IReadOnlyList<VpnNodeInfo> nodes)
@@ -606,7 +608,7 @@ public sealed class MainViewModel : ViewModelBase
 
         if (!File.Exists(ConfigPath))
         {
-            Report("Файл конфигурации не найден.");
+            Report(Loc.T("Msg.ConfigMissing"));
             return;
         }
 
@@ -617,7 +619,7 @@ public sealed class MainViewModel : ViewModelBase
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            Report("Не удалось прочитать файл конфигурации.");
+            Report(Loc.T("Msg.ConfigReadFail"));
             return;
         }
 
@@ -630,7 +632,7 @@ public sealed class MainViewModel : ViewModelBase
 
         Report(dialog.ResultMessage);
         if (IsConnected)
-            Report("Чтобы применить правки, остановите маршрутизацию и запустите снова.");
+            Report(Loc.T("Msg.ApplyAfterRestart"));
     }
 
     private void RemoveProfile()
@@ -639,6 +641,13 @@ public sealed class MainViewModel : ViewModelBase
             return;
 
         var name = ProfileName;
+        var prompt = new SelectiveVpn.RemoveProfilePrompt(name)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (prompt.ShowDialog() != true)
+            return;
+
         var removing = ConfigPath;
         _settings.Profiles.RemoveAll(profile => SamePath(profile.ConfigPath, removing));
         var option = Profiles.FirstOrDefault(profile => SamePath(profile.ConfigPath, removing));
@@ -660,7 +669,7 @@ public sealed class MainViewModel : ViewModelBase
             SwitchTo(next.ConfigPath);
         }
 
-        Report($"Профиль «{name}» убран из списка. Файл конфигурации на диске не удалён.");
+        Report(Loc.Tf("Msg.ProfileRemoved", name));
         CommandManager.InvalidateRequerySuggested();
     }
 
@@ -672,7 +681,7 @@ public sealed class MainViewModel : ViewModelBase
 
         EnginePath = path;
         UpdateEngineLabel();
-        Report($"Выбрано ядро «{Path.GetFileName(path)}». Оно будет использовано при следующем подключении.");
+        Report(Loc.Tf("Msg.EngineSelected", Path.GetFileName(path)));
         Persist();
     }
 
@@ -680,7 +689,7 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (string.IsNullOrWhiteSpace(ConfigPath))
         {
-            Report("Файл конфигурации не выбран. Проверка не выполнялась.");
+            Report(Loc.T("Msg.ConfigNotSelected"));
             return;
         }
 
@@ -692,7 +701,7 @@ public sealed class MainViewModel : ViewModelBase
                 return;
             }
 
-            Report($"Подписка подходит: {subscription.Describe()}. Подключение не запускалось.");
+            Report(Loc.Tf("Msg.SubOk", subscription.Describe()));
             return;
         }
 
@@ -700,12 +709,12 @@ public sealed class MainViewModel : ViewModelBase
         if (!read.Succeeded || read.Profile is null)
         {
             Report(string.IsNullOrWhiteSpace(read.Message)
-                ? "Конфигурация не подошла. Подключение не запускалось."
+                ? Loc.T("Msg.ConfigFail")
                 : read.Message);
             return;
         }
 
-        Report($"Конфиг подходит: {read.Profile.Describe()}. Подключение не запускалось.");
+        Report(Loc.Tf("Msg.ConfigOk", read.Profile.Describe()));
     }
 
     private void AddApp()
@@ -824,8 +833,8 @@ public sealed class MainViewModel : ViewModelBase
 
         if (string.IsNullOrWhiteSpace(ConfigPath))
         {
-            SetStatus("Ошибка", "error");
-            Report("Подключение не выполнено: не выбран файл конфигурации AmneziaWG.");
+            SetStatus(Loc.T("Status.Error"), "error");
+            Report(Loc.T("Msg.NoConfig"));
             return;
         }
 
@@ -838,7 +847,7 @@ public sealed class MainViewModel : ViewModelBase
             ConnectSessionStore.Save(ConfigPath, _rules.GetRules().ToArray(), ExceptListed);
             if (!WindowsElevation.TryRelaunch("--connect", out var elevationMessage))
             {
-                SetStatus("Ошибка", "error");
+                SetStatus(Loc.T("Status.Error"), "error");
                 Report(elevationMessage);
                 return;
             }
@@ -858,8 +867,8 @@ public sealed class MainViewModel : ViewModelBase
         IsBusy = true;
         ExternalIp = "—";
         ConnectedServer = "";
-        IpCaption = "Проверка идёт через VPN только после запуска маршрутизации.";
-        SetStatus("Запуск…", "connecting");
+        IpCaption = Loc.T("Ip.CaptionIdle");
+        SetStatus(Loc.T("Status.Starting"), "connecting");
         CommandManager.InvalidateRequerySuggested();
         try
         {
@@ -873,17 +882,18 @@ public sealed class MainViewModel : ViewModelBase
             _runningConfigPath = result.Succeeded && _mihomo.IsRunning ? ConfigPath : null;
             IsConnected = result.Succeeded && _mihomo.IsRunning;
             if (IsConnected)
-                SetStatus("Маршрутизация запущена", "connected");
-            else if (result.Message.Contains("отменено", StringComparison.OrdinalIgnoreCase))
-                SetStatus("Маршрутизация остановлена", "disconnected");
+                SetStatus(Loc.T("Status.Running"), "connected");
+            else if (result.Message.Contains("отменено", StringComparison.OrdinalIgnoreCase)
+                     || result.Message.Contains("cancel", StringComparison.OrdinalIgnoreCase))
+                SetStatus(Loc.T("Status.Stopped"), "disconnected");
             else
-                SetStatus("Ошибка", "error");
+                SetStatus(Loc.T("Status.Error"), "error");
         }
         catch (OperationCanceledException)
         {
             IsConnected = false;
-            SetStatus("Маршрутизация остановлена", "disconnected");
-            Report("Подключение отменено. Туннель не запускался.");
+            SetStatus(Loc.T("Status.Stopped"), "disconnected");
+            Report(Loc.T("Msg.ConnectCanceled"));
         }
         finally
         {
@@ -895,8 +905,8 @@ public sealed class MainViewModel : ViewModelBase
 
         if (IsConnected)
         {
-            IncomingTraffic = "0 Б";
-            OutgoingTraffic = "0 Б";
+            IncomingTraffic = "0 " + Loc.T("Unit.B");
+            OutgoingTraffic = "0 " + Loc.T("Unit.B");
             StartTrafficPolling();
             await RefreshIpAsync(waitForTunnel: true);
         }
@@ -948,7 +958,7 @@ public sealed class MainViewModel : ViewModelBase
         if (bytes < 0)
             bytes = 0;
 
-        string[] units = ["Б", "КБ", "МБ", "ГБ", "ТБ"];
+        string[] units = [Loc.T("Unit.B"), Loc.T("Unit.KB"), Loc.T("Unit.MB"), Loc.T("Unit.GB"), Loc.T("Unit.TB")];
         double value = bytes;
         var unit = 0;
         while (value >= 1024 && unit < units.Length - 1)
@@ -969,14 +979,14 @@ public sealed class MainViewModel : ViewModelBase
         {
             ExternalIp = "—";
             ConnectedServer = "";
-            IpCaption = "Маршрутизация не запущена. Запрос не отправлялся.";
+            IpCaption = Loc.T("Ip.CaptionOffline");
             return;
         }
 
         _ = RefreshConnectedServerAsync();
-        IpCaption = "Запрос идёт через VPN…";
+        IpCaption = Loc.T("Ip.CaptionBusy");
         var attempts = waitForTunnel ? 4 : 1;
-        OperationResult result = OperationResult.Fail("Не удалось получить внешний IP через VPN.");
+        OperationResult result = OperationResult.Fail(Loc.T("Ip.Fail"));
         for (var attempt = 0; attempt < attempts; attempt++)
         {
             if (waitForTunnel)
@@ -995,7 +1005,7 @@ public sealed class MainViewModel : ViewModelBase
             {
                 ExternalIp = "—";
                 ConnectedServer = "";
-                IpCaption = "Маршрутизация не запущена. Запрос не отправлялся.";
+                IpCaption = Loc.T("Ip.CaptionOffline");
                 return;
             }
 
@@ -1006,15 +1016,15 @@ public sealed class MainViewModel : ViewModelBase
             }
             catch (OperationCanceledException)
             {
-                result = OperationResult.Fail("Не удалось получить внешний IP через VPN.");
+                result = OperationResult.Fail(Loc.T("Ip.Fail"));
             }
 
             if (result.Succeeded && IPAddress.TryParse(result.Message, out _))
             {
                 ExternalIp = result.Message;
-                IpCaption = "Внешний IP VPN · проверка через api.ipify.org";
+                IpCaption = Loc.T("Ip.CaptionOk");
                 await RefreshConnectedServerAsync().ConfigureAwait(true);
-                Report("Внешний IP обновлён.");
+                Report(Loc.T("Msg.IpUpdated"));
                 return;
             }
         }
@@ -1041,7 +1051,9 @@ public sealed class MainViewModel : ViewModelBase
             var node = await _mihomo.GetActiveVpnNodeAsync().ConfigureAwait(true);
             ConnectedServer = string.IsNullOrWhiteSpace(node)
                 ? ""
-                : "· " + SubscriptionProfile.DisplayNodeName(node);
+                : "· " + (node.Equals(SubscriptionProfile.AutoNodeName, StringComparison.OrdinalIgnoreCase)
+                    ? Loc.T("Node.Auto")
+                    : node);
         }
         catch (Exception)
         {
@@ -1057,14 +1069,14 @@ public sealed class MainViewModel : ViewModelBase
         if (IsBusy && !_mihomo.IsRunning)
         {
             _connectCts?.Cancel();
-            Report("Отмена подключения…");
+            Report(Loc.T("Msg.Canceling"));
             return;
         }
 
         if (!_mihomo.IsRunning)
         {
-            SetStatus("Маршрутизация остановлена", "disconnected");
-            Report("Соединение не запущено.");
+            SetStatus(Loc.T("Status.Stopped"), "disconnected");
+            Report(Loc.T("Msg.NotRunning"));
             return;
         }
 
@@ -1079,9 +1091,9 @@ public sealed class MainViewModel : ViewModelBase
             IsConnected = _mihomo.IsRunning;
             ExternalIp = "—";
             ConnectedServer = "";
-            IpCaption = "Проверка идёт через VPN только после запуска маршрутизации.";
+            IpCaption = Loc.T("Ip.CaptionIdle");
             SetStatus(
-                IsConnected ? "Маршрутизация запущена" : "Маршрутизация остановлена",
+                IsConnected ? Loc.T("Status.Running") : Loc.T("Status.Stopped"),
                 IsConnected ? "error" : "disconnected");
         }
         finally
@@ -1105,7 +1117,7 @@ public sealed class MainViewModel : ViewModelBase
         };
         if (prompt.ShowDialog() != true)
         {
-            Report("Подключение отменено. Туннель не запускался.");
+            Report(Loc.T("Msg.ConnectCanceled"));
             return false;
         }
 
@@ -1147,7 +1159,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             ConfigPath = active.ConfigPath;
             if (!File.Exists(active.ConfigPath))
-                Report("Сохранённый файл конфигурации не найден. Путь оставлен.");
+                Report(Loc.T("Msg.SavedConfigMissing"));
             LoadTargets(active.Targets);
             MarkActiveProfile();
         }
@@ -1156,7 +1168,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             EnginePath = _settings.EnginePath;
             if (!File.Exists(_settings.EnginePath))
-                Report("Сохранённое ядро не найдено. Путь оставлен.");
+                Report(Loc.T("Msg.SavedEngineMissing"));
         }
 
         UpdateEngineLabel();
@@ -1166,7 +1178,10 @@ public sealed class MainViewModel : ViewModelBase
 
     private void OpenSettings()
     {
-        var dialog = new SelectiveVpn.SettingsWindow(_settings.LaunchWithWindows, _settings.ConnectOnLaunch)
+        var dialog = new SelectiveVpn.SettingsWindow(
+            _settings.LaunchWithWindows,
+            _settings.ConnectOnLaunch,
+            _settings.Language)
         {
             Owner = Application.Current?.MainWindow
         };
@@ -1175,6 +1190,7 @@ public sealed class MainViewModel : ViewModelBase
 
         var launch = dialog.LaunchWithWindows;
         var connect = dialog.ConnectOnLaunch;
+        var language = AppLanguage.Normalize(dialog.SelectedLanguage);
         if (launch != _settings.LaunchWithWindows)
         {
             if (!WindowsStartup.TryApply(launch, out var startupMessage))
@@ -1191,16 +1207,24 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         var connectChanged = connect != _settings.ConnectOnLaunch;
+        var languageChanged = !string.Equals(language, _settings.Language, StringComparison.OrdinalIgnoreCase);
         _settings.LaunchWithWindows = launch;
         _settings.ConnectOnLaunch = connect;
+        _settings.Language = language;
         Persist();
         OnPropertyChanged(nameof(ConnectOnLaunch));
-        if (!connectChanged)
-            return;
+        if (languageChanged)
+        {
+            AppLanguage.Apply(language);
+            RefreshLocalizedStrings();
+        }
 
-        Report(connect
-            ? "Автоподключение при запуске включено. Туннель поднимется при следующем открытии приложения."
-            : "Автоподключение при запуске выключено.");
+        if (connectChanged)
+        {
+            Report(connect
+                ? Loc.T("Msg.SettingsConnectOn")
+                : Loc.T("Msg.SettingsConnectOff"));
+        }
     }
 
     private void ApplyTheme(string theme, bool persist)
@@ -1208,20 +1232,20 @@ public sealed class MainViewModel : ViewModelBase
         var normalized = AppTheme.Normalize(theme);
         var changed = !string.Equals(_theme, normalized, StringComparison.Ordinal);
         _theme = normalized;
+        AppTheme.Apply(normalized);
         IsDarkTheme = AppTheme.UsesDarkChrome(normalized);
         OnPropertyChanged(nameof(ThemeId));
-        AppTheme.Apply(normalized);
         if (!persist || !changed)
             return;
 
         Report(normalized switch
         {
-            AppTheme.Dark => "Включена тёмная тема.",
-            AppTheme.Green => "Включена зелёная тема.",
-            AppTheme.Oled => "Включена тема OLED.",
-            AppTheme.Amber => "Включена янтарная тема.",
-            AppTheme.Indigo => "Включена индиго-тема.",
-            _ => "Включена светлая тема."
+            AppTheme.Dark => Loc.T("Msg.ThemeDark"),
+            AppTheme.Green => Loc.T("Msg.ThemeGreen"),
+            AppTheme.Oled => Loc.T("Msg.ThemeOled"),
+            AppTheme.Amber => Loc.T("Msg.ThemeAmber"),
+            AppTheme.Indigo => Loc.T("Msg.ThemeIndigo"),
+            _ => Loc.T("Msg.ThemeLight")
         });
         Persist();
     }
@@ -1254,7 +1278,7 @@ public sealed class MainViewModel : ViewModelBase
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            Report("Не удалось сохранить настройки.");
+            Report(Loc.T("Msg.SaveSettingsFail"));
         }
     }
 
@@ -1371,7 +1395,7 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (string.IsNullOrWhiteSpace(ConfigPath))
         {
-            ProfileName = "Профиль не выбран";
+            ProfileName = Loc.T("Status.NoProfile");
             return;
         }
 
@@ -1387,14 +1411,14 @@ public sealed class MainViewModel : ViewModelBase
     private void UpdateEngineLabel()
     {
         EngineLabel = string.IsNullOrWhiteSpace(EnginePath)
-            ? "mihomo — скачается при подключении"
+            ? Loc.T("Status.EngineDefault")
             : Path.GetFileName(EnginePath);
     }
 
     private void NoteLiveListChange()
     {
         if (IsConnected)
-            Report("Список изменится после остановки и нового запуска маршрутизации.");
+            Report(Loc.T("Msg.ListWillApplyLater"));
     }
 
     private void Report(string message)
@@ -1411,7 +1435,7 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     private void LogUnexpected(Exception exception)
-        => Report("Ошибка интерфейса. Туннель из-за неё не менялся.");
+        => Report($"{Loc.T("Msg.UiError")} {exception.GetType().Name}: {exception.Message}");
 
     private void OnEngineMessage(object? sender, string message) => Dispatch(() => Report(message));
 
@@ -1424,10 +1448,37 @@ public sealed class MainViewModel : ViewModelBase
         IsConnected = false;
         ExternalIp = "—";
         ConnectedServer = "";
-        IpCaption = "Проверка идёт через VPN только после запуска маршрутизации.";
-        SetStatus("Ошибка", "error");
-        Report("Процесс Mihomo завершился. Туннель остановлен.");
+        IpCaption = Loc.T("Ip.CaptionIdle");
+        SetStatus(Loc.T("Status.Error"), "error");
+        Report(Loc.T("Msg.EngineStopped"));
     });
+
+    private void RefreshLocalizedStrings()
+    {
+        OnPropertyChanged(nameof(AppsHint));
+        OnPropertyChanged(nameof(AppsFooter));
+        OnPropertyChanged(nameof(InListLabel));
+        UpdateEngineLabel();
+        if (string.IsNullOrWhiteSpace(ConfigPath))
+            ProfileName = Loc.T("Status.NoProfile");
+        else
+            UpdateProfileName();
+
+        SetStatus(StatusKind switch
+        {
+            "connected" => Loc.T("Status.Running"),
+            "connecting" => Loc.T("Status.Starting"),
+            "error" => Loc.T("Status.Error"),
+            _ => Loc.T("Status.Stopped")
+        }, StatusKind);
+
+        if (!IsConnected)
+            IpCaption = Loc.T("Ip.CaptionIdle");
+        else if (IPAddress.TryParse(ExternalIp, out _))
+            IpCaption = Loc.T("Ip.CaptionOk");
+
+        ReloadApps();
+    }
 
     private void SetStatus(string text, string kind)
     {
@@ -1436,13 +1487,13 @@ public sealed class MainViewModel : ViewModelBase
         StatusDetail = kind switch
         {
             "connected" => _rules.GetRules().Count == 0
-                ? "Маршрутизация запущена. Весь трафик идёт через VPN."
+                ? Loc.T("Status.AllViaVpn")
                 : ExceptListed
-                    ? "Маршрутизация запущена. Весь трафик идёт через VPN, кроме списка."
-                    : "Маршрутизация запущена. Выбранные приложения и папки идут через VPN.",
-            "connecting" => "Поднимаю TUN и запускаю Mihomo.",
-            "error" => "Маршрутизация не запущена.",
-            _ => "Маршрутизация остановлена. Приложения ходят напрямую."
+                    ? Loc.T("Status.AllExceptList")
+                    : Loc.T("Status.SelectedViaVpn"),
+            "connecting" => Loc.T("Status.ConnectingDetail"),
+            "error" => Loc.T("Status.ErrorDetail"),
+            _ => Loc.T("Status.StoppedDetail")
         };
     }
 

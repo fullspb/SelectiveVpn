@@ -1,7 +1,7 @@
 <Window x:Class="SelectiveVpn.SubscriptionImportPrompt"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Добавить по ссылке"
+        Title="{DynamicResource Import.Title}"
         Width="560"
         MinWidth="480"
         MinHeight="420"
@@ -28,18 +28,18 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Text="Импорт профиля по ссылке" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock Grid.Row="0" Text="{DynamicResource Import.Heading}" FontSize="16" FontWeight="SemiBold"/>
             <TextBlock Grid.Row="1" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedForeground}"
-                       Text="Поддерживаются подписки vless/vmess/ss/trojan/hysteria и др., а также .conf/.awg. Для панелей с лимитом устройств отправляется стабильный HWID."/>
+                       Text="{DynamicResource Import.Hint}"/>
 
-            <TextBlock Grid.Row="2" Margin="0,14,0,4" Text="Ссылка" FontSize="12" Foreground="{DynamicResource MutedForeground}"/>
+            <TextBlock Grid.Row="2" Margin="0,14,0,4" Text="{DynamicResource Import.Url}" FontSize="12" Foreground="{DynamicResource MutedForeground}"/>
             <TextBox x:Name="UrlBox" Grid.Row="3" Padding="8,6"
                      Background="{DynamicResource FieldBackground}"
                      Foreground="{DynamicResource WindowForeground}"
                      BorderBrush="{DynamicResource FieldBorder}"
                      CaretBrush="{DynamicResource WindowForeground}"/>
 
-            <TextBlock Grid.Row="4" Margin="0,12,0,4" Text="Название профиля (необязательно)" FontSize="12" Foreground="{DynamicResource MutedForeground}"/>
+            <TextBlock Grid.Row="4" Margin="0,12,0,4" Text="{DynamicResource Import.Name}" FontSize="12" Foreground="{DynamicResource MutedForeground}"/>
             <TextBox x:Name="NameBox" Grid.Row="5" Padding="8,6"
                      Background="{DynamicResource FieldBackground}"
                      Foreground="{DynamicResource WindowForeground}"
@@ -54,11 +54,11 @@
             </StackPanel>
 
             <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
-                <Button x:Name="CancelButton" Content="Отмена" MinWidth="96" Margin="0,0,8,0" Padding="12,7"
+                <Button x:Name="CancelButton" Content="{DynamicResource Ui.Cancel}" MinWidth="96" Margin="0,0,8,0" Padding="12,7"
                         Click="CancelClick" IsCancel="True"
                         Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource ButtonForeground}"
                         BorderBrush="{DynamicResource ButtonBorder}"/>
-                <Button x:Name="ImportButton" Content="Импортировать" MinWidth="132" Padding="12,7"
+                <Button x:Name="ImportButton" Content="{DynamicResource Ui.Import}" MinWidth="132" Padding="12,7"
                         Click="ImportClick" IsDefault="True"
                         Background="{DynamicResource PrimaryBackground}" Foreground="{DynamicResource PrimaryForeground}"
                         BorderBrush="{DynamicResource PrimaryBorder}"/>

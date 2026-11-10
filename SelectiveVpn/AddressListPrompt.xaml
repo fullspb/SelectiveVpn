@@ -1,7 +1,7 @@
 <Window x:Class="SelectiveVpn.AddressListPrompt"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Добавить список"
+        Title="{DynamicResource AddressList.Title}"
         Width="560"
         Height="520"
         MinWidth="440"
@@ -27,19 +27,19 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Text="Список доменов и IP" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock Grid.Row="0" Text="{DynamicResource AddressList.Heading}" FontSize="16" FontWeight="SemiBold"/>
             <TextBlock Grid.Row="1" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedForeground}"
-                       Text="Один адрес на строку. Домены сразу резолвятся в IP. Режим «кроме списка» отправляет эти адреса мимо VPN."/>
+                       Text="{DynamicResource AddressList.Hint}"/>
 
-            <TextBlock Grid.Row="2" Margin="0,14,0,4" Text="Название" FontSize="12" Foreground="{DynamicResource MutedForeground}"/>
-            <TextBox x:Name="NameBox" Grid.Row="3" Padding="8,6" Text="Список адресов"
+            <TextBlock Grid.Row="2" Margin="0,14,0,4" Text="{DynamicResource AddressList.Name}" FontSize="12" Foreground="{DynamicResource MutedForeground}"/>
+            <TextBox x:Name="NameBox" Grid.Row="3" Padding="8,6" Text="{DynamicResource AddressList.DefaultName}"
                      Background="{DynamicResource FieldBackground}"
                      Foreground="{DynamicResource WindowForeground}"
                      BorderBrush="{DynamicResource FieldBorder}"
                      CaretBrush="{DynamicResource WindowForeground}"/>
 
             <DockPanel Grid.Row="4" Margin="0,12,0,0" LastChildFill="True">
-                <TextBlock DockPanel.Dock="Top" Margin="0,0,0,4" Text="Адреса" FontSize="12" Foreground="{DynamicResource MutedForeground}"/>
+                <TextBlock DockPanel.Dock="Top" Margin="0,0,0,4" Text="{DynamicResource AddressList.Addresses}" FontSize="12" Foreground="{DynamicResource MutedForeground}"/>
                 <TextBox x:Name="AddressesBox"
                          AcceptsReturn="True"
                          TextWrapping="NoWrap"
@@ -55,7 +55,7 @@
 
             <StackPanel Grid.Row="5" Margin="0,8,0,0">
                 <CheckBox x:Name="SkipResolveBox" Margin="0,0,0,8"
-                          Content="Не проверять домены"
+                          Content="{DynamicResource AddressList.SkipResolve}"
                           Foreground="{DynamicResource WindowForeground}"/>
                 <TextBlock x:Name="ErrorText" TextWrapping="Wrap"
                            Foreground="{DynamicResource StatusErrorForeground}" Visibility="Collapsed"/>
@@ -71,11 +71,11 @@
                            Foreground="{DynamicResource MutedForeground}"
                            Text="0 доменов"/>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button x:Name="CancelButton" Content="Отмена" MinWidth="96" Margin="0,0,8,0" Padding="12,7"
+                    <Button x:Name="CancelButton" Content="{DynamicResource Ui.Cancel}" MinWidth="96" Margin="0,0,8,0" Padding="12,7"
                             Click="CancelClick" IsCancel="True"
                             Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource ButtonForeground}"
                             BorderBrush="{DynamicResource ButtonBorder}"/>
-                    <Button x:Name="AddButton" Content="Добавить" MinWidth="120" Padding="12,7" Click="AddClick" IsDefault="True"
+                    <Button x:Name="AddButton" Content="{DynamicResource Ui.Add}" MinWidth="120" Padding="12,7" Click="AddClick" IsDefault="True"
                             Background="{DynamicResource PrimaryBackground}" Foreground="{DynamicResource PrimaryForeground}"
                             BorderBrush="{DynamicResource PrimaryBorder}"/>
                 </StackPanel>

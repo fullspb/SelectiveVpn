@@ -14,7 +14,13 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly Forms.NotifyIcon _tray;
+    private readonly Forms.ContextMenuStrip _trayMenu;
+    private readonly Forms.ToolStripMenuItem _trayOpen;
+    private readonly Forms.ToolStripMenuItem _trayConnect;
+    private readonly Forms.ToolStripMenuItem _trayDisconnect;
+    private readonly Forms.ToolStripMenuItem _trayExit;
     private EventWaitHandle? _shutdownRequest;
+    private EventWaitHandle? _activateRequest;
     private bool _allowClose;
     private bool _announcedTray;
     private bool _exiting;
@@ -46,7 +52,11 @@ public partial class MainWindow : Window
                 System.Windows.Threading.DispatcherPriority.Background);
         };
 
-        _tray = CreateTrayIcon();
+        (_tray, _trayMenu, _trayOpen, _trayConnect, _trayDisconnect, _trayExit) = CreateTrayIcon();
+        ApplyTrayMenuTheme();
+        RefreshTrayMenuTexts();
+        AppTheme.ThemeChanged += OnAppThemeChanged;
+        AppLanguage.LanguageChanged += OnLanguageChanged;
         DataContext = _viewModel;
         SourceInitialized += (_, _) => TitleBarTheme.Apply(this, AppTheme.UsesDarkChrome(_viewModel.ThemeId));
         if (connectOnStart)
@@ -54,7 +64,14 @@ public partial class MainWindow : Window
         else if (_viewModel.ConnectOnLaunch)
             Loaded += OnLoadedAutoConnect;
         WatchShutdownRequest();
+        WatchActivateRequest();
     }
+
+    private void OnAppThemeChanged(object? sender, string theme)
+        => Dispatcher.BeginInvoke(() => TrayMenuTheme.Apply(_trayMenu, theme));
+
+    private void OnLanguageChanged(object? sender, EventArgs e)
+        => Dispatcher.BeginInvoke(RefreshTrayMenuTexts);
 
     private void WatchShutdownRequest()
     {
@@ -81,6 +98,34 @@ public partial class MainWindow : Window
         thread.Start();
     }
 
+    private void WatchActivateRequest()
+    {
+        _activateRequest = AppInstance.CreateActivateListener();
+        var handle = _activateRequest;
+        var thread = new Thread(() =>
+        {
+            while (true)
+            {
+                try
+                {
+                    if (!handle.WaitOne())
+                        return;
+                }
+                catch (ObjectDisposedException)
+                {
+                    return;
+                }
+
+                Dispatcher.BeginInvoke(new Action(ShowFromTray));
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "SelectiveVpn.Activate"
+        };
+        thread.Start();
+    }
+
     private async void OnLoadedAutoConnect(object sender, RoutedEventArgs e)
     {
         Loaded -= OnLoadedAutoConnect;
@@ -90,7 +135,7 @@ public partial class MainWindow : Window
         }
         catch (Exception)
         {
-            _viewModel.LogEntries.Add(new LogEntry("Ошибка интерфейса при автоподключении."));
+            _viewModel.LogEntries.Add(new LogEntry(Loc.T("Msg.AutoConnectUiError")));
         }
     }
 
@@ -103,7 +148,7 @@ public partial class MainWindow : Window
         }
         catch (Exception)
         {
-            _viewModel.LogEntries.Add(new LogEntry("Ошибка интерфейса при восстановлении подключения."));
+            _viewModel.LogEntries.Add(new LogEntry(Loc.T("Msg.RestoreUiError")));
         }
     }
 
@@ -122,21 +167,38 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        AppTheme.ThemeChanged -= OnAppThemeChanged;
+        AppLanguage.LanguageChanged -= OnLanguageChanged;
         _shutdownRequest?.Dispose();
+        _activateRequest?.Dispose();
         _tray.Visible = false;
         _tray.Dispose();
+        _trayMenu.Dispose();
         base.OnClosed(e);
     }
 
-    private Forms.NotifyIcon CreateTrayIcon()
+    private (
+        Forms.NotifyIcon Tray,
+        Forms.ContextMenuStrip Menu,
+        Forms.ToolStripMenuItem Open,
+        Forms.ToolStripMenuItem Connect,
+        Forms.ToolStripMenuItem Disconnect,
+        Forms.ToolStripMenuItem Exit) CreateTrayIcon()
     {
         var icon = System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath ?? "");
         var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Открыть", null, (_, _) => ShowFromTray());
-        menu.Items.Add("Подключить", null, async (_, _) => await RunTrayAction(_viewModel.ConnectFromUserAsync));
-        menu.Items.Add("Отключить", null, async (_, _) => await RunTrayAction(_viewModel.DisconnectFromUserAsync));
+        var open = new Forms.ToolStripMenuItem(Loc.T("Ui.Open"), null, (_, _) => ShowFromTray());
+        var connect = new Forms.ToolStripMenuItem(Loc.T("Ui.Connect"), null, async (_, _) => await RunTrayAction(_viewModel.ConnectFromUserAsync));
+        var disconnect = new Forms.ToolStripMenuItem(Loc.T("Ui.Disconnect"), null, async (_, _) => await RunTrayAction(_viewModel.DisconnectFromUserAsync));
+        var exit = new Forms.ToolStripMenuItem(Loc.T("Ui.Exit"), null, async (_, _) => await ExitFromTrayAsync())
+        {
+            Tag = "exit"
+        };
+        menu.Items.Add(open);
+        menu.Items.Add(connect);
+        menu.Items.Add(disconnect);
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Выход", null, async (_, _) => await ExitFromTrayAsync());
+        menu.Items.Add(exit);
 
         var tray = new Forms.NotifyIcon
         {
@@ -146,7 +208,17 @@ public partial class MainWindow : Window
             ContextMenuStrip = menu
         };
         tray.DoubleClick += (_, _) => ShowFromTray();
-        return tray;
+        return (tray, menu, open, connect, disconnect, exit);
+    }
+
+    private void ApplyTrayMenuTheme() => TrayMenuTheme.Apply(_trayMenu, _viewModel.ThemeId);
+
+    private void RefreshTrayMenuTexts()
+    {
+        _trayOpen.Text = Loc.T("Ui.Open");
+        _trayConnect.Text = Loc.T("Ui.Connect");
+        _trayDisconnect.Text = Loc.T("Ui.Disconnect");
+        _trayExit.Text = Loc.T("Ui.Exit");
     }
 
     private void HideToTray()
@@ -160,16 +232,20 @@ public partial class MainWindow : Window
         _tray.ShowBalloonTip(
             3000,
             "SelectiveVpn",
-            "SelectiveVpn свёрнут в трей и продолжает работать.",
+            Loc.T("Msg.TrayHint"),
             Forms.ToolTipIcon.Info);
     }
 
     private void ShowFromTray()
     {
         ShowInTaskbar = true;
+        if (WindowState == WindowState.Minimized)
+            WindowState = WindowState.Normal;
         Show();
-        WindowState = WindowState.Normal;
         Activate();
+        Topmost = true;
+        Topmost = false;
+        Focus();
     }
 
     private async Task RunTrayAction(Func<Task> action)
@@ -180,7 +256,7 @@ public partial class MainWindow : Window
         }
         catch (Exception)
         {
-            _viewModel.LogEntries.Add(new LogEntry("Ошибка интерфейса. Туннель из-за неё не менялся."));
+            _viewModel.LogEntries.Add(new LogEntry(Loc.T("Msg.UiError")));
         }
     }
 
@@ -198,7 +274,7 @@ public partial class MainWindow : Window
         }
         catch (Exception)
         {
-            _viewModel.LogEntries.Add(new LogEntry("Не удалось остановить туннель перед выходом."));
+            _viewModel.LogEntries.Add(new LogEntry(Loc.T("Msg.StopTunnelFail")));
         }
 
         Close();
