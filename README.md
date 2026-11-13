@@ -7,7 +7,7 @@ Built with **.NET / WPF**, powered by **Mihomo** and **AmneziaWG** configs / sub
 [![Release](https://img.shields.io/github/v/release/fullspb/SelectiveVpn?label=release)](https://github.com/fullspb/SelectiveVpn/releases/latest)
 
 <p align="center">
-  <img src="docs/screenshots/main-dark.jpg" alt="SelectiveVpn main window — dark theme" width="900">
+  <img src="docs/screenshots/main-connected.jpg" alt="SelectiveVpn main window — connected" width="900">
 </p>
 
 ## Features
@@ -17,7 +17,6 @@ Built with **.NET / WPF**, powered by **Mihomo** and **AmneziaWG** configs / sub
 - **Except-list mode** — all traffic via VPN except the listed targets
 - **Server picker** — choose a node from a subscription (with ping when available)
 - **Orbit interface** — connection control, per-profile routing, current server/IP, and a collapsible event log
-- **Themes** — Light, Dark, Pine, Graphite, Ocean, Indigo, Plum, Amber
 - **Languages** — Russian, English, Spanish, Portuguese, Chinese (+ Auto)
 - **Tray** — minimize to tray, connect / disconnect / exit; menu follows the app theme
 - **Autostart** — launch with Windows and optional connect-on-start
@@ -27,19 +26,19 @@ Built with **.NET / WPF**, powered by **Mihomo** and **AmneziaWG** configs / sub
 
 ## Screenshots
 
-### Dark theme
+### Connected
 
-![Main window, dark theme](docs/screenshots/main-dark.jpg)
+![Main window, connected](docs/screenshots/main-connected.jpg)
 
-### Light theme
+### Disconnected
 
-![Main window, light theme](docs/screenshots/main-light.jpg)
+![Main window, disconnected](docs/screenshots/main-disconnected.jpg)
 
 ### Settings
 
 ![Settings dialog](docs/screenshots/settings.jpg)
 
-> Screenshots use demo profiles (`Home VPN`, `Work`, `Travel`) and sample routing targets.
+> Screenshots use demo profiles (`Home VPN`, `Work`, `Travel`), sample routing targets, and a documentation-range IP address.
 
 ## Install
 
@@ -99,6 +98,7 @@ bounded opt-in recovery, settings, and actual popup creation including separator
 | `SelectiveVpn/` | WPF UI |
 | `SelectiveVpn.Core/` | Mihomo engine, config / subscription parsing, traffic |
 | `SelectiveVpn.Tests/` | Unit tests |
+| `SelectiveVpn.UiTests/` | Isolated WPF regression checks |
 | `installer/` | Publish script + Inno Setup |
 
 ## Notes
