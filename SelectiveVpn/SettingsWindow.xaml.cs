@@ -1,21 +1,31 @@
 using System.Windows;
 using SelectiveVpn.Services;
+using SelectiveVpn.ViewModels;
 
 namespace SelectiveVpn;
 
 public partial class SettingsWindow : Window
 {
-    public SettingsWindow(bool launchWithWindows, bool connectOnLaunch, string language)
+    public SettingsWindow(bool launchWithWindows, bool connectOnLaunch, string language, string? theme = null, bool autoReconnect = false)
     {
         InitializeComponent();
         LaunchBox.IsChecked = launchWithWindows;
         ConnectBox.IsChecked = connectOnLaunch;
+        AutoReconnectBox.IsChecked = autoReconnect;
         LanguageBox.ItemsSource = AppLanguage.Options
             .Select(option => new LanguageChoice(option.Code, Loc.T(option.TitleKey)))
             .ToList();
         LanguageBox.SelectedValue = AppLanguage.Normalize(language);
         if (LanguageBox.SelectedItem is null && LanguageBox.Items.Count > 0)
             LanguageBox.SelectedIndex = 0;
+
+        ThemeBox.ItemsSource = ThemeOption.CreateOptions();
+        ThemeBox.SelectedValue = AppTheme.Normalize(theme ?? AppTheme.Orbit);
+        ThemeBox.SelectionChanged += (_, _) =>
+        {
+            if (ThemeBox.SelectedValue is string selected)
+                ThemeSelected?.Invoke(this, selected);
+        };
 
         SourceInitialized += (_, _) => TitleBarTheme.ApplyFromResources(this);
         Loaded += (_, _) => TitleBarTheme.ApplyFromResources(this);
@@ -25,7 +35,13 @@ public partial class SettingsWindow : Window
 
     public bool ConnectOnLaunch => ConnectBox.IsChecked == true;
 
+    public bool AutoReconnect => AutoReconnectBox.IsChecked == true;
+
     public string SelectedLanguage => LanguageBox.SelectedValue as string ?? AppLanguage.Auto;
+
+    public string SelectedTheme => ThemeBox.SelectedValue as string ?? AppTheme.Orbit;
+
+    public event EventHandler<string>? ThemeSelected;
 
     private void SaveClick(object sender, RoutedEventArgs e) => DialogResult = true;
 

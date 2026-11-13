@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 using SelectiveVpn.Abstractions;
 using SelectiveVpn.Engine;
 using SelectiveVpn.Models;
@@ -12,11 +13,12 @@ using SelectiveVpn.Services;
 
 namespace SelectiveVpn.ViewModels;
 
-public sealed class MainViewModel : ViewModelBase
+public sealed class MainViewModel : ViewModelBase, IDisposable
 {
     private readonly IMihomoController _mihomo;
     private readonly IAppRuleStore _rules;
     private readonly IFilePicker _files;
+    private readonly MainViewModelEnvironment _environment;
     private readonly UserSettings _settings;
 
     private string? _configPath;
@@ -28,23 +30,37 @@ public sealed class MainViewModel : ViewModelBase
     private bool _disconnecting;
     private bool _expectExit;
     private bool _isDarkTheme;
-    private string _theme = AppTheme.Dark;
+    private string _theme = AppTheme.Orbit;
     private string _statusText = "";
     private string _statusKind = "disconnected";
     private string _statusDetail = "";
     private string _profileName = "";
     private string _engineLabel = "";
     private string _externalIp = "—";
+    private string _externalIpCountryCode = "";
     private string _connectedServer = "";
     private string _ipCaption = "";
     private string _incomingTraffic = "0";
     private string _outgoingTraffic = "0";
+    private long? _connectionStartedTimestamp;
+    private DispatcherTimer? _connectionDurationTimer;
     private bool _exceptListed;
     private bool _suppressExceptListed;
     private bool _updateAvailable;
+    private readonly HashSet<string> _pendingProfilePaths = new(StringComparer.OrdinalIgnoreCase);
     private UpdateInfo? _pendingUpdate;
     private CancellationTokenSource? _connectCts;
     private CancellationTokenSource? _trafficCts;
+    private CancellationTokenSource? _sessionCts;
+    private CancellationTokenSource? _ipRefreshCts;
+    private CancellationTokenSource? _ipCountryCts;
+    private CancellationTokenSource? _recoveryCts;
+    private Task? _connectTask;
+    private Task? _recoveryTask;
+    private MihomoStartRequest? _activeRequest;
+    private long _sessionGeneration;
+    private bool _closing;
+    private bool _disposed;
     private readonly Dictionary<string, Dictionary<string, int>> _lastNodeDelays =
         new(StringComparer.OrdinalIgnoreCase);
 
@@ -52,7 +68,17 @@ public sealed class MainViewModel : ViewModelBase
         IMihomoController mihomo,
         IAppRuleStore rules,
         IFilePicker files)
+        : this(mihomo, rules, files, new MainViewModelEnvironment())
     {
+    }
+
+    internal MainViewModel(
+        IMihomoController mihomo,
+        IAppRuleStore rules,
+        IFilePicker files,
+        MainViewModelEnvironment environment)
+    {
+        _environment = environment;
         _mihomo = mihomo;
         _rules = rules;
         _files = files;
@@ -61,6 +87,8 @@ public sealed class MainViewModel : ViewModelBase
 
         ConnectCommand = new RelayCommand(ConnectAsync, () => !IsBusy && !IsConnected, LogUnexpected);
         DisconnectCommand = new RelayCommand(DisconnectAsync, CanDisconnect, LogUnexpected);
+        ReconnectCommand = new RelayCommand(ReconnectFromUserAsync,
+            () => !IsBusy && IsSelectedProfileRunning && HasPendingChanges, LogUnexpected);
         BrowseConfigCommand = new RelayCommand(BrowseConfig, () => !IsBusy, LogUnexpected);
         ImportSubscriptionCommand = new RelayCommand(ImportSubscriptionAsync, () => !IsBusy, LogUnexpected);
         RemoveProfileCommand = new RelayCommand(RemoveProfile, () => !IsBusy && Profiles.Count > 0, LogUnexpected);
@@ -75,21 +103,24 @@ public sealed class MainViewModel : ViewModelBase
         RefreshIpCommand = new RelayCommand(() => RefreshIpAsync(), () => IsConnected && !IsBusy, LogUnexpected);
         BrowseEngineCommand = new RelayCommand(BrowseEngine, () => !IsBusy, LogUnexpected);
         CheckConfigCommand = new RelayCommand(CheckConfig, () => !IsBusy, LogUnexpected);
-        UseLightThemeCommand = new RelayCommand(() => ApplyTheme(AppTheme.Light, persist: true), () => true, LogUnexpected);
-        UseDarkThemeCommand = new RelayCommand(() => ApplyTheme(AppTheme.Dark, persist: true), () => true, LogUnexpected);
-        UseGreenThemeCommand = new RelayCommand(() => ApplyTheme(AppTheme.Green, persist: true), () => true, LogUnexpected);
-        UseOledThemeCommand = new RelayCommand(() => ApplyTheme(AppTheme.Oled, persist: true), () => true, LogUnexpected);
-        UseAmberThemeCommand = new RelayCommand(() => ApplyTheme(AppTheme.Amber, persist: true), () => true, LogUnexpected);
-        UseIndigoThemeCommand = new RelayCommand(() => ApplyTheme(AppTheme.Indigo, persist: true), () => true, LogUnexpected);
+        UseLightThemeCommand = new RelayCommand(() => ApplyTheme(AppTheme.Orbit, persist: true), () => true, LogUnexpected);
+        UseDarkThemeCommand = new RelayCommand(() => ApplyTheme(AppTheme.Orbit, persist: true), () => true, LogUnexpected);
+        UseGreenThemeCommand = new RelayCommand(() => ApplyTheme(AppTheme.Orbit, persist: true), () => true, LogUnexpected);
+        UseOledThemeCommand = new RelayCommand(() => ApplyTheme(AppTheme.Orbit, persist: true), () => true, LogUnexpected);
+        UseAmberThemeCommand = new RelayCommand(() => ApplyTheme(AppTheme.Orbit, persist: true), () => true, LogUnexpected);
+        UseIndigoThemeCommand = new RelayCommand(() => ApplyTheme(AppTheme.Orbit, persist: true), () => true, LogUnexpected);
         OpenSettingsCommand = new RelayCommand(OpenSettings, () => true, LogUnexpected);
         OpenUpdateCommand = new RelayCommand(OpenUpdate, () => UpdateAvailable, LogUnexpected);
 
-        _settings = UserSettingsStore.Load(out var settingsExisted);
+        var loaded = _environment.LoadSettings();
+        _settings = loaded.Settings;
+        UserSettingsStore.Normalize(_settings);
+        var settingsExisted = loaded.Existed;
         RestoreSettings();
         RefreshLocalizedStrings();
-        AppLanguage.LanguageChanged += (_, _) => Dispatch(RefreshLocalizedStrings);
+        AppLanguage.LanguageChanged += OnLanguageChanged;
 
-        var rights = WindowsElevation.IsElevated()
+        var rights = _environment.IsElevated()
             ? Loc.T("Msg.AdminOk")
             : Loc.T("Msg.AdminNeeded");
         Report(Loc.Tf("Msg.UiStarted", rights));
@@ -101,7 +132,86 @@ public sealed class MainViewModel : ViewModelBase
 
     public string ThemeId => _theme;
 
+    public IReadOnlyList<ThemeOption> ThemeOptions { get; private set; } = [];
+
+    public string SelectedThemeId
+    {
+        get => _theme;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+            var normalized = AppTheme.Normalize(value);
+            if (!string.Equals(_theme, normalized, StringComparison.Ordinal))
+                ApplyTheme(normalized, persist: true);
+        }
+    }
+
     public string VersionLabel { get; } = AppVersion.Current;
+
+    public VpnProfileOption? SelectedProfile
+    {
+        get => Profiles.FirstOrDefault(profile => SamePath(profile.ConfigPath, ConfigPath));
+        set
+        {
+            if (value is not null && !SamePath(value.ConfigPath, ConfigPath)
+                && SelectProfileCommand.CanExecute(value))
+                SelectProfileCommand.Execute(value);
+        }
+    }
+
+    public bool IsRecovering => _recoveryCts is not null;
+
+    public ICommand ConnectionActionCommand => IsConnected || _connectCts is not null || _disconnecting || IsRecovering
+        ? DisconnectCommand : ConnectCommand;
+
+    public string ConnectionActionText => _disconnecting ? Loc.T("Orbit.Stopping")
+        : IsConnected ? Loc.T("Ui.Disconnect")
+        : _connectCts is not null || IsRecovering ? Loc.T("Ui.Cancel") : Loc.T("Ui.Connect");
+
+    public string ConnectionStatusTitle => IsRecovering && !IsConnected ? Loc.T("Orbit.Recovering") : StatusKind switch
+    {
+        "connected" => Loc.T("Orbit.Connected"),
+        "connecting" => Loc.T("Orbit.Connecting"),
+        "error" => Loc.T("Status.Error"),
+        _ => Loc.T("Orbit.Disconnected")
+    };
+
+    public string RunningProfileName => Profiles.FirstOrDefault(profile => profile.IsRunning)?.Name
+        ?? (string.IsNullOrWhiteSpace(_runningConfigPath) ? ProfileName : Path.GetFileNameWithoutExtension(_runningConfigPath));
+
+    public string ConnectionProfileName => IsConnected ? RunningProfileName : ProfileName;
+
+    public string ConnectionProtocol => SubscriptionProfile.IsSubscriptionPath(IsConnected ? _runningConfigPath : ConfigPath)
+        ? Loc.T("Orbit.Subscription") : "AmneziaWG";
+
+    public bool IsSelectedProfileRunning => IsConnected && SamePath(ConfigPath, _runningConfigPath);
+
+    public bool IsOtherProfileRunning => IsConnected && !IsSelectedProfileRunning;
+
+    public bool HasPendingChanges => IsSelectedProfileRunning && ConfigPath is not null
+        && _pendingProfilePaths.Contains(ConfigPath);
+
+    public bool ShowRoutingNotice => HasPendingChanges || IsOtherProfileRunning;
+
+    public string RoutingNotice => IsOtherProfileRunning
+        ? Loc.Tf("Orbit.OtherProfileRunning", RunningProfileName) : Loc.T("Orbit.PendingChanges");
+
+    public string RulesProfileLabel => HasProfile ? Loc.Tf("Orbit.RulesFor", ProfileName) : Loc.T("Orbit.ChooseProfile");
+
+    public string ListedRouteLabel => ExceptListed ? Loc.T("Orbit.Direct") : Loc.T("Orbit.ThroughVpn");
+
+    public string RemainingRouteLabel => ExceptListed ? Loc.T("Orbit.ThroughVpn") : Loc.T("Orbit.Direct");
+
+    public string RoutingSummary => !HasApps ? Loc.T("Orbit.AllTraffic")
+        : ExceptListed ? Loc.T("Orbit.RemainingVpn") : Loc.T("Orbit.RemainingDirect");
+
+    public int RoutingModeIndex
+    {
+        get => ExceptListed ? 1 : 0;
+        set { if (value is 0 or 1) ExceptListed = value == 1; }
+    }
+
+    public string ThemeDisplayName => Loc.T("Orbit.ThemeOrbit");
 
     public bool UpdateAvailable
     {
@@ -159,8 +269,24 @@ public sealed class MainViewModel : ViewModelBase
     public string ExternalIp
     {
         get => _externalIp;
-        private set => SetProperty(ref _externalIp, value);
+        private set
+        {
+            if (SetProperty(ref _externalIp, value))
+                ClearExternalIpCountry();
+        }
     }
+
+    public string ExternalIpCountryCode
+    {
+        get => _externalIpCountryCode;
+        private set
+        {
+            if (SetProperty(ref _externalIpCountryCode, value))
+                OnPropertyChanged(nameof(ExternalIpCountryName));
+        }
+    }
+
+    public string ExternalIpCountryName => CountryFlags.GetName(ExternalIpCountryCode);
 
     public string ConnectedServer
     {
@@ -186,6 +312,20 @@ public sealed class MainViewModel : ViewModelBase
         private set => SetProperty(ref _outgoingTraffic, value);
     }
 
+    public string ConnectionDuration
+    {
+        get
+        {
+            if (!IsConnected || _connectionStartedTimestamp is not long started)
+                return "00:00:00";
+
+            var elapsed = _environment.TimeProvider.GetElapsedTime(started);
+            var seconds = Math.Max(0, elapsed.Ticks / TimeSpan.TicksPerSecond);
+            return string.Create(CultureInfo.InvariantCulture,
+                $"{seconds / 3600:00}:{seconds / 60 % 60:00}:{seconds % 60:00}");
+        }
+    }
+
     public string? EnginePath
     {
         get => _enginePath;
@@ -203,6 +343,7 @@ public sealed class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(HasProfile));
                 OnPropertyChanged(nameof(IsSubscriptionProfile));
                 OnPropertyChanged(nameof(IsWireGuardProfile));
+                RefreshOrbitProperties();
                 CommandManager.InvalidateRequerySuggested();
             }
         }
@@ -227,17 +368,26 @@ public sealed class MainViewModel : ViewModelBase
         get => _exceptListed;
         set
         {
+            if (_exceptListed == value)
+                return;
+
+            var profile = _suppressExceptListed ? null : FindProfile(ConfigPath);
+            if (profile is not null)
+                SaveCurrentTargets(profile);
             if (!SetProperty(ref _exceptListed, value))
                 return;
 
             OnPropertyChanged(nameof(AppsHint));
             OnPropertyChanged(nameof(AppsFooter));
+            RefreshOrbitProperties();
             if (_suppressExceptListed)
                 return;
 
-            var profile = FindProfile(ConfigPath);
             if (profile is not null)
+            {
                 profile.ExceptListed = value;
+                LoadTargets(TargetsFor(profile, value));
+            }
             NoteLiveListChange();
             Persist();
         }
@@ -276,7 +426,10 @@ public sealed class MainViewModel : ViewModelBase
         private set
         {
             if (SetProperty(ref _isBusy, value))
+            {
+                RefreshOrbitProperties();
                 CommandManager.InvalidateRequerySuggested();
+            }
         }
     }
 
@@ -287,7 +440,16 @@ public sealed class MainViewModel : ViewModelBase
         {
             var changed = SetProperty(ref _isConnected, value);
             if (!value)
+            {
                 _runningConfigPath = null;
+                ResetConnectionDuration();
+            }
+            else if (changed)
+            {
+                // A failed startup cleanup can leave a real tunnel running, so use the
+                // observed connection transition rather than only the successful result path.
+                StartConnectionDuration();
+            }
             ApplyRunningLamps();
             if (changed)
                 CommandManager.InvalidateRequerySuggested();
@@ -297,6 +459,8 @@ public sealed class MainViewModel : ViewModelBase
     public RelayCommand ConnectCommand { get; }
 
     public RelayCommand DisconnectCommand { get; }
+
+    public RelayCommand ReconnectCommand { get; }
 
     public RelayCommand BrowseConfigCommand { get; }
 
@@ -344,6 +508,8 @@ public sealed class MainViewModel : ViewModelBase
 
     public bool ConnectOnLaunch => _settings.ConnectOnLaunch;
 
+    public bool AutoReconnect => _settings.AutoReconnect;
+
     public void SaveSettings() => Persist();
 
     public Task ConnectFromUserAsync() => ConnectAsync();
@@ -356,6 +522,15 @@ public sealed class MainViewModel : ViewModelBase
 
     public Task DisconnectFromUserAsync() => DisconnectAsync();
 
+    public async Task ReconnectFromUserAsync()
+    {
+        if (IsBusy || !IsSelectedProfileRunning || !HasPendingChanges)
+            return;
+        await DisconnectAsync();
+        if (!_mihomo.IsRunning && !_closing)
+            await ConnectAsync();
+    }
+
     public async Task ConnectFromSavedSessionAsync()
     {
         if (!ConnectSessionStore.TryTake(out var configPath, out var targets, out var exceptListed))
@@ -364,6 +539,21 @@ public sealed class MainViewModel : ViewModelBase
             return;
         }
 
+        RestoreSavedSessionTargets(configPath, targets, exceptListed);
+        if (string.IsNullOrWhiteSpace(ConfigPath))
+        {
+            Report(Loc.T("Msg.SessionNoConfig"));
+            return;
+        }
+
+        await StartEngineAsync();
+    }
+
+    internal void RestoreSavedSessionTargets(
+        string configPath,
+        IReadOnlyList<ConnectSessionStore.SessionTarget> targets,
+        bool exceptListed)
+    {
         if (FindProfile(configPath) is null)
         {
             _settings.Profiles.Add(new SavedProfile { ConfigPath = configPath, Targets = [] });
@@ -371,13 +561,12 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         SwitchTo(configPath);
-        if (exceptListed != ExceptListed)
-            ExceptListed = exceptListed;
+        ShowExceptListed(exceptListed);
+        // Elevation restores the exact requested mode snapshot. It must never merge
+        // the include list into exclusions (or resurrect rules removed before relaunch).
+        _rules.Clear();
         foreach (var target in targets)
         {
-            if (_rules.GetRules().Any(rule => string.Equals(rule.ExecutablePath, target.Path, StringComparison.OrdinalIgnoreCase)))
-                continue;
-
             var added = AddStoredTarget(
                 target.Path,
                 target.IsFolder,
@@ -391,19 +580,17 @@ public sealed class MainViewModel : ViewModelBase
 
         ReloadApps();
         Persist();
-        if (string.IsNullOrWhiteSpace(ConfigPath))
-        {
-            Report(Loc.T("Msg.SessionNoConfig"));
-            return;
-        }
-
-        await StartEngineAsync();
     }
 
     public async Task PrepareForCloseAsync()
     {
+        _closing = true;
+        CancelRecovery();
         if (!IsBusy && !_mihomo.IsRunning)
+        {
+            InvalidateSession();
             return;
+        }
 
         await DisconnectAsync();
     }
@@ -456,7 +643,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             Owner = Application.Current?.MainWindow
         };
-        if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.SavedPath))
+        if (_environment.ShowDialog(dialog) != true || string.IsNullOrWhiteSpace(dialog.SavedPath))
             return;
 
         var detail = string.IsNullOrWhiteSpace(dialog.ResultMessage)
@@ -504,59 +691,77 @@ public sealed class MainViewModel : ViewModelBase
         if (!IsSubscriptionProfile || string.IsNullOrWhiteSpace(ConfigPath))
             return;
 
-        if (!SubscriptionProfile.TryRead(ConfigPath, out var subscription, out var error))
+        var profilePath = ConfigPath;
+        if (!SubscriptionProfile.TryRead(profilePath, out var subscription, out var error))
         {
             Report(error);
             return;
         }
 
-        var nodes = WithCachedDelays(await LoadSubscriptionNodesAsync(subscription).ConfigureAwait(true));
+        var nodes = WithCachedDelays(profilePath, await LoadSubscriptionNodesAsync(profilePath, subscription).ConfigureAwait(true));
+        if (!SamePath(profilePath, ConfigPath))
+            return;
         var dialog = new SelectiveVpn.ServerPickerPrompt(
             nodes,
             subscription.EffectiveSelectedNode,
-            async ct => WithCachedDelays(
-                await LoadSubscriptionNodesAsync(subscription, forceRefresh: true, ct).ConfigureAwait(false)),
+            async ct => WithCachedDelays(profilePath,
+                await LoadSubscriptionNodesAsync(profilePath, subscription, forceRefresh: true, ct).ConfigureAwait(false)),
             async (names, ct) =>
             {
+                if (!IsRunningProfile(profilePath))
+                    return new Dictionary<string, int>();
                 var delays = await _mihomo.MeasureVpnNodeDelaysAsync(names, ct).ConfigureAwait(false);
-                RememberNodeDelays(delays);
+                RememberNodeDelays(profilePath, delays);
                 return delays;
             },
-            canPing: IsConnected)
+            canPing: IsRunningProfile(profilePath))
         {
             Owner = Application.Current?.MainWindow
         };
-        if (dialog.ShowDialog() != true)
+        if (_environment.ShowDialog(dialog) != true)
             return;
 
-        if (!SubscriptionProfile.TrySaveSelectedNode(ConfigPath, dialog.SelectedNodeName, out var saveError))
+        await ApplySelectedNodeAsync(profilePath, dialog.SelectedNodeName);
+    }
+
+    internal async Task ApplySelectedNodeAsync(string profilePath, string nodeName)
+    {
+        if (!SubscriptionProfile.TrySaveSelectedNode(profilePath, nodeName, out var saveError))
         {
             Report(saveError);
             return;
         }
 
-        if (IsConnected)
+        if (IsRunningProfile(profilePath))
         {
-            var applied = await _mihomo.SelectVpnNodeAsync(dialog.SelectedNodeName).ConfigureAwait(true);
+            var generation = _sessionGeneration;
+            var applied = await _mihomo.SelectVpnNodeAsync(nodeName, _sessionCts?.Token ?? CancellationToken.None).ConfigureAwait(true);
+            if (!IsCurrentSession(generation) || !IsRunningProfile(profilePath))
+                return;
             Report(applied.Succeeded
                 ? applied.Message
                 : Loc.Tf("Msg.ServerSavedOffline", applied.Message));
             if (applied.Succeeded)
             {
+                InvalidateSession();
+                _sessionCts = new CancellationTokenSource();
+                if (_environment.EnableTrafficPolling) StartTrafficPolling();
                 await RefreshConnectedServerAsync().ConfigureAwait(true);
-                _ = RefreshIpAsync();
+                _ = RefreshIpSafelyAsync();
             }
 
             return;
         }
 
-        Report(Loc.Tf("Msg.ServerSavedLive", SubscriptionProfile.DisplayNodeName(dialog.SelectedNodeName)));
+        Report(Loc.Tf("Msg.ServerSavedLive", SubscriptionProfile.DisplayNodeName(nodeName)));
     }
 
-    private IReadOnlyList<VpnNodeInfo> WithCachedDelays(IReadOnlyList<VpnNodeInfo> nodes)
+    private bool IsRunningProfile(string? profilePath)
+        => IsConnected && _mihomo.IsRunning && SamePath(profilePath, _runningConfigPath);
+
+    private IReadOnlyList<VpnNodeInfo> WithCachedDelays(string profilePath, IReadOnlyList<VpnNodeInfo> nodes)
     {
-        if (string.IsNullOrWhiteSpace(ConfigPath)
-            || !_lastNodeDelays.TryGetValue(ConfigPath, out var delays)
+        if (!_lastNodeDelays.TryGetValue(profilePath, out var delays)
             || delays.Count == 0)
         {
             return nodes;
@@ -565,15 +770,15 @@ public sealed class MainViewModel : ViewModelBase
         return SubscriptionNodeCatalog.ApplyDelays(nodes, delays, sortByDelay: false);
     }
 
-    private void RememberNodeDelays(IReadOnlyDictionary<string, int> delays)
+    private void RememberNodeDelays(string profilePath, IReadOnlyDictionary<string, int> delays)
     {
-        if (string.IsNullOrWhiteSpace(ConfigPath) || delays.Count == 0)
+        if (delays.Count == 0)
             return;
 
-        if (!_lastNodeDelays.TryGetValue(ConfigPath, out var cached))
+        if (!_lastNodeDelays.TryGetValue(profilePath, out var cached))
         {
             cached = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            _lastNodeDelays[ConfigPath] = cached;
+            _lastNodeDelays[profilePath] = cached;
         }
 
         foreach (var pair in delays)
@@ -581,18 +786,19 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     private async Task<IReadOnlyList<VpnNodeInfo>> LoadSubscriptionNodesAsync(
+        string profilePath,
         SubscriptionProfile subscription,
         bool forceRefresh = false,
         CancellationToken cancellationToken = default)
     {
-        if (_mihomo.IsRunning)
+        if (IsRunningProfile(profilePath))
         {
             var live = await _mihomo.ListVpnNodesAsync(cancellationToken).ConfigureAwait(false);
-            if (live.Count > 1)
+            if (live.Count > 1 && IsRunningProfile(profilePath))
                 return live;
         }
 
-        if (!forceRefresh
+        if (IsRunningProfile(profilePath) && !forceRefresh
             && SubscriptionNodeCatalog.TryListFromProviderCache(_mihomo.ProviderCachePath, out var cached, out _)
             && cached.Count > 0)
         {
@@ -615,7 +821,7 @@ public sealed class MainViewModel : ViewModelBase
                 subscription.NodeCount = names.Count;
                 try
                 {
-                    SubscriptionProfile.SaveToPath(ConfigPath!, subscription);
+                    SubscriptionProfile.SaveToPath(profilePath, subscription);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
@@ -659,12 +865,15 @@ public sealed class MainViewModel : ViewModelBase
         {
             Owner = Application.Current?.MainWindow
         };
-        if (dialog.ShowDialog() != true)
+        if (_environment.ShowDialog(dialog) != true)
             return;
 
         Report(dialog.ResultMessage);
         if (IsConnected)
+        {
+            MarkPendingChanges();
             Report(Loc.T("Msg.ApplyAfterRestart"));
+        }
     }
 
     private void RemoveProfile()
@@ -677,7 +886,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             Owner = Application.Current?.MainWindow
         };
-        if (prompt.ShowDialog() != true)
+        if (_environment.ShowDialog(prompt) != true)
             return;
 
         var removing = ConfigPath;
@@ -755,7 +964,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             Owner = Application.Current?.MainWindow
         };
-        if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.SelectedExecutablePath))
+        if (_environment.ShowDialog(dialog) != true || string.IsNullOrWhiteSpace(dialog.SelectedExecutablePath))
             return;
 
         var result = _rules.AddExecutable(dialog.SelectedExecutablePath);
@@ -790,7 +999,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             Owner = Application.Current?.MainWindow
         };
-        if (dialog.ShowDialog() != true)
+        if (_environment.ShowDialog(dialog) != true)
             return;
 
         var result = _rules.AddAddressList(
@@ -819,7 +1028,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             Owner = Application.Current?.MainWindow
         };
-        if (dialog.ShowDialog() != true)
+        if (_environment.ShowDialog(dialog) != true)
             return;
 
         var result = _rules.ReplaceAddressList(
@@ -873,18 +1082,19 @@ public sealed class MainViewModel : ViewModelBase
         if (!ConfirmFullTunnel())
             return;
 
-        if (!WindowsElevation.IsElevated())
+        if (!_environment.IsElevated())
         {
             Persist();
-            ConnectSessionStore.Save(ConfigPath, _rules.GetRules().ToArray(), ExceptListed);
-            if (!WindowsElevation.TryRelaunch("--connect", out var elevationMessage))
+            _environment.SaveConnectSession(ConfigPath, _rules.GetRules().ToArray(), ExceptListed);
+            var elevation = _environment.Relaunch("--connect");
+            if (!elevation.Succeeded)
             {
                 SetStatus(Loc.T("Status.Error"), "error");
-                Report(elevationMessage);
+                Report(elevation.Message);
                 return;
             }
 
-            Report(elevationMessage);
+            Report(elevation.Message);
             ApplicationExitRequested?.Invoke(this, EventArgs.Empty);
             Application.Current?.Shutdown();
             return;
@@ -893,9 +1103,24 @@ public sealed class MainViewModel : ViewModelBase
         await StartEngineAsync();
     }
 
-    private async Task StartEngineAsync()
+    private Task StartEngineAsync(MihomoStartRequest? restoredRequest = null,
+        CancellationToken cancellationToken = default, bool isRecovery = false)
     {
-        _connectCts = new CancellationTokenSource();
+        var request = restoredRequest ?? new MihomoStartRequest(
+            ConfigPath!, BuildRouteTargets(),
+            string.IsNullOrWhiteSpace(EnginePath) ? null : EnginePath, ExceptListed);
+        _connectTask = StartEngineCoreAsync(request, cancellationToken, isRecovery);
+        return _connectTask;
+    }
+
+    private async Task StartEngineCoreAsync(MihomoStartRequest request,
+        CancellationToken cancellationToken, bool isRecovery)
+    {
+        InvalidateSession();
+        _sessionCts = new CancellationTokenSource();
+        var generation = _sessionGeneration;
+        using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _sessionCts.Token);
+        _connectCts = connectCts;
         IsBusy = true;
         ExternalIp = "—";
         ConnectedServer = "";
@@ -904,17 +1129,20 @@ public sealed class MainViewModel : ViewModelBase
         CommandManager.InvalidateRequerySuggested();
         try
         {
-            var request = new MihomoStartRequest(
-                ConfigPath!,
-                BuildRouteTargets(),
-                string.IsNullOrWhiteSpace(EnginePath) ? null : EnginePath,
-                ExceptListed);
-            var result = await _mihomo.StartAsync(request, _connectCts.Token);
+            var result = await _mihomo.StartAsync(request, connectCts.Token);
+            connectCts.Token.ThrowIfCancellationRequested();
+            if (generation != _sessionGeneration || _closing)
+                throw new OperationCanceledException(connectCts.Token);
             Report(result.Message);
-            _runningConfigPath = result.Succeeded && _mihomo.IsRunning ? ConfigPath : null;
+            _runningConfigPath = result.Succeeded && _mihomo.IsRunning ? request.ConfigFilePath : null;
+            _activeRequest = result.Succeeded && _mihomo.IsRunning ? request : null;
             IsConnected = result.Succeeded && _mihomo.IsRunning;
             if (IsConnected)
+            {
+                if (!isRecovery)
+                    _pendingProfilePaths.Remove(request.ConfigFilePath);
                 SetStatus(Loc.T("Status.Running"), "connected");
+            }
             else if (result.Message.Contains("отменено", StringComparison.OrdinalIgnoreCase)
                      || result.Message.Contains("cancel", StringComparison.OrdinalIgnoreCase))
                 SetStatus(Loc.T("Status.Stopped"), "disconnected");
@@ -923,25 +1151,95 @@ public sealed class MainViewModel : ViewModelBase
         }
         catch (OperationCanceledException)
         {
-            IsConnected = false;
-            SetStatus(Loc.T("Status.Stopped"), "disconnected");
-            Report(Loc.T("Msg.ConnectCanceled"));
+            try { if (_mihomo.IsRunning) await _mihomo.StopAsync(); }
+            catch (Exception exception) { LogUnexpected(exception); }
+            var running = _mihomo.IsRunning;
+            _runningConfigPath = running ? request.ConfigFilePath : null;
+            _activeRequest = running ? request : null;
+            IsConnected = running;
+            SetStatus(Loc.T(running ? "Status.Error" : "Status.Stopped"), running ? "error" : "disconnected");
+            if (!running) Report(Loc.T("Msg.ConnectCanceled"));
+        }
+        catch (Exception exception)
+        {
+            _runningConfigPath = _mihomo.IsRunning ? request.ConfigFilePath : null;
+            _activeRequest = _mihomo.IsRunning ? request : null;
+            IsConnected = _mihomo.IsRunning;
+            SetStatus(Loc.T("Status.Error"), "error");
+            LogUnexpected(exception);
         }
         finally
         {
-            _connectCts.Dispose();
-            _connectCts = null;
-            IsBusy = false;
+            if (ReferenceEquals(_connectCts, connectCts))
+                _connectCts = null;
+            IsBusy = IsRecovering || _disconnecting;
             CommandManager.InvalidateRequerySuggested();
         }
 
-        if (IsConnected)
+        if (IsConnected && generation == _sessionGeneration && _environment.EnableTrafficPolling)
         {
             IncomingTraffic = "0 " + Loc.T("Unit.B");
             OutgoingTraffic = "0 " + Loc.T("Unit.B");
             StartTrafficPolling();
-            await RefreshIpAsync(waitForTunnel: true);
+            _ = RefreshIpSafelyAsync(waitForTunnel: true);
         }
+    }
+
+    private void InvalidateSession()
+    {
+        _sessionGeneration++;
+        _ipRefreshCts?.Cancel();
+        ClearExternalIpCountry();
+        _sessionCts?.Cancel();
+        _sessionCts?.Dispose();
+        _sessionCts = null;
+        StopTrafficPolling();
+    }
+
+    private void StartConnectionDuration()
+    {
+        if (_disposed || _connectionStartedTimestamp.HasValue)
+            return;
+
+        _connectionStartedTimestamp = _environment.TimeProvider.GetTimestamp();
+        if (_connectionDurationTimer is null)
+        {
+            _connectionDurationTimer = new DispatcherTimer(DispatcherPriority.Background,
+                Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher)
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+            _connectionDurationTimer.Tick += OnConnectionDurationTick;
+        }
+
+        _connectionDurationTimer.Start();
+        OnPropertyChanged(nameof(ConnectionDuration));
+    }
+
+    private void ResetConnectionDuration()
+    {
+        if (!_connectionStartedTimestamp.HasValue)
+            return;
+
+        _connectionStartedTimestamp = null;
+        _connectionDurationTimer?.Stop();
+        OnPropertyChanged(nameof(ConnectionDuration));
+    }
+
+    private void OnConnectionDurationTick(object? sender, EventArgs e)
+    {
+        if (!_disposed && IsConnected && _connectionStartedTimestamp.HasValue)
+            OnPropertyChanged(nameof(ConnectionDuration));
+    }
+
+    private bool IsCurrentSession(long generation)
+        => !_disposed && generation == _sessionGeneration && IsConnected && _mihomo.IsRunning;
+
+    private async Task RefreshIpSafelyAsync(bool waitForTunnel = false)
+    {
+        try { await RefreshIpAsync(waitForTunnel); }
+        catch (OperationCanceledException) { }
+        catch (Exception exception) { if (IsConnected) LogUnexpected(exception); }
     }
 
     private void StartTrafficPolling()
@@ -963,6 +1261,7 @@ public sealed class MainViewModel : ViewModelBase
 
     private async Task PollTrafficAsync(CancellationToken cancellationToken)
     {
+        var generation = _sessionGeneration;
         while (!cancellationToken.IsCancellationRequested)
         {
             try
@@ -971,6 +1270,8 @@ public sealed class MainViewModel : ViewModelBase
                 var traffic = await _mihomo.QueryVpnTrafficAsync(cancellationToken);
                 Dispatch(() =>
                 {
+                    if (cancellationToken.IsCancellationRequested || !IsCurrentSession(generation))
+                        return;
                     IncomingTraffic = FormatBytes(traffic.IncomingBytes);
                     OutgoingTraffic = FormatBytes(traffic.OutgoingBytes);
                 });
@@ -1007,72 +1308,102 @@ public sealed class MainViewModel : ViewModelBase
 
     private async Task RefreshIpAsync(bool waitForTunnel = false)
     {
-        if (!_mihomo.IsRunning)
-        {
-            ExternalIp = "—";
-            ConnectedServer = "";
-            IpCaption = Loc.T("Ip.CaptionOffline");
+        if (!IsConnected || !_mihomo.IsRunning)
             return;
-        }
-
-        _ = RefreshConnectedServerAsync();
-        IpCaption = Loc.T("Ip.CaptionBusy");
-        var attempts = waitForTunnel ? 4 : 1;
-        OperationResult result = OperationResult.Fail(Loc.T("Ip.Fail"));
-        for (var attempt = 0; attempt < attempts; attempt++)
+        var generation = _sessionGeneration;
+        using var refreshCts = CancellationTokenSource.CreateLinkedTokenSource(_sessionCts?.Token ?? CancellationToken.None);
+        _ipRefreshCts?.Cancel();
+        _ipRefreshCts = refreshCts;
+        ClearExternalIpCountry();
+        bool Current() => IsCurrentSession(generation) && ReferenceEquals(_ipRefreshCts, refreshCts)
+            && !refreshCts.IsCancellationRequested;
+        try
         {
-            if (waitForTunnel)
+            await RefreshConnectedServerAsync();
+            if (!Current()) return;
+            IpCaption = Loc.T("Ip.CaptionBusy");
+            var attempts = waitForTunnel ? 4 : 1;
+            OperationResult result = OperationResult.Fail(Loc.T("Ip.Fail"));
+            for (var attempt = 0; attempt < attempts; attempt++)
             {
+                if (waitForTunnel)
+                    await _environment.DelayAsync(TimeSpan.FromSeconds(2), refreshCts.Token);
+                if (!Current()) return;
                 try
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(2));
+                    using var attemptTimeout = CancellationTokenSource.CreateLinkedTokenSource(refreshCts.Token);
+                    attemptTimeout.CancelAfter(TimeSpan.FromSeconds(waitForTunnel ? 6 : 12));
+                    result = await _mihomo.QueryExitIpAsync(attemptTimeout.Token);
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (!refreshCts.IsCancellationRequested)
                 {
+                    result = OperationResult.Fail(Loc.T("Ip.Fail"));
+                }
+                if (!Current()) return;
+                if (result.Succeeded && IPAddress.TryParse(result.Message, out _))
+                {
+                    ExternalIp = result.Message;
+                    IpCaption = Loc.T("Ip.CaptionOk");
+                    StartIpCountryLookup(result.Message, generation, refreshCts);
+                    await RefreshConnectedServerAsync();
+                    if (Current()) Report(Loc.T("Msg.IpUpdated"));
                     return;
                 }
             }
-
-            if (!_mihomo.IsRunning)
-            {
-                ExternalIp = "—";
-                ConnectedServer = "";
-                IpCaption = Loc.T("Ip.CaptionOffline");
-                return;
-            }
-
-            try
-            {
-                using var attemptTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(waitForTunnel ? 6 : 12));
-                result = await _mihomo.QueryExitIpAsync(attemptTimeout.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                result = OperationResult.Fail(Loc.T("Ip.Fail"));
-            }
-
-            if (result.Succeeded && IPAddress.TryParse(result.Message, out _))
-            {
-                ExternalIp = result.Message;
-                IpCaption = Loc.T("Ip.CaptionOk");
-                await RefreshConnectedServerAsync().ConfigureAwait(true);
-                Report(Loc.T("Msg.IpUpdated"));
-                return;
-            }
+            if (!Current()) return;
+            ExternalIp = "—";
+            IpCaption = result.Message;
+            Report(result.Message);
         }
+        catch (OperationCanceledException) when (refreshCts.IsCancellationRequested) { }
+        finally { if (ReferenceEquals(_ipRefreshCts, refreshCts)) _ipRefreshCts = null; }
+    }
 
-        if (!_mihomo.IsRunning)
-            return;
+    private void ClearExternalIpCountry()
+    {
+        _ipCountryCts?.Cancel();
+        _ipCountryCts = null;
+        ExternalIpCountryCode = "";
+    }
 
-        ExternalIp = "—";
-        IpCaption = result.Message;
-        await RefreshConnectedServerAsync().ConfigureAwait(true);
-        Report(result.Message);
+    private void StartIpCountryLookup(string ip, long generation, CancellationTokenSource refreshCts)
+    {
+        ClearExternalIpCountry();
+        var countryCts = CancellationTokenSource.CreateLinkedTokenSource(refreshCts.Token);
+        _ipCountryCts = countryCts;
+        _ = RefreshIpCountryAsync(ip, generation, refreshCts, countryCts);
+    }
+
+    private async Task RefreshIpCountryAsync(string ip, long generation,
+        CancellationTokenSource refreshCts, CancellationTokenSource countryCts)
+    {
+        try
+        {
+            var result = await _environment.LookupIpCountryAsync(ip, countryCts.Token).ConfigureAwait(true);
+            if (countryCts.IsCancellationRequested || !IsCurrentSession(generation)
+                || !ReferenceEquals(_ipCountryCts, countryCts)
+                || (_ipRefreshCts is not null && !ReferenceEquals(_ipRefreshCts, refreshCts))
+                || !string.Equals(ExternalIp, ip, StringComparison.Ordinal))
+                return;
+            ExternalIpCountryCode = CountryFlags.Normalize(result);
+        }
+        catch (Exception)
+        {
+            // Optional country data must not delay or fail the IP refresh or connection lifecycle.
+        }
+        finally
+        {
+            if (ReferenceEquals(_ipCountryCts, countryCts))
+                _ipCountryCts = null;
+            countryCts.Dispose();
+        }
     }
 
     private async Task RefreshConnectedServerAsync()
     {
-        if (!IsSubscriptionProfile || !_mihomo.IsRunning)
+        var generation = _sessionGeneration;
+        var runningPath = _runningConfigPath;
+        if (!IsCurrentSession(generation) || !SubscriptionProfile.IsSubscriptionPath(runningPath))
         {
             ConnectedServer = "";
             return;
@@ -1080,7 +1411,9 @@ public sealed class MainViewModel : ViewModelBase
 
         try
         {
-            var node = await _mihomo.GetActiveVpnNodeAsync().ConfigureAwait(true);
+            var node = await _mihomo.GetActiveVpnNodeAsync(_sessionCts?.Token ?? CancellationToken.None).ConfigureAwait(true);
+            if (!IsCurrentSession(generation) || !SamePath(runningPath, _runningConfigPath))
+                return;
             ConnectedServer = string.IsNullOrWhiteSpace(node)
                 ? ""
                 : "· " + (node.Equals(SubscriptionProfile.AutoNodeName, StringComparison.OrdinalIgnoreCase)
@@ -1097,45 +1430,58 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (_disconnecting)
             return;
-
-        if (IsBusy && !_mihomo.IsRunning)
-        {
-            _connectCts?.Cancel();
-            Report(Loc.T("Msg.Canceling"));
-            return;
-        }
-
-        if (!_mihomo.IsRunning)
-        {
-            SetStatus(Loc.T("Status.Stopped"), "disconnected");
-            Report(Loc.T("Msg.NotRunning"));
-            return;
-        }
-
         _disconnecting = true;
         _expectExit = true;
+        var wasRecovering = IsRecovering;
+        var recoveryTask = _recoveryTask;
+        CancelRecovery();
+        _connectCts?.Cancel();
+        InvalidateSession();
         IsBusy = true;
         CommandManager.InvalidateRequerySuggested();
         try
         {
-            var result = await _mihomo.StopAsync();
-            Report(result.Message);
+            if (_connectTask is { IsCompleted: false } connecting)
+                await connecting;
+            if (recoveryTask is { IsCompleted: false })
+                await recoveryTask;
+            if (_mihomo.IsRunning)
+            {
+                var result = await _mihomo.StopAsync();
+                Report(result.Message);
+            }
             IsConnected = _mihomo.IsRunning;
-            ExternalIp = "—";
-            ConnectedServer = "";
-            IpCaption = Loc.T("Ip.CaptionIdle");
+            if (!IsConnected)
+            {
+                _activeRequest = null;
+                _pendingProfilePaths.Clear();
+                ExternalIp = "—";
+                ConnectedServer = "";
+                IpCaption = Loc.T("Ip.CaptionIdle");
+            }
             SetStatus(
                 IsConnected ? Loc.T("Status.Running") : Loc.T("Status.Stopped"),
                 IsConnected ? "error" : "disconnected");
         }
+        catch (Exception exception)
+        {
+            IsConnected = _mihomo.IsRunning;
+            SetStatus(Loc.T("Status.Error"), "error");
+            LogUnexpected(exception);
+        }
         finally
         {
-            StopTrafficPolling();
+            if (IsConnected && _environment.EnableTrafficPolling)
+            {
+                _sessionCts = new CancellationTokenSource();
+                StartTrafficPolling();
+            }
             _expectExit = false;
             _disconnecting = false;
             IsBusy = false;
             CommandManager.InvalidateRequerySuggested();
         }
+        if (wasRecovering) Report(Loc.T("Orbit.RecoveryCanceled"));
     }
 
     private bool ConfirmFullTunnel()
@@ -1147,7 +1493,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             Owner = Application.Current?.MainWindow
         };
-        if (prompt.ShowDialog() != true)
+        if (_environment.ShowDialog(prompt) != true)
         {
             Report(Loc.T("Msg.ConnectCanceled"));
             return false;
@@ -1162,7 +1508,7 @@ public sealed class MainViewModel : ViewModelBase
         return true;
     }
 
-    private bool CanDisconnect() => !_disconnecting && (!IsBusy || IsConnected || _connectCts is not null);
+    private bool CanDisconnect() => !_disconnecting && (!IsBusy || IsConnected || _connectCts is not null || IsRecovering);
 
     private void ReloadApps()
     {
@@ -1176,11 +1522,13 @@ public sealed class MainViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(HasApps));
         OnPropertyChanged(nameof(TargetCount));
+        RefreshOrbitProperties();
         CommandManager.InvalidateRequerySuggested();
     }
 
     private void RestoreSettings()
     {
+        var removedMissing = false;
         ApplyTheme(_settings.Theme, persist: false);
         foreach (var profile in _settings.Profiles)
             Profiles.Add(new VpnProfileOption(profile.ConfigPath));
@@ -1192,7 +1540,8 @@ public sealed class MainViewModel : ViewModelBase
             ConfigPath = active.ConfigPath;
             if (!File.Exists(active.ConfigPath))
                 Report(Loc.T("Msg.SavedConfigMissing"));
-            LoadTargets(active.Targets);
+            ShowExceptListed(active.ExceptListed);
+            removedMissing = LoadTargets(TargetsFor(active, active.ExceptListed));
             MarkActiveProfile();
         }
 
@@ -1206,6 +1555,8 @@ public sealed class MainViewModel : ViewModelBase
         UpdateEngineLabel();
         if (_settings.LaunchWithWindows && !WindowsStartup.TryApply(true, out var startupMessage))
             Report(startupMessage);
+        if (removedMissing)
+            Persist();
     }
 
     private void OpenUpdate()
@@ -1224,7 +1575,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             Owner = Application.Current?.MainWindow
         };
-        dialog.ShowDialog();
+        _environment.ShowDialog(dialog);
     }
 
     private void OpenSettings()
@@ -1232,38 +1583,43 @@ public sealed class MainViewModel : ViewModelBase
         var dialog = new SelectiveVpn.SettingsWindow(
             _settings.LaunchWithWindows,
             _settings.ConnectOnLaunch,
-            _settings.Language)
+            _settings.Language,
+            _theme,
+            _settings.AutoReconnect)
         {
             Owner = Application.Current?.MainWindow
         };
-        if (dialog.ShowDialog() != true)
-            return;
+        void ApplySelectedTheme(object? sender, string theme) => SelectedThemeId = theme;
+        dialog.ThemeSelected += ApplySelectedTheme;
+        bool? accepted;
+        try { accepted = _environment.ShowDialog(dialog); }
+        finally { dialog.ThemeSelected -= ApplySelectedTheme; }
+        if (accepted != true) return;
 
         var launch = dialog.LaunchWithWindows;
         var connect = dialog.ConnectOnLaunch;
         var language = AppLanguage.Normalize(dialog.SelectedLanguage);
-        if (launch != _settings.LaunchWithWindows)
+        if (launch != _settings.LaunchWithWindows || launch)
         {
-            if (!WindowsStartup.TryApply(launch, out var startupMessage))
+            var startup = _environment.ApplyStartup(launch);
+            if (!startup.Succeeded)
             {
-                Report(startupMessage);
-                return;
+                Report(startup.Message);
+                if (launch != _settings.LaunchWithWindows) return;
             }
-
-            Report(startupMessage);
-        }
-        else if (launch && !WindowsStartup.TryApply(true, out var refreshMessage))
-        {
-            Report(refreshMessage);
+            else if (launch != _settings.LaunchWithWindows) Report(startup.Message);
         }
 
         var connectChanged = connect != _settings.ConnectOnLaunch;
         var languageChanged = !string.Equals(language, _settings.Language, StringComparison.OrdinalIgnoreCase);
         _settings.LaunchWithWindows = launch;
         _settings.ConnectOnLaunch = connect;
+        _settings.AutoReconnect = dialog.AutoReconnect;
+        if (!_settings.AutoReconnect) CancelRecovery();
         _settings.Language = language;
         Persist();
         OnPropertyChanged(nameof(ConnectOnLaunch));
+        OnPropertyChanged(nameof(AutoReconnect));
         if (languageChanged)
         {
             AppLanguage.Apply(language);
@@ -1286,18 +1642,12 @@ public sealed class MainViewModel : ViewModelBase
         AppTheme.Apply(normalized);
         IsDarkTheme = AppTheme.UsesDarkChrome(normalized);
         OnPropertyChanged(nameof(ThemeId));
+        OnPropertyChanged(nameof(SelectedThemeId));
+        OnPropertyChanged(nameof(ThemeDisplayName));
         if (!persist || !changed)
             return;
 
-        Report(normalized switch
-        {
-            AppTheme.Dark => Loc.T("Msg.ThemeDark"),
-            AppTheme.Green => Loc.T("Msg.ThemeGreen"),
-            AppTheme.Oled => Loc.T("Msg.ThemeOled"),
-            AppTheme.Amber => Loc.T("Msg.ThemeAmber"),
-            AppTheme.Indigo => Loc.T("Msg.ThemeIndigo"),
-            _ => Loc.T("Msg.ThemeLight")
-        });
+        Report(string.Format(Loc.T("Msg.ThemeChanged"), ThemeDisplayName));
         Persist();
     }
 
@@ -1306,32 +1656,47 @@ public sealed class MainViewModel : ViewModelBase
         try
         {
             var rules = _rules.GetRules();
-            var savedTargets = rules
-                .Select(rule => new SavedTarget
-                {
-                    Path = rule.ExecutablePath,
-                    Kind = rule.StoredKind,
-                    Entries = rule.EntryList.ToList(),
-                    ResolvedIps = rule.ResolvedIpList.ToList(),
-                    SkipDomainResolve = rule.SkipDomainResolve
-                })
-                .ToList();
+            var savedTargets = SnapshotTargets();
             var active = FindProfile(ConfigPath);
             if (active is not null)
-                active.Targets = savedTargets;
+                SaveCurrentTargets(active, savedTargets);
 
             _settings.ConfigPath = string.IsNullOrWhiteSpace(ConfigPath) ? null : ConfigPath;
             _settings.EnginePath = string.IsNullOrWhiteSpace(EnginePath) ? null : EnginePath;
             _settings.Apps = rules.Where(rule => rule.EffectiveKind == RouteKind.File).Select(rule => rule.ExecutablePath).ToList();
-            _settings.Targets = active?.Targets ?? savedTargets;
+            _settings.Targets = UserSettingsStore.CloneTargets(savedTargets);
             _settings.Theme = _theme;
-            UserSettingsStore.Save(_settings);
+            _environment.SaveSettings(_settings);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Report(Loc.T("Msg.SaveSettingsFail"));
         }
     }
+
+    private List<SavedTarget> SnapshotTargets()
+        => _rules.GetRules().Select(rule => new SavedTarget
+        {
+            Path = rule.ExecutablePath,
+            Kind = rule.StoredKind,
+            Entries = rule.EntryList.ToList(),
+            ResolvedIps = rule.ResolvedIpList.ToList(),
+            SkipDomainResolve = rule.SkipDomainResolve
+        }).ToList();
+
+    private void SaveCurrentTargets(SavedProfile profile, IReadOnlyList<SavedTarget>? targets = null)
+    {
+        var snapshot = UserSettingsStore.CloneTargets(targets ?? SnapshotTargets());
+        if (ExceptListed)
+            profile.ExcludeTargets = snapshot;
+        else
+            profile.IncludeTargets = snapshot;
+        profile.ExceptListed = ExceptListed;
+        profile.Targets = UserSettingsStore.CloneTargets(snapshot);
+    }
+
+    private static IReadOnlyList<SavedTarget> TargetsFor(SavedProfile profile, bool exceptListed)
+        => (exceptListed ? profile.ExcludeTargets : profile.IncludeTargets) ?? [];
 
     private void SwitchTo(string configPath)
     {
@@ -1340,13 +1705,13 @@ public sealed class MainViewModel : ViewModelBase
             return;
 
         ConfigPath = profile.ConfigPath;
-        LoadTargets(profile.Targets);
         ShowExceptListed(profile.ExceptListed);
+        LoadTargets(TargetsFor(profile, profile.ExceptListed));
         MarkActiveProfile();
         Persist();
     }
 
-    private void LoadTargets(IReadOnlyList<SavedTarget> targets)
+    private bool LoadTargets(IReadOnlyList<SavedTarget> targets)
     {
         _rules.Clear();
         var removedMissing = false;
@@ -1367,8 +1732,9 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         ReloadApps();
-        if (removedMissing)
-            Persist();
+        // The caller persists after restoring both the profile and its mode, preventing
+        // a missing EXE from saving a partially loaded list into the wrong bucket.
+        return removedMissing;
     }
 
     private OperationResult AddStoredTarget(
@@ -1422,6 +1788,7 @@ public sealed class MainViewModel : ViewModelBase
     {
         foreach (var profile in Profiles)
             profile.IsRunning = _isConnected && SamePath(profile.ConfigPath, _runningConfigPath);
+        RefreshOrbitProperties();
     }
 
     private SavedProfile? FindProfile(string? configPath)
@@ -1469,7 +1836,31 @@ public sealed class MainViewModel : ViewModelBase
     private void NoteLiveListChange()
     {
         if (IsConnected)
+        {
+            MarkPendingChanges();
             Report(Loc.T("Msg.ListWillApplyLater"));
+        }
+    }
+
+    private void MarkPendingChanges()
+    {
+        if (IsSelectedProfileRunning && ConfigPath is not null)
+            _pendingProfilePaths.Add(ConfigPath);
+        RefreshOrbitProperties();
+    }
+
+    private void RefreshOrbitProperties()
+    {
+        foreach (var property in new[]
+        {
+            nameof(SelectedProfile), nameof(ConnectionActionCommand), nameof(ConnectionActionText), nameof(IsRecovering),
+            nameof(ConnectionStatusTitle), nameof(RunningProfileName), nameof(ConnectionProfileName),
+            nameof(ConnectionProtocol), nameof(IsSelectedProfileRunning), nameof(IsOtherProfileRunning),
+            nameof(HasPendingChanges), nameof(ShowRoutingNotice), nameof(RoutingNotice),
+            nameof(RulesProfileLabel), nameof(ListedRouteLabel), nameof(RemainingRouteLabel),
+            nameof(RoutingSummary), nameof(RoutingModeIndex), nameof(ThemeDisplayName)
+        })
+            OnPropertyChanged(property);
     }
 
     private void Report(string message)
@@ -1503,20 +1894,98 @@ public sealed class MainViewModel : ViewModelBase
 
     private void OnEngineStopped(object? sender, EventArgs e) => Dispatch(() =>
     {
-        StopTrafficPolling();
-        if (_expectExit || !IsConnected)
+        if (_disposed || _expectExit || !IsConnected)
             return;
-
+        var request = _activeRequest;
+        InvalidateSession();
         IsConnected = false;
         ExternalIp = "—";
         ConnectedServer = "";
         IpCaption = Loc.T("Ip.CaptionIdle");
         SetStatus(Loc.T("Status.Error"), "error");
         Report(Loc.T("Msg.EngineStopped"));
+        if (_settings.AutoReconnect && !_closing && request is not null)
+        {
+            var recoveryCts = new CancellationTokenSource();
+            _recoveryCts = recoveryCts;
+            IsBusy = true;
+            RefreshOrbitProperties();
+            _recoveryTask = RecoverConnectionAsync(request, recoveryCts);
+        }
     });
+
+    private void CancelRecovery() => _recoveryCts?.Cancel();
+
+    private async Task RecoverConnectionAsync(MihomoStartRequest request, CancellationTokenSource recoveryCts)
+    {
+        try
+        {
+            int[] delays = [2, 5, 10];
+            for (var attempt = 0; attempt < delays.Length; attempt++)
+            {
+                await _environment.DelayAsync(TimeSpan.FromSeconds(delays[attempt]), recoveryCts.Token);
+                recoveryCts.Token.ThrowIfCancellationRequested();
+                if (_closing || _disposed || !_settings.AutoReconnect)
+                    return;
+                Report(Loc.Tf("Orbit.RecoveryAttempt", attempt + 1, delays.Length));
+                await StartEngineAsync(request, recoveryCts.Token, isRecovery: true);
+                if (IsConnected)
+                    return;
+            }
+            Report(Loc.T("Orbit.RecoveryFailed"));
+        }
+        catch (OperationCanceledException) when (recoveryCts.IsCancellationRequested) { }
+        catch (Exception exception) { LogUnexpected(exception); }
+        finally
+        {
+            var canceled = recoveryCts.IsCancellationRequested;
+            if (ReferenceEquals(_recoveryCts, recoveryCts))
+                _recoveryCts = null;
+            recoveryCts.Dispose();
+            IsBusy = _disconnecting || _connectCts is not null;
+            if (!IsConnected && !_disconnecting)
+                SetStatus(Loc.T(canceled ? "Status.Stopped" : "Status.Error"), canceled ? "disconnected" : "error");
+            RefreshOrbitProperties();
+            CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
+    private void OnLanguageChanged(object? sender, EventArgs e) => Dispatch(RefreshLocalizedStrings);
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _closing = true;
+        CancelRecovery();
+        _connectCts?.Cancel();
+        InvalidateSession();
+        if (_connectionDurationTimer is not null)
+        {
+            _connectionDurationTimer.Stop();
+            _connectionDurationTimer.Tick -= OnConnectionDurationTick;
+            _connectionDurationTimer = null;
+        }
+        AppLanguage.LanguageChanged -= OnLanguageChanged;
+        _mihomo.EngineMessage -= OnEngineMessage;
+        _mihomo.EngineStopped -= OnEngineStopped;
+    }
 
     private void RefreshLocalizedStrings()
     {
+        OnPropertyChanged(nameof(ExternalIpCountryName));
+        var translatedThemes = ThemeOption.CreateOptions();
+        if (ThemeOptions.Count == 0)
+        {
+            ThemeOptions = translatedThemes;
+            OnPropertyChanged(nameof(ThemeOptions));
+        }
+        else
+        {
+            foreach (var option in ThemeOptions)
+                option.Title = translatedThemes.First(translated => translated.Code == option.Code).Title;
+        }
+        OnPropertyChanged(nameof(SelectedThemeId));
         OnPropertyChanged(nameof(AppsHint));
         OnPropertyChanged(nameof(AppsFooter));
         OnPropertyChanged(nameof(InListLabel));
@@ -1540,6 +2009,7 @@ public sealed class MainViewModel : ViewModelBase
             IpCaption = Loc.T("Ip.CaptionOk");
 
         ReloadApps();
+        RefreshOrbitProperties();
     }
 
     private void SetStatus(string text, string kind)
@@ -1557,6 +2027,7 @@ public sealed class MainViewModel : ViewModelBase
             "error" => Loc.T("Status.ErrorDetail"),
             _ => Loc.T("Status.StoppedDetail")
         };
+        RefreshOrbitProperties();
     }
 
     private static void Dispatch(Action action)

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using SelectiveVpn.Engine;
 using SelectiveVpn.Models;
 using SelectiveVpn.Services;
@@ -14,6 +15,7 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly Forms.NotifyIcon _tray;
+    private readonly System.Drawing.Icon _trayIcon;
     private readonly Forms.ContextMenuStrip _trayMenu;
     private readonly Forms.ToolStripMenuItem _trayOpen;
     private readonly Forms.ToolStripMenuItem _trayConnect;
@@ -44,14 +46,13 @@ public partial class MainWindow : Window
             Dispatcher.BeginInvoke(
                 () =>
                 {
-                    if (EventLogList.Items.Count == 0)
-                        return;
-
-                    EventLogList.ScrollIntoView(EventLogList.Items[EventLogList.Items.Count - 1]);
+                    if (EventLogList.Items.Count > 0)
+                        EventLogList.ScrollIntoView(EventLogList.Items[EventLogList.Items.Count - 1]);
                 },
                 System.Windows.Threading.DispatcherPriority.Background);
         };
 
+        _trayIcon = AppIcon.LoadTrayIcon();
         (_tray, _trayMenu, _trayOpen, _trayConnect, _trayDisconnect, _trayExit) = CreateTrayIcon();
         ApplyTrayMenuTheme();
         RefreshTrayMenuTexts();
@@ -181,12 +182,14 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _viewModel.Dispose();
         AppTheme.ThemeChanged -= OnAppThemeChanged;
         AppLanguage.LanguageChanged -= OnLanguageChanged;
         _shutdownRequest?.Dispose();
         _activateRequest?.Dispose();
         _tray.Visible = false;
         _tray.Dispose();
+        _trayIcon.Dispose();
         _trayMenu.Dispose();
         base.OnClosed(e);
     }
@@ -199,7 +202,6 @@ public partial class MainWindow : Window
         Forms.ToolStripMenuItem Disconnect,
         Forms.ToolStripMenuItem Exit) CreateTrayIcon()
     {
-        var icon = System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath ?? "");
         var menu = new Forms.ContextMenuStrip();
         var open = new Forms.ToolStripMenuItem(Loc.T("Ui.Open"), null, (_, _) => ShowFromTray());
         var connect = new Forms.ToolStripMenuItem(Loc.T("Ui.Connect"), null, async (_, _) => await RunTrayAction(_viewModel.ConnectFromUserAsync));
@@ -216,7 +218,7 @@ public partial class MainWindow : Window
 
         var tray = new Forms.NotifyIcon
         {
-            Icon = icon ?? System.Drawing.SystemIcons.Shield,
+            Icon = _trayIcon,
             Text = "SelectiveVpn",
             Visible = true,
             ContextMenuStrip = menu
@@ -233,6 +235,49 @@ public partial class MainWindow : Window
         _trayConnect.Text = Loc.T("Ui.Connect");
         _trayDisconnect.Text = Loc.T("Ui.Disconnect");
         _trayExit.Text = Loc.T("Ui.Exit");
+    }
+
+    private void OpenMenuClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { ContextMenu: { } menu } button)
+            return;
+
+        menu.DataContext = _viewModel;
+        menu.PlacementTarget = button;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        menu.IsOpen = true;
+    }
+
+    private void EditRuleClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: AppRule rule } || !rule.IsAddressList)
+            return;
+
+        _viewModel.SelectedApp = rule;
+        if (_viewModel.EditAddressListCommand.CanExecute(null))
+            _viewModel.EditAddressListCommand.Execute(null);
+        e.Handled = true;
+    }
+
+    private void RemoveRuleClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: AppRule rule })
+            return;
+
+        _viewModel.SelectedApp = rule;
+        if (_viewModel.RemoveCommand.CanExecute(null))
+            _viewModel.RemoveCommand.Execute(null);
+        e.Handled = true;
+    }
+
+    private void ToggleLogClick(object sender, RoutedEventArgs e)
+    {
+        var show = LogPanel.Visibility != Visibility.Visible;
+        LogPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        if (sender is FrameworkElement toggle)
+            toggle.ToolTip = Loc.T(show ? "Orbit.HideLog" : "Orbit.ShowLog");
+        if (show && EventLogList.Items.Count > 0)
+            EventLogList.ScrollIntoView(EventLogList.Items[EventLogList.Items.Count - 1]);
     }
 
     private void HideToTray()
@@ -285,6 +330,14 @@ public partial class MainWindow : Window
         try
         {
             await _viewModel.PrepareForCloseAsync();
+            if (_viewModel.IsConnected)
+            {
+                _exiting = false;
+                _allowClose = false;
+                _tray.Visible = true;
+                ShowFromTray();
+                return;
+            }
         }
         catch (Exception)
         {

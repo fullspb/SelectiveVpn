@@ -29,6 +29,8 @@ public sealed class MihomoEngine : IMihomoController
     private string? _providerCachePath;
     private string? _preferredNode;
     private MihomoStartRequest? _activeRequest;
+    private AmneziaWgProfile? _activeWireGuardProfile;
+    private SubscriptionProfile? _activeSubscriptionProfile;
     private CancellationTokenSource? _treeWatchCts;
     private readonly HashSet<string> _knownChildPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _reloadGate = new();
@@ -78,9 +80,12 @@ public sealed class MihomoEngine : IMihomoController
         }
 
         Process? process = null;
+        var processStarted = false;
         var port = 0;
         string? secret = null;
         string? configPath = null;
+        AmneziaWgProfile? wireGuardSnapshot = null;
+        SubscriptionProfile? subscriptionSnapshot = null;
         try
         {
             var binary = await EnsureBinaryAsync(request.CustomEnginePath, cancellationToken).ConfigureAwait(false);
@@ -103,6 +108,7 @@ public sealed class MihomoEngine : IMihomoController
                 Publish("Готовлю подписку для Mihomo.");
                 if (!SubscriptionProfile.TryRead(request.ConfigFilePath, out var subscription, out var subError))
                     return OperationResult.Fail(subError);
+                subscriptionSnapshot = subscription;
 
                 var providersDir = Path.Combine(_runtimeDirectory, "providers");
                 Directory.CreateDirectory(providersDir);
@@ -138,6 +144,7 @@ public sealed class MihomoEngine : IMihomoController
                 var read = AmneziaWgConfigReader.ReadFile(request.ConfigFilePath);
                 if (!read.Succeeded || read.Profile is null)
                     return OperationResult.Fail(read.Message);
+                wireGuardSnapshot = read.Profile;
 
                 _secrets.AddRange(read.Profile.SecretValues());
                 var yaml = MihomoProfileWriter.Build(
@@ -163,6 +170,7 @@ public sealed class MihomoEngine : IMihomoController
                 ForgetSecrets(configPath);
                 return OperationResult.Fail("Не удалось запустить процесс Mihomo.");
             }
+            processStarted = true;
 
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
@@ -182,6 +190,8 @@ public sealed class MihomoEngine : IMihomoController
             _configPath = configPath;
             _preferredNode = preferredNode;
             _activeRequest = request;
+            _activeWireGuardProfile = wireGuardSnapshot;
+            _activeSubscriptionProfile = subscriptionSnapshot;
             StartProcessTreeWatch();
 
             var nodeNote = "";
@@ -209,20 +219,25 @@ public sealed class MihomoEngine : IMihomoController
         catch (OperationCanceledException)
         {
             StopProcessTreeWatch();
-            if (process is not null)
+            if (processStarted && process is not null)
                 await StopProcessAsync(process, port, secret).ConfigureAwait(false);
 
             ForgetSecrets(configPath);
             return OperationResult.Fail("Подключение отменено. Туннель не запускался.");
         }
-        catch (Exception ex) when (ex is IOException or InvalidDataException or HttpRequestException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or InvalidDataException or HttpRequestException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         {
             StopProcessTreeWatch();
-            if (process is not null)
+            if (processStarted && process is not null)
                 await StopProcessAsync(process, port, secret).ConfigureAwait(false);
 
             ForgetSecrets(configPath);
             return OperationResult.Fail("Не удалось подготовить Mihomo. Туннель не запускался.");
+        }
+        finally
+        {
+            if (process is not null && !ReferenceEquals(_process, process))
+                process.Dispose();
         }
     }
 
@@ -306,6 +321,8 @@ public sealed class MihomoEngine : IMihomoController
             if (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.NoContent)
             {
                 _preferredNode = target;
+                if (_activeSubscriptionProfile is { } activeSubscription)
+                    activeSubscription.SelectedNode = target;
                 return OperationResult.Ok($"Выбран сервер: {SubscriptionProfile.DisplayNodeName(target)}.");
             }
 
@@ -555,6 +572,9 @@ public sealed class MihomoEngine : IMihomoController
         {
             _process = null;
             _activeRequest = null;
+            _activeWireGuardProfile = null;
+            _activeSubscriptionProfile = null;
+            ForgetSecrets(_configPath);
             return OperationResult.Fail("Соединение не запущено.");
         }
 
@@ -563,11 +583,13 @@ public sealed class MihomoEngine : IMihomoController
             await StopProcessAsync(process, _apiPort, _apiSecret).ConfigureAwait(false);
             _process = null;
             _activeRequest = null;
+            _activeWireGuardProfile = null;
+            _activeSubscriptionProfile = null;
             ForgetSecrets(_configPath);
             _providerCachePath = null;
             return OperationResult.Ok("Отключено. Процесс Mihomo остановлен, TUN выключен.");
         }
-        catch (Exception ex) when (ex is IOException or InvalidOperationException)
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or System.ComponentModel.Win32Exception)
         {
             return OperationResult.Fail("Не удалось остановить Mihomo.");
         }
@@ -649,14 +671,22 @@ public sealed class MihomoEngine : IMihomoController
                 changed = !_knownChildPaths.SetEquals(discovered);
                 if (!changed)
                     continue;
+            }
 
+            bool reloaded;
+            try { reloaded = await ReloadExpandedConfigAsync(request, discovered, cancellationToken).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { return; }
+            if (!reloaded)
+                continue;
+
+            if (cancellationToken.IsCancellationRequested) return;
+            lock (_reloadGate)
+            {
                 _knownChildPaths.Clear();
                 foreach (var path in discovered)
                     _knownChildPaths.Add(path);
             }
-
-            var reloaded = await ReloadExpandedConfigAsync(request, discovered, cancellationToken).ConfigureAwait(false);
-            if (reloaded && added > 0)
+            if (added > 0)
                 Publish("CHILD_PROCESSES_ADDED:" + added.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
     }
@@ -695,7 +725,8 @@ public sealed class MihomoEngine : IMihomoController
             string yaml;
             if (SubscriptionProfile.IsSubscriptionPath(request.ConfigFilePath))
             {
-                if (!SubscriptionProfile.TryRead(request.ConfigFilePath, out var subscription, out _))
+                var subscription = _activeSubscriptionProfile;
+                if (subscription is null)
                     return false;
                 yaml = MihomoProfileWriter.BuildSubscription(
                     subscription,
@@ -709,11 +740,11 @@ public sealed class MihomoEngine : IMihomoController
             }
             else
             {
-                var read = AmneziaWgConfigReader.ReadFile(request.ConfigFilePath);
-                if (!read.Succeeded || read.Profile is null)
+                var profile = _activeWireGuardProfile;
+                if (profile is null)
                     return false;
                 yaml = MihomoProfileWriter.Build(
-                    read.Profile,
+                    profile,
                     merged,
                     port,
                     secret,
@@ -798,6 +829,9 @@ public sealed class MihomoEngine : IMihomoController
                 return;
             StopProcessTreeWatch();
             _activeRequest = null;
+            _activeWireGuardProfile = null;
+            _activeSubscriptionProfile = null;
+            ForgetSecrets(configPath);
             EngineStopped?.Invoke(this, EventArgs.Empty);
         };
         return process;
@@ -975,7 +1009,7 @@ public sealed class MihomoEngine : IMihomoController
             File.WriteAllText(configPath, "removed\n");
             File.Delete(configPath);
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
         }
     }

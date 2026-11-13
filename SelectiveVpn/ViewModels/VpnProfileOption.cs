@@ -1,5 +1,6 @@
 using System.IO;
 using SelectiveVpn.Engine;
+using SelectiveVpn.Services;
 
 namespace SelectiveVpn.ViewModels;
 
@@ -17,6 +18,10 @@ public sealed class VpnProfileOption : ViewModelBase
     public string ConfigPath { get; }
 
     public string Name { get; }
+
+    public string Initial => string.IsNullOrWhiteSpace(Name) ? "?" : Name.Trim()[..1].ToUpperInvariant();
+
+    public string KindLabel => SubscriptionProfile.IsSubscriptionPath(ConfigPath) ? Loc.T("Orbit.Subscription") : "AmneziaWG";
 
     private static string ResolveName(string configPath)
     {

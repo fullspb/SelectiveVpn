@@ -1,321 +1,127 @@
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 
 namespace SelectiveVpn.Services;
 
 internal static class AppTheme
 {
+    // The three supported looks.
+    public const string Orbit = "orbit";
+
+    // Identifiers saved by earlier releases. They are no longer offered in the UI and are
+    // migrated to the closest new look by Normalize.
     public const string Light = "light";
     public const string Dark = "dark";
     public const string Green = "green";
     public const string Oled = "oled";
     public const string Amber = "amber";
     public const string Indigo = "indigo";
+    public const string Ocean = "ocean";
+    public const string Plum = "plum";
+    public const string Aurora = "aurora";
+    public const string Depth = "depth";
+    public const string Retro = "retro";
 
-    private static readonly Dictionary<string, string> LightColors = new()
+    public static readonly string[] All = [Orbit];
+
+    public static string CurrentTheme { get; private set; } = Orbit;
+
+    private static readonly Dictionary<string, Dictionary<string, string>> Palettes = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["WindowBackground"] = "#F3F5F8",
-        ["WindowForeground"] = "#1C2430",
-        ["MutedForeground"] = "#5C677A",
-        ["CardBackground"] = "#FFFFFF",
-        ["CardBorder"] = "#E2E6ED",
-        ["Accent"] = "#1F4E8C",
-        ["ButtonBackground"] = "#FFFFFF",
-        ["ButtonForeground"] = "#1C2430",
-        ["ButtonBorder"] = "#D0D5DD",
-        ["PrimaryBackground"] = "#1F4E8C",
-        ["PrimaryForeground"] = "#FFFFFF",
-        ["PrimaryBorder"] = "#173E70",
-        ["FieldBackground"] = "#F7F8FA",
-        ["FieldBorder"] = "#E2E6ED",
-        ["InfoBackground"] = "#F3F7FC",
-        ["InfoBorder"] = "#D6E2F5",
-        ["InfoForeground"] = "#1F4E8C",
-        ["EmptyForeground"] = "#8B95A5",
-        ["PathForeground"] = "#667085",
-        ["StatusIdleBackground"] = "#FFF7EB",
-        ["StatusIdleBorder"] = "#F5D7A8",
-        ["StatusIdleForeground"] = "#8A5A00",
-        ["StatusConnectedBackground"] = "#E8F6EE",
-        ["StatusConnectedBorder"] = "#B7E0C6",
-        ["StatusConnectedForeground"] = "#1F7A45",
-        ["StatusConnectingBackground"] = "#EEF3FA",
-        ["StatusConnectingBorder"] = "#D3DDED",
-        ["StatusConnectingForeground"] = "#1F4E8C",
-        ["StatusErrorBackground"] = "#FDECEC",
-        ["StatusErrorBorder"] = "#F3C1C1",
-        ["StatusErrorForeground"] = "#A33B3B",
-        ["SidebarBackground"] = "#F7F8FB",
-        ["SidebarBorder"] = "#E2E6ED",
-        ["NavActiveBackground"] = "#E8EEF8",
-        ["NavActiveForeground"] = "#1F4E8C",
-        ["ListHoverBackground"] = "#E4EAF3",
-        ["ListSelectedBackground"] = "#D3E3FA",
-        ["DangerForeground"] = "#C24141",
-        ["DangerBackground"] = "#C24141",
-        ["DangerBorder"] = "#9A3030",
-        ["EyebrowForeground"] = "#5B6B8A"
+        [Orbit] = CreateOrbitPalette()
     };
 
-    private static readonly Dictionary<string, string> DarkColors = new()
+    private static Dictionary<string, string> CreateOrbitPalette()
     {
-        ["WindowBackground"] = "#0E131C",
-        ["WindowForeground"] = "#E8EEF6",
-        ["MutedForeground"] = "#8B97A8",
-        ["CardBackground"] = "#141C2A",
-        ["CardBorder"] = "#243044",
-        ["Accent"] = "#3B82F6",
-        ["ButtonBackground"] = "#1A2433",
-        ["ButtonForeground"] = "#E8EEF6",
-        ["ButtonBorder"] = "#2A384C",
-        ["PrimaryBackground"] = "#2F6BFF",
-        ["PrimaryForeground"] = "#FFFFFF",
-        ["PrimaryBorder"] = "#2456D6",
-        ["FieldBackground"] = "#0E1522",
-        ["FieldBorder"] = "#243044",
-        ["InfoBackground"] = "#1A2740",
-        ["InfoBorder"] = "#2A4068",
-        ["InfoForeground"] = "#9EC1FF",
-        ["EmptyForeground"] = "#7E8B9C",
-        ["PathForeground"] = "#8B98A8",
-        ["StatusIdleBackground"] = "#3A2E1A",
-        ["StatusIdleBorder"] = "#6B5424",
-        ["StatusIdleForeground"] = "#F0C36A",
-        ["StatusConnectedBackground"] = "#123226",
-        ["StatusConnectedBorder"] = "#1C5C40",
-        ["StatusConnectedForeground"] = "#3DDC97",
-        ["StatusConnectingBackground"] = "#1A2740",
-        ["StatusConnectingBorder"] = "#2A4068",
-        ["StatusConnectingForeground"] = "#9EC1FF",
-        ["StatusErrorBackground"] = "#3A1E1E",
-        ["StatusErrorBorder"] = "#6B3030",
-        ["StatusErrorForeground"] = "#F0A0A0",
-        ["SidebarBackground"] = "#0B0F16",
-        ["SidebarBorder"] = "#1A2230",
-        ["NavActiveBackground"] = "#17243A",
-        ["NavActiveForeground"] = "#E8EEF6",
-        ["ListHoverBackground"] = "#162033",
-        ["ListSelectedBackground"] = "#1B3F7A",
-        ["DangerForeground"] = "#FF6B6B",
-        ["DangerBackground"] = "#E3534A",
-        ["DangerBorder"] = "#C13E36",
-        ["EyebrowForeground"] = "#7E8BA0"
-    };
-
-    private static readonly Dictionary<string, string> GreenColors = new()
-    {
-        ["WindowBackground"] = "#101612",
-        ["WindowForeground"] = "#E7EEE8",
-        ["MutedForeground"] = "#8E998F",
-        ["CardBackground"] = "#1A221C",
-        ["CardBorder"] = "#2C3830",
-        ["Accent"] = "#6FCBAA",
-        ["ButtonBackground"] = "#1E2822",
-        ["ButtonForeground"] = "#E7EEE8",
-        ["ButtonBorder"] = "#334038",
-        ["PrimaryBackground"] = "#6FCBAA",
-        ["PrimaryForeground"] = "#0C1612",
-        ["PrimaryBorder"] = "#5BB896",
-        ["FieldBackground"] = "#141C18",
-        ["FieldBorder"] = "#2C3830",
-        ["InfoBackground"] = "#163028",
-        ["InfoBorder"] = "#2C5044",
-        ["InfoForeground"] = "#B7E8D4",
-        ["EmptyForeground"] = "#7A857C",
-        ["PathForeground"] = "#8E998F",
-        ["StatusIdleBackground"] = "#2A261C",
-        ["StatusIdleBorder"] = "#5A4E32",
-        ["StatusIdleForeground"] = "#E4C98A",
-        ["StatusConnectedBackground"] = "#163228",
-        ["StatusConnectedBorder"] = "#2C5C48",
-        ["StatusConnectedForeground"] = "#7DDFC0",
-        ["StatusConnectingBackground"] = "#1A2C28",
-        ["StatusConnectingBorder"] = "#2C5048",
-        ["StatusConnectingForeground"] = "#B7E8D4",
-        ["StatusErrorBackground"] = "#3A1E1E",
-        ["StatusErrorBorder"] = "#6B3030",
-        ["StatusErrorForeground"] = "#F0A0A0",
-        ["SidebarBackground"] = "#0E1410",
-        ["SidebarBorder"] = "#232C26",
-        ["NavActiveBackground"] = "#24302A",
-        ["NavActiveForeground"] = "#E7EEE8",
-        ["ListHoverBackground"] = "#1C2822",
-        ["ListSelectedBackground"] = "#1E4A3A",
-        ["DangerForeground"] = "#FF8A84",
-        ["DangerBackground"] = "#C44B45",
-        ["DangerBorder"] = "#A33B36",
-        ["EyebrowForeground"] = "#6FCBAA"
-    };
-
-    private static readonly Dictionary<string, string> OledColors = new()
-    {
-        ["WindowBackground"] = "#000000",
-        ["WindowForeground"] = "#F5F5F5",
-        ["MutedForeground"] = "#8D8D8D",
-        ["CardBackground"] = "#101010",
-        ["CardBorder"] = "#2A2A2A",
-        ["Accent"] = "#FFFFFF",
-        ["ButtonBackground"] = "#161616",
-        ["ButtonForeground"] = "#F5F5F5",
-        ["ButtonBorder"] = "#2E2E2E",
-        ["PrimaryBackground"] = "#FFFFFF",
-        ["PrimaryForeground"] = "#000000",
-        ["PrimaryBorder"] = "#E6E6E6",
-        ["FieldBackground"] = "#000000",
-        ["FieldBorder"] = "#2A2A2A",
-        ["InfoBackground"] = "#101010",
-        ["InfoBorder"] = "#2A2A2A",
-        ["InfoForeground"] = "#D0D0D0",
-        ["EmptyForeground"] = "#6E6E6E",
-        ["PathForeground"] = "#8D8D8D",
-        ["StatusIdleBackground"] = "#1A160E",
-        ["StatusIdleBorder"] = "#5A4A28",
-        ["StatusIdleForeground"] = "#E4C98A",
-        ["StatusConnectedBackground"] = "#0E2418",
-        ["StatusConnectedBorder"] = "#1E4A32",
-        ["StatusConnectedForeground"] = "#3DDC97",
-        ["StatusConnectingBackground"] = "#101010",
-        ["StatusConnectingBorder"] = "#2A2A2A",
-        ["StatusConnectingForeground"] = "#D0D0D0",
-        ["StatusErrorBackground"] = "#2A1010",
-        ["StatusErrorBorder"] = "#5A2828",
-        ["StatusErrorForeground"] = "#F0A0A0",
-        ["SidebarBackground"] = "#000000",
-        ["SidebarBorder"] = "#1A1A1A",
-        ["NavActiveBackground"] = "#FFFFFF",
-        ["NavActiveForeground"] = "#111111",
-        ["ListHoverBackground"] = "#1A1A1A",
-        ["ListSelectedBackground"] = "#333333",
-        ["DangerForeground"] = "#E85D5D",
-        ["DangerBackground"] = "#3A1618",
-        ["DangerBorder"] = "#6B2A2E",
-        ["EyebrowForeground"] = "#A3A3A3"
-    };
-
-    private static readonly Dictionary<string, string> AmberColors = new()
-    {
-        ["WindowBackground"] = "#16120C",
-        ["WindowForeground"] = "#F3EBDD",
-        ["MutedForeground"] = "#A89880",
-        ["CardBackground"] = "#241C14",
-        ["CardBorder"] = "#3A2E22",
-        ["Accent"] = "#E0A045",
-        ["ButtonBackground"] = "#2A2218",
-        ["ButtonForeground"] = "#F3EBDD",
-        ["ButtonBorder"] = "#4A3C2C",
-        ["PrimaryBackground"] = "#E0A045",
-        ["PrimaryForeground"] = "#1A1208",
-        ["PrimaryBorder"] = "#C48A30",
-        ["FieldBackground"] = "#120E0A",
-        ["FieldBorder"] = "#3A2E22",
-        ["InfoBackground"] = "#2A2214",
-        ["InfoBorder"] = "#5A4A28",
-        ["InfoForeground"] = "#F0D7A0",
-        ["EmptyForeground"] = "#8A7A66",
-        ["PathForeground"] = "#A89880",
-        ["StatusIdleBackground"] = "#2A2214",
-        ["StatusIdleBorder"] = "#6B5424",
-        ["StatusIdleForeground"] = "#F0C36A",
-        ["StatusConnectedBackground"] = "#1E2A18",
-        ["StatusConnectedBorder"] = "#3A5430",
-        ["StatusConnectedForeground"] = "#B7E08A",
-        ["StatusConnectingBackground"] = "#2A2214",
-        ["StatusConnectingBorder"] = "#5A4A28",
-        ["StatusConnectingForeground"] = "#F0D7A0",
-        ["StatusErrorBackground"] = "#3A1E1E",
-        ["StatusErrorBorder"] = "#6B3030",
-        ["StatusErrorForeground"] = "#F0A0A0",
-        ["SidebarBackground"] = "#120E0A",
-        ["SidebarBorder"] = "#2A2218",
-        ["NavActiveBackground"] = "#3A2C1C",
-        ["NavActiveForeground"] = "#F3EBDD",
-        ["ListHoverBackground"] = "#2A2218",
-        ["ListSelectedBackground"] = "#4A3418",
-        ["DangerForeground"] = "#FF8A78",
-        ["DangerBackground"] = "#A84838",
-        ["DangerBorder"] = "#8A382C",
-        ["EyebrowForeground"] = "#E0A045"
-    };
-
-    private static readonly Dictionary<string, string> IndigoColors = new()
-    {
-        ["WindowBackground"] = "#12101C",
-        ["WindowForeground"] = "#EEEAF8",
-        ["MutedForeground"] = "#9A94B0",
-        ["CardBackground"] = "#1C1830",
-        ["CardBorder"] = "#322C4A",
-        ["Accent"] = "#8B7CFF",
-        ["ButtonBackground"] = "#221E38",
-        ["ButtonForeground"] = "#EEEAF8",
-        ["ButtonBorder"] = "#3A3460",
-        ["PrimaryBackground"] = "#8B7CFF",
-        ["PrimaryForeground"] = "#FFFFFF",
-        ["PrimaryBorder"] = "#7466E0",
-        ["FieldBackground"] = "#0E0C18",
-        ["FieldBorder"] = "#322C4A",
-        ["InfoBackground"] = "#221C3A",
-        ["InfoBorder"] = "#3A3460",
-        ["InfoForeground"] = "#C8C0FF",
-        ["EmptyForeground"] = "#7E7894",
-        ["PathForeground"] = "#9A94B0",
-        ["StatusIdleBackground"] = "#2A2418",
-        ["StatusIdleBorder"] = "#5A4E30",
-        ["StatusIdleForeground"] = "#E4C98A",
-        ["StatusConnectedBackground"] = "#14281E",
-        ["StatusConnectedBorder"] = "#245C40",
-        ["StatusConnectedForeground"] = "#7DDFC0",
-        ["StatusConnectingBackground"] = "#221C3A",
-        ["StatusConnectingBorder"] = "#3A3460",
-        ["StatusConnectingForeground"] = "#C8C0FF",
-        ["StatusErrorBackground"] = "#3A1E1E",
-        ["StatusErrorBorder"] = "#6B3030",
-        ["StatusErrorForeground"] = "#F0A0A0",
-        ["SidebarBackground"] = "#0E0C16",
-        ["SidebarBorder"] = "#241E38",
-        ["NavActiveBackground"] = "#2A2448",
-        ["NavActiveForeground"] = "#EEEAF8",
-        ["ListHoverBackground"] = "#221C38",
-        ["ListSelectedBackground"] = "#3A3270",
-        ["DangerForeground"] = "#FF8A9A",
-        ["DangerBackground"] = "#A84858",
-        ["DangerBorder"] = "#8A3848",
-        ["EyebrowForeground"] = "#8B7CFF"
-    };
-
-    public static string Normalize(string? theme)
-    {
-        if (string.Equals(theme, Dark, StringComparison.OrdinalIgnoreCase))
-            return Dark;
-
-        if (string.Equals(theme, Green, StringComparison.OrdinalIgnoreCase))
-            return Green;
-
-        if (string.Equals(theme, Oled, StringComparison.OrdinalIgnoreCase))
-            return Oled;
-
-        if (string.Equals(theme, Amber, StringComparison.OrdinalIgnoreCase))
-            return Amber;
-
-        if (string.Equals(theme, Indigo, StringComparison.OrdinalIgnoreCase))
-            return Indigo;
-
-        return Light;
+        var p = CreatePalette(true, "#0B0E1C", "#151A31", "#E8ECFF", "#9AA3C7",
+            "#2A3358", "#1B2241", "#7FE3FF", "#071022", "#17304C");
+        p["PrimaryBackground"] = "#7FE3FF";
+        p["PrimaryBorder"] = "#3B4FA8";
+        p["PrimaryEdge"] = "#2B5C8F";
+        p["StatusConnectedForeground"] = "#7FE3FF";
+        p["StatusConnectedBackground"] = "#123047";
+        p["StatusConnectedBorder"] = "#2B5C8F";
+        p["HeroIdle"] = "#8A93B5";
+        p["HeroActive"] = "#7FE3FF";
+        p["HeroActive2"] = "#8C6EFF";
+        p["HeroBusy"] = "#FFC46E";
+        p["PanelBackground"] = "#141A33";
+        return p;
     }
 
-    public static bool UsesDarkChrome(string? theme)
+    private static Dictionary<string, string> CreatePalette(
+        bool dark, string background, string panel, string foreground, string muted,
+        string border, string soft, string accent, string accentForeground, string accentSoft)
     {
-        var normalized = Normalize(theme);
-        return normalized is Dark or Green or Oled or Amber or Indigo;
+        return new Dictionary<string, string>
+        {
+            ["WindowBackground"] = background,
+            ["WindowForeground"] = foreground,
+            ["MutedForeground"] = muted,
+            ["CardBackground"] = panel,
+            ["CardBorder"] = border,
+            ["Accent"] = accent,
+            ["ButtonBackground"] = soft,
+            ["ButtonForeground"] = foreground,
+            ["ButtonBorder"] = border,
+            ["PrimaryBackground"] = accent,
+            ["PrimaryForeground"] = accentForeground,
+            ["PrimaryBorder"] = accent,
+            ["PrimaryEdge"] = accent,
+            ["FieldBackground"] = panel,
+            ["FieldBorder"] = border,
+            ["InfoBackground"] = accentSoft,
+            ["InfoBorder"] = border,
+            ["InfoForeground"] = accent,
+            ["EmptyForeground"] = muted,
+            ["PathForeground"] = muted,
+            ["StatusIdleBackground"] = soft,
+            ["StatusIdleBorder"] = border,
+            ["StatusIdleForeground"] = muted,
+            ["StatusConnectedBackground"] = dark ? "#18372D" : "#E2F5EC",
+            ["StatusConnectedBorder"] = dark ? "#2F5B48" : "#BFDACB",
+            ["StatusConnectedForeground"] = dark ? "#85CBAA" : "#26765B",
+            ["StatusConnectingBackground"] = accentSoft,
+            ["StatusConnectingBorder"] = border,
+            ["StatusConnectingForeground"] = accent,
+            ["StatusErrorBackground"] = dark ? "#3C232B" : "#FCEBF0",
+            ["StatusErrorBorder"] = dark ? "#75404B" : "#E8BDCB",
+            ["StatusErrorForeground"] = dark ? "#F0A8B5" : "#A33651",
+            ["SidebarBackground"] = background,
+            ["SidebarBorder"] = border,
+            ["NavActiveBackground"] = accentSoft,
+            ["NavActiveForeground"] = accent,
+            ["ListHoverBackground"] = soft,
+            ["ListSelectedBackground"] = accentSoft,
+            ["DangerForeground"] = dark ? "#F0A8B5" : "#A33651",
+            ["DangerBackground"] = dark ? "#9A3B50" : "#B33D59",
+            ["DangerBorder"] = dark ? "#B95C70" : "#A33651",
+            ["EyebrowForeground"] = muted,
+            ["OrbitSoftBackground"] = soft,
+            ["OrbitAccentSoftBackground"] = accentSoft,
+            ["OrbitAccentForeground"] = accent,
+            ["HeroIdle"] = muted,
+            ["HeroActive"] = accent,
+            ["HeroActive2"] = accent,
+            ["HeroBusy"] = "#FFC46E",
+            ["PanelBackground"] = panel
+        };
     }
+
+    // Earlier releases offered several looks; every saved identifier now maps to Orbit.
+    public static string Normalize(string? theme) => Orbit;
+
+    public static bool UsesDarkChrome(string? theme) => true;
 
     public static event EventHandler<string>? ThemeChanged;
 
     public static IReadOnlyDictionary<string, string> ColorsFor(string? theme)
-        => Palette(Normalize(theme));
+        => Palettes[Normalize(theme)];
 
     public static bool TryGetColor(string? theme, string key, out Color color)
     {
-        if (!Palette(Normalize(theme)).TryGetValue(key, out var hex))
+        if (!Palettes[Normalize(theme)].TryGetValue(key, out var hex))
         {
             color = default;
             return false;
@@ -325,20 +131,24 @@ internal static class AppTheme
         return true;
     }
 
+    public static Color GetColor(string key)
+        => TryGetColor(CurrentTheme, key, out var color) ? color : Colors.Gray;
+
     public static void Apply(string? theme)
     {
+        var normalized = Normalize(theme);
+        CurrentTheme = normalized;
         if (Application.Current is null)
             return;
 
-        var normalized = Normalize(theme);
-        var colors = Palette(normalized);
-        var resources = Application.Current.Resources;
-        foreach (var (key, hex) in colors)
+        foreach (var (key, hex) in Palettes[normalized])
         {
             var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
             brush.Freeze();
-            resources[key] = brush;
+            Application.Current.Resources[key] = brush;
         }
+
+        ApplyChromeResources(normalized);
 
         foreach (Window window in Application.Current.Windows)
             TitleBarTheme.Apply(window, UsesDarkChrome(normalized));
@@ -346,14 +156,66 @@ internal static class AppTheme
         ThemeChanged?.Invoke(null, normalized);
     }
 
-    private static Dictionary<string, string> Palette(string normalized)
-        => normalized switch
-        {
-            Dark => DarkColors,
-            Green => GreenColors,
-            Oled => OledColors,
-            Amber => AmberColors,
-            Indigo => IndigoColors,
-            _ => LightColors
-        };
+    private static void ApplyChromeResources(string theme)
+    {
+        var resources = Application.Current.Resources;
+        resources["IsRetroTheme"] = false;
+        resources["ThemeFontFamily"] = new FontFamily("Segoe UI");
+        resources["ThemeMonoFontFamily"] = new FontFamily("Cascadia Code, Consolas");
+        resources["ThemeDialogMonoFontFamily"] = new FontFamily("Consolas, Cascadia Mono, Segoe UI");
+        resources["ButtonCornerRadius"] = new CornerRadius(11);
+        resources["FieldCornerRadius"] = new CornerRadius(9);
+        resources["CardCornerRadius"] = new CornerRadius(18);
+        resources["DialogCornerRadius"] = new CornerRadius(14);
+        resources["SmallCornerRadius"] = new CornerRadius(6);
+        resources["BadgeCornerRadius"] = new CornerRadius(6);
+        resources["PushButtonCornerRadius"] = new CornerRadius(18);
+
+        resources["ThemeHeaderBackground"] = Brushes.Transparent;
+        resources["ThemeHeaderForeground"] = resources["WindowForeground"];
+        resources["ThemeHeaderMutedForeground"] = resources["MutedForeground"];
+        resources["ThemeCaptionBackground"] = resources["WindowBackground"];
+        resources["ThemeCaptionForeground"] = resources["WindowForeground"];
+        resources["ThemeWorkAreaBackground"] = Brushes.Transparent;
+        resources["BevelHighlight"] = Brushes.White;
+        resources["BevelLight"] = FrozenBrush(0xDF, 0xDF, 0xDF);
+        resources["BevelShadow"] = Brushes.Gray;
+        resources["BevelDark"] = Brushes.Black;
+        resources["WorkAreaOuterBorderBrush"] = Brushes.Transparent;
+        resources["WorkAreaInnerBorderBrush"] = Brushes.Transparent;
+        resources["WorkAreaOuterBorderThickness"] = new Thickness(0);
+        resources["WorkAreaInnerBorderThickness"] = new Thickness(0);
+        resources["WorkAreaPadding"] = new Thickness(0);
+
+        resources["CardEffect"] = Freeze(new DropShadowEffect { Color = Colors.Black, BlurRadius = 36, ShadowDepth = 14, Direction = 270, Opacity = 0.55 });
+        resources["PushEffect"] = Freeze(new DropShadowEffect { Color = (Color)ColorConverter.ConvertFromString("#7FE3FF"), BlurRadius = 24, ShadowDepth = 4, Direction = 270, Opacity = 0.45 });
+        resources["PanelBorderThickness"] = new Thickness(1);
+        resources["PushBackground"] = FrozenGradient("#7FE3FF", "#8C6EFF");
+
+        var glass = new LinearGradientBrush((Color)ColorConverter.ConvertFromString("#CC1B2244"),
+            (Color)ColorConverter.ConvertFromString("#99121733"), 60);
+        glass.Freeze();
+        resources["PanelSurface"] = glass;
+    }
+
+    private static Effect Freeze(Effect effect)
+    {
+        effect.Freeze();
+        return effect;
+    }
+
+    private static LinearGradientBrush FrozenGradient(string from, string to)
+    {
+        var brush = new LinearGradientBrush((Color)ColorConverter.ConvertFromString(from),
+            (Color)ColorConverter.ConvertFromString(to), new Point(0, 0), new Point(1, 1));
+        brush.Freeze();
+        return brush;
+    }
+
+    private static SolidColorBrush FrozenBrush(byte red, byte green, byte blue)
+    {
+        var brush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(red, green, blue));
+        brush.Freeze();
+        return brush;
+    }
 }

@@ -1,6 +1,6 @@
 <Window x:Class="SelectiveVpn.UpdatePrompt"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:services="clr-namespace:SelectiveVpn.Services"
         Title="{DynamicResource Update.Title}"
         Width="460"
         SizeToContent="Height"
@@ -9,10 +9,12 @@
         ShowInTaskbar="False"
         Background="{DynamicResource WindowBackground}"
         Foreground="{DynamicResource WindowForeground}"
-        FontFamily="Segoe UI"
+        FontFamily="{DynamicResource ThemeFontFamily}"
         UseLayoutRounding="True">
     <Window.Resources>
         <Style x:Key="DialogButton" TargetType="Button">
+        <Setter Property="services:ThemeChrome.IsRetro" Value="{DynamicResource IsRetroTheme}"/>
+        <Setter Property="FontFamily" Value="{DynamicResource ThemeFontFamily}"/>
             <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}"/>
             <Setter Property="Background" Value="{DynamicResource ButtonBackground}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorder}"/>
@@ -27,7 +29,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8"
+                                CornerRadius="{DynamicResource ButtonCornerRadius}"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
                                               RecognizesAccessKey="True"/>
@@ -46,6 +48,15 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        <Style.Triggers>
+            <Trigger Property="services:ThemeChrome.IsRetro" Value="True">
+                <Setter Property="Template" Value="{StaticResource RetroButtonTemplate}"/>
+                <Setter Property="Background" Value="{DynamicResource ButtonBackground}"/>
+                <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}"/>
+                <Setter Property="FontWeight" Value="Normal"/>
+                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            </Trigger>
+        </Style.Triggers>
         </Style>
         <Style x:Key="DialogPrimaryButton" TargetType="Button" BasedOn="{StaticResource DialogButton}">
             <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}"/>
@@ -53,11 +64,11 @@
             <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBorder}"/>
         </Style>
     </Window.Resources>
-    <Border Margin="20" Background="{DynamicResource CardBackground}"
+    <Border Style="{StaticResource OrbitDialogSurface}" Margin="20" Background="{DynamicResource CardBackground}"
             BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
-            CornerRadius="12" Padding="18">
+            CornerRadius="{DynamicResource DialogCornerRadius}" Padding="18">
         <StackPanel>
-            <TextBlock x:Name="HeadingText" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock Style="{StaticResource OrbitDialogHeading}" x:Name="HeadingText" FontSize="16" FontWeight="SemiBold"/>
             <TextBlock x:Name="VersionText" Margin="0,10,0,0" TextWrapping="Wrap"
                        Foreground="{DynamicResource MutedForeground}"/>
             <TextBlock x:Name="StatusText" Margin="0,14,0,0" TextWrapping="Wrap"

@@ -9,13 +9,13 @@
         ShowInTaskbar="False"
         Background="{DynamicResource WindowBackground}"
         Foreground="{DynamicResource WindowForeground}"
-        FontFamily="Segoe UI"
+        FontFamily="{DynamicResource ThemeFontFamily}"
         UseLayoutRounding="True">
-    <Border Margin="20" Background="{DynamicResource CardBackground}"
+    <Border Style="{StaticResource OrbitDialogSurface}" Margin="20" Background="{DynamicResource CardBackground}"
             BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
-            CornerRadius="12" Padding="18">
+            CornerRadius="{DynamicResource DialogCornerRadius}" Padding="18">
         <StackPanel>
-            <TextBlock Text="{DynamicResource RemoveProfile.Heading}" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock Style="{StaticResource OrbitDialogHeading}" Text="{DynamicResource RemoveProfile.Heading}" FontSize="16" FontWeight="SemiBold"/>
             <TextBlock x:Name="HintText" Margin="0,10,0,0" TextWrapping="Wrap"
                        Foreground="{DynamicResource MutedForeground}"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">

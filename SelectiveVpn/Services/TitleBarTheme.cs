@@ -13,6 +13,12 @@ internal static class TitleBarTheme
 
     public static void ApplyFromResources(Window window)
     {
+        if (AppTheme.CurrentTheme == AppTheme.Retro)
+        {
+            Apply(window, false);
+            return;
+        }
+
         var dark = true;
         if (Application.Current?.Resources["WindowBackground"] is SolidColorBrush background)
         {
@@ -34,14 +40,19 @@ internal static class TitleBarTheme
         _ = DwmSetWindowAttribute(handle, 20, ref enabled, sizeof(int));
         _ = DwmSetWindowAttribute(handle, 19, ref enabled, sizeof(int));
 
-        if (Application.Current?.Resources["WindowBackground"] is SolidColorBrush background)
+        if ((Application.Current?.Resources["ThemeCaptionBackground"] ?? Application.Current?.Resources["WindowBackground"]) is SolidColorBrush background)
         {
             var color = ToColorRef(background.Color);
             _ = DwmSetWindowAttribute(handle, CaptionColor, ref color, sizeof(int));
+        }
+
+        if (Application.Current?.Resources["WindowBackground"] is SolidColorBrush border)
+        {
+            var color = ToColorRef(border.Color);
             _ = DwmSetWindowAttribute(handle, BorderColor, ref color, sizeof(int));
         }
 
-        if (Application.Current?.Resources["WindowForeground"] is SolidColorBrush foreground)
+        if ((Application.Current?.Resources["ThemeCaptionForeground"] ?? Application.Current?.Resources["WindowForeground"]) is SolidColorBrush foreground)
         {
             var color = ToColorRef(foreground.Color);
             _ = DwmSetWindowAttribute(handle, TextColor, ref color, sizeof(int));

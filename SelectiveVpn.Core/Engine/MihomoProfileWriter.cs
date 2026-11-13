@@ -17,7 +17,7 @@ public static class MihomoProfileWriter
     {
         var builder = new StringBuilder();
         AppendPreamble(builder, apiPort, apiSecret, vpnCheckPort, outboundProxy: "awg");
-        AppendDns(builder, Nameservers(profile));
+        AppendDns(builder, Nameservers(profile), targets, exceptListed);
         builder.AppendLine("proxies:");
         builder.AppendLine("  - name: awg");
         builder.AppendLine("    type: wireguard");
@@ -59,7 +59,7 @@ public static class MihomoProfileWriter
     {
         var builder = new StringBuilder();
         AppendPreamble(builder, apiPort, apiSecret, vpnCheckPort, outboundProxy: "VPN");
-        AppendDns(builder, ["udp://1.1.1.1", "udp://8.8.8.8"]);
+        AppendDns(builder, ["udp://1.1.1.1", "udp://8.8.8.8"], targets, exceptListed);
         builder.AppendLine("proxy-providers:");
         builder.AppendLine("  subscription:");
         builder.AppendLine("    type: http");
@@ -148,8 +148,13 @@ public static class MihomoProfileWriter
         builder.AppendLine("      ports: [443]");
     }
 
-    private static void AppendDns(StringBuilder builder, IEnumerable<string> nameservers)
+    private static void AppendDns(
+        StringBuilder builder,
+        IEnumerable<string> nameservers,
+        IReadOnlyList<RouteTarget> targets,
+        bool exceptListed)
     {
+        var upstreams = nameservers.ToArray();
         builder.AppendLine("dns:");
         builder.AppendLine("  enable: true");
         builder.AppendLine("  ipv6: false");
@@ -166,11 +171,49 @@ public static class MihomoProfileWriter
         builder.AppendLine("    - 1.1.1.1");
         builder.AppendLine("    - 8.8.8.8");
         builder.AppendLine("  nameserver:");
-        foreach (var server in nameservers)
+        foreach (var server in upstreams)
             builder.AppendLine("    - " + Quote(server));
+
+        // respect-rules routes the DNS transport by the resolver IP, not by the queried domain.
+        // Bind included domains to VPN so split tunneling cannot send their DNS
+        // through MATCH,DIRECT while the eventual HTTPS connection is supposed to use VPN.
+        var domains = targets
+            .Where(target => target.EffectiveKind == RouteKind.Domain)
+            .Select(target => target.Path.Trim().TrimEnd('.').ToLowerInvariant())
+            .Where(domain => domain.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (domains.Length > 0 && !exceptListed)
+        {
+            var policyUpstreams = upstreams.Select(server => WithDnsPolicy(server, "VPN")).ToArray();
+            builder.AppendLine("  nameserver-policy:");
+            foreach (var domain in domains)
+            {
+                builder.AppendLine("    " + Quote("+." + domain) + ":");
+                foreach (var server in policyUpstreams)
+                    builder.AppendLine("      - " + Quote(server));
+            }
+        }
+
+        // Proxy endpoint bootstrap must stay independent of the VPN-bound domain policy.
         builder.AppendLine("  proxy-server-nameserver:");
         builder.AppendLine("    - 1.1.1.1");
         builder.AppendLine("    - 8.8.8.8");
+    }
+
+    private static string WithDnsPolicy(string nameserver, string policy)
+    {
+        var separator = nameserver.IndexOf('#');
+        if (separator < 0)
+            return nameserver + "#" + policy;
+
+        var endpoint = nameserver[..separator];
+        var parameters = nameserver[(separator + 1)..].Split('&');
+        // A bare first fragment is a proxy/interface selector; key=value fragments are options.
+        var options = parameters
+            .Where((parameter, index) => parameter.Length > 0 && (index > 0 || parameter.Contains('=')))
+            .ToArray();
+        return endpoint + "#" + policy + (options.Length == 0 ? "" : "&" + string.Join("&", options));
     }
 
     private static void AppendRules(

@@ -16,12 +16,15 @@ internal static class TrayMenuTheme
         var danger = ColorOr(theme, "DangerForeground", System.Drawing.Color.FromArgb(194, 65, 65));
 
         menu.RenderMode = Forms.ToolStripRenderMode.Professional;
-        menu.Renderer = new Forms.ToolStripProfessionalRenderer(new ColorTable(background, hover, border));
+        menu.Renderer = new Forms.ToolStripProfessionalRenderer(new ColorTable(background, hover, border))
+        {
+            RoundedEdges = AppTheme.Normalize(theme) != AppTheme.Retro
+        };
         menu.BackColor = background;
         menu.ForeColor = foreground;
         menu.ShowImageMargin = false;
         menu.ShowCheckMargin = false;
-        menu.Font = new Font("Segoe UI", 9f, System.Drawing.FontStyle.Regular, GraphicsUnit.Point);
+        menu.Font = new Font(AppTheme.Normalize(theme) == AppTheme.Retro ? "Tahoma" : "Segoe UI", 9f, System.Drawing.FontStyle.Regular, GraphicsUnit.Point);
 
         foreach (Forms.ToolStripItem item in menu.Items)
         {

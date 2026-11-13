@@ -11,11 +11,11 @@
         ShowInTaskbar="False"
         Background="{DynamicResource WindowBackground}"
         Foreground="{DynamicResource WindowForeground}"
-        FontFamily="Segoe UI"
+        FontFamily="{DynamicResource ThemeFontFamily}"
         UseLayoutRounding="True">
-    <Border Margin="16" Background="{DynamicResource CardBackground}"
+    <Border Style="{StaticResource OrbitDialogSurface}" Margin="16" Background="{DynamicResource CardBackground}"
             BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
-            CornerRadius="12" Padding="18">
+            CornerRadius="{DynamicResource DialogCornerRadius}" Padding="18">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -28,7 +28,7 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Text="{DynamicResource Import.Heading}" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock Style="{StaticResource OrbitDialogHeading}" Grid.Row="0" Text="{DynamicResource Import.Heading}" FontSize="16" FontWeight="SemiBold"/>
             <TextBlock Grid.Row="1" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedForeground}"
                        Text="{DynamicResource Import.Hint}"/>
 

@@ -1,159 +1,58 @@
 <Window x:Class="SelectiveVpn.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="{DynamicResource Settings.Title}"
-        Width="460"
-        SizeToContent="Height"
-        WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
-        ShowInTaskbar="False"
-        Background="{DynamicResource WindowBackground}"
-        Foreground="{DynamicResource WindowForeground}"
-        FontFamily="Segoe UI"
-        UseLayoutRounding="True">
-    <Window.Resources>
-        <Style x:Key="ThemedComboBoxItem" TargetType="ComboBoxItem">
-            <Setter Property="SnapsToDevicePixels" Value="True"/>
-            <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBoxItem">
-                        <Border x:Name="Bd"
-                                Background="{TemplateBinding Background}"
-                                Padding="{TemplateBinding Padding}"
-                                CornerRadius="4">
-                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ListHoverBackground}"/>
-                            </Trigger>
-                            <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ListHoverBackground}"/>
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ListSelectedBackground}"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Chrome only: no ItemTemplate, DisplayMemberPath stays valid. -->
-        <ControlTemplate x:Key="ThemedComboBoxTemplate" TargetType="ComboBox">
-            <Grid>
-                <ToggleButton x:Name="ToggleButton"
-                              Focusable="False"
-                              ClickMode="Press"
-                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
-                    <ToggleButton.Template>
-                        <ControlTemplate TargetType="ToggleButton">
-                            <Border x:Name="Chrome"
-                                    Background="{DynamicResource FieldBackground}"
-                                    BorderBrush="{DynamicResource FieldBorder}"
-                                    BorderThickness="1"
-                                    CornerRadius="6">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="28"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Path Grid.Column="1"
-                                          Data="M0,0 L4,4 L8,0"
-                                          Stroke="{DynamicResource WindowForeground}"
-                                          StrokeThickness="1.5"
-                                          HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"/>
-                                </Grid>
-                            </Border>
-                        </ControlTemplate>
-                    </ToggleButton.Template>
-                </ToggleButton>
-
-                <ContentPresenter x:Name="ContentSite"
-                                  IsHitTestVisible="False"
-                                  Margin="10,6,32,6"
-                                  VerticalAlignment="Center"
-                                  HorizontalAlignment="Left"
-                                  RecognizesAccessKey="True"
-                                  Content="{TemplateBinding SelectionBoxItem}"
-                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                  ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
-                                  TextElement.Foreground="{DynamicResource WindowForeground}"/>
-
-                <Popup x:Name="Popup"
-                       Placement="Bottom"
-                       IsOpen="{TemplateBinding IsDropDownOpen}"
-                       AllowsTransparency="True"
-                       Focusable="False"
-                       PopupAnimation="Slide">
-                    <Border MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
-                            MaxHeight="{TemplateBinding MaxDropDownHeight}"
-                            Margin="0,2,0,0"
-                            Background="{DynamicResource FieldBackground}"
-                            BorderBrush="{DynamicResource FieldBorder}"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="2">
-                        <ScrollViewer CanContentScroll="True"
-                                      HorizontalScrollBarVisibility="Disabled"
-                                      VerticalScrollBarVisibility="Auto">
-                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
-                        </ScrollViewer>
-                    </Border>
-                </Popup>
-            </Grid>
-            <ControlTemplate.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.5"/>
-                </Trigger>
-            </ControlTemplate.Triggers>
-        </ControlTemplate>
-    </Window.Resources>
-    <Border Margin="20" Background="{DynamicResource CardBackground}"
-            BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
-            CornerRadius="12" Padding="18">
+        Title="{DynamicResource Settings.Title}" Width="500" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        Background="{DynamicResource WindowBackground}" Foreground="{DynamicResource WindowForeground}"
+        FontFamily="{DynamicResource ThemeFontFamily}" UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
+    <Border Style="{StaticResource OrbitDialogSurface}" Padding="28,25,28,24">
         <StackPanel>
-            <TextBlock Text="{DynamicResource Settings.Title}" FontSize="16" FontWeight="SemiBold"/>
-            <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedForeground}"
-                       Text="{DynamicResource Settings.Hint}"/>
-
-            <TextBlock Margin="0,16,0,4" FontSize="12" Foreground="{DynamicResource MutedForeground}"
-                       Text="{DynamicResource Ui.Language}"/>
-            <ComboBox x:Name="LanguageBox"
-                      DisplayMemberPath="Title"
-                      SelectedValuePath="Code"
-                      ItemContainerStyle="{StaticResource ThemedComboBoxItem}"
-                      Template="{StaticResource ThemedComboBoxTemplate}"
-                      Height="32"
-                      HorizontalAlignment="Stretch"/>
-            <TextBlock Margin="0,4,0,0" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource MutedForeground}"
-                       Text="{DynamicResource Settings.LanguageHint}"/>
-
-            <CheckBox x:Name="LaunchBox" Margin="0,16,0,0" Foreground="{DynamicResource WindowForeground}">
-                <TextBlock Text="{DynamicResource Settings.LaunchWithWindows}" TextWrapping="Wrap"/>
-            </CheckBox>
-            <TextBlock Margin="22,4,0,0" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource MutedForeground}"
-                       Text="{DynamicResource Settings.LaunchHint}"/>
-
-            <CheckBox x:Name="ConnectBox" Margin="0,14,0,0" Foreground="{DynamicResource WindowForeground}">
-                <TextBlock Text="{DynamicResource Settings.ConnectOnLaunch}" TextWrapping="Wrap"/>
-            </CheckBox>
-            <TextBlock Margin="22,4,0,0" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource MutedForeground}"
-                       Text="{DynamicResource Settings.ConnectHint}"/>
-
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
-                <Button Content="{DynamicResource Ui.Cancel}" MinWidth="96" Margin="0,0,8,0" Padding="12,7" Click="CancelClick" IsCancel="True"
-                        Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource ButtonForeground}"
-                        BorderBrush="{DynamicResource ButtonBorder}"/>
-                <Button Content="{DynamicResource Ui.Save}" MinWidth="120" Padding="12,7" Click="SaveClick" IsDefault="True"
-                        Background="{DynamicResource PrimaryBackground}" Foreground="{DynamicResource PrimaryForeground}"
-                        BorderBrush="{DynamicResource PrimaryBorder}"/>
-            </StackPanel>
+            <TextBlock Text="{DynamicResource Orbit.SettingsEyebrow}" Style="{StaticResource OrbitEyebrow}"/>
+            <TextBlock Style="{StaticResource OrbitDialogHeading}" Margin="0,6,0,0" Text="{DynamicResource Settings.Title}" FontSize="24" FontWeight="SemiBold"/>
+            <TextBlock Margin="0,8,0,0" Text="{DynamicResource Settings.Hint}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource MutedForeground}" FontSize="12"/>
+            <Grid Margin="0,24,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <StackPanel Visibility="Collapsed">
+                    <TextBlock Text="{DynamicResource Orbit.ColorScheme}" Foreground="{DynamicResource MutedForeground}" FontSize="11" Margin="0,0,0,7"/>
+                    <ComboBox x:Name="ThemeBox" Style="{StaticResource OrbitComboBox}" DisplayMemberPath="Title" SelectedValuePath="Code" AutomationProperties.Name="{DynamicResource Orbit.ColorScheme}"/>
+                </StackPanel>
+                <StackPanel Grid.ColumnSpan="3">
+                    <TextBlock Text="{DynamicResource Ui.Language}" Foreground="{DynamicResource MutedForeground}" FontSize="11" Margin="0,0,0,7"/>
+                    <ComboBox x:Name="LanguageBox" Style="{StaticResource OrbitComboBox}" DisplayMemberPath="Title" SelectedValuePath="Code" AutomationProperties.Name="{DynamicResource Ui.Language}"/>
+                </StackPanel>
+            </Grid>
+            <TextBlock Margin="0,8,0,0" Text="{DynamicResource Settings.LanguageHint}" TextWrapping="Wrap" Foreground="{DynamicResource MutedForeground}" FontSize="11"/>
+            <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Margin="0,23,0,0" Padding="0,19,0,0">
+                <CheckBox x:Name="LaunchBox" Style="{StaticResource OrbitSwitch}">
+                    <StackPanel MaxWidth="354" HorizontalAlignment="Left">
+                        <TextBlock Text="{DynamicResource Settings.LaunchWithWindows}" FontSize="12" FontWeight="Medium" TextWrapping="Wrap"/>
+                        <TextBlock Text="{DynamicResource Settings.LaunchHint}" Margin="0,4,0,0" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource MutedForeground}"/>
+                    </StackPanel>
+                </CheckBox>
+            </Border>
+            <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Margin="0,19,0,0" Padding="0,19,0,0">
+                <CheckBox x:Name="ConnectBox" Style="{StaticResource OrbitSwitch}">
+                    <StackPanel MaxWidth="354" HorizontalAlignment="Left">
+                        <TextBlock Text="{DynamicResource Settings.ConnectOnLaunch}" FontSize="12" FontWeight="Medium" TextWrapping="Wrap"/>
+                        <TextBlock Text="{DynamicResource Settings.ConnectHint}" Margin="0,4,0,0" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource MutedForeground}"/>
+                    </StackPanel>
+                </CheckBox>
+            </Border>
+            <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Margin="0,19,0,0" Padding="0,19,0,0">
+                <CheckBox x:Name="AutoReconnectBox" Style="{StaticResource OrbitSwitch}" AutomationProperties.Name="{DynamicResource Settings.AutoReconnect}">
+                    <StackPanel MaxWidth="354" HorizontalAlignment="Left">
+                        <TextBlock Text="{DynamicResource Settings.AutoReconnect}" FontSize="12" FontWeight="Medium" TextWrapping="Wrap"/>
+                        <TextBlock Text="{DynamicResource Settings.AutoReconnectHint}" Margin="0,4,0,0" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource MutedForeground}"/>
+                    </StackPanel>
+                </CheckBox>
+            </Border>
+            <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Margin="0,25,0,0" Padding="0,18,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="{DynamicResource Ui.Cancel}" MinWidth="94" Margin="0,0,8,0" Style="{StaticResource OrbitButton}" Click="CancelClick" IsCancel="True"/>
+                    <Button Content="{DynamicResource Ui.Save}" MinWidth="120" Style="{StaticResource OrbitPrimaryButton}" Click="SaveClick" IsDefault="True"/>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </Border>
 </Window>

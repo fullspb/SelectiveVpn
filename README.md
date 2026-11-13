@@ -16,10 +16,13 @@ Built with **.NET / WPF**, powered by **Mihomo** and **AmneziaWG** configs / sub
 - **Selective routing** — apps (`.exe`), folders, and address lists per profile
 - **Except-list mode** — all traffic via VPN except the listed targets
 - **Server picker** — choose a node from a subscription (with ping when available)
-- **Themes** — Light, Dark, Green, OLED, Amber, Indigo
+- **Orbit interface** — connection control, per-profile routing, current server/IP, and a collapsible event log
+- **Themes** — Light, Dark, Pine, Graphite, Ocean, Indigo, Plum, Amber
 - **Languages** — Russian, English, Spanish, Portuguese, Chinese (+ Auto)
 - **Tray** — minimize to tray, connect / disconnect / exit; menu follows the app theme
 - **Autostart** — launch with Windows and optional connect-on-start
+- **Apply routing changes** — explicit reconnect action for the running profile
+- **Optional recovery** — up to three attempts after an unexpected engine stop; manual disconnect cancels recovery
 - **Installer** — self-contained Windows setup with bundled Mihomo
 
 ## Screenshots
@@ -71,6 +74,23 @@ powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1
 ```
 
 Output: `installer\output\SelectiveVpn-Setup-<version>.exe`
+
+## Checks
+
+Core parsing, routing generation, startup cleanup and active-profile snapshot regressions:
+
+```powershell
+dotnet test SelectiveVpn.Tests\SelectiveVpn.Tests.csproj -c Release
+```
+
+Windows WPF command and popup regressions (isolated fake controller, temporary profiles, no real VPN or user settings):
+
+```powershell
+dotnet run --project SelectiveVpn.UiTests\SelectiveVpn.UiTests.csproj -c Release
+```
+
+The UI checks cover profile/server isolation, reconnect, cancellation, stale IP/server responses,
+bounded opt-in recovery, settings, and actual popup creation including separators and submenus.
 
 ## Project layout
 
