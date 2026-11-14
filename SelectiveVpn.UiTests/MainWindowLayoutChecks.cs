@@ -36,6 +36,11 @@ internal static class MainWindowLayoutChecks
             var disabled = Descendants(window).OfType<ListBox>().Where(list => !list.IsEnabled).ToArray();
             Check.True(disabled.Contains(Named<ListBox>(window, "RulesList")) && disabled.Length >= 2,
                 "The profile and rule lists should be disabled while a disconnect is pending.");
+            var profiles = disabled.Single(list => !ReferenceEquals(list, Named<ListBox>(window, "RulesList")));
+            var viewport = Descendants(profiles).OfType<ScrollContentPresenter>().First();
+            var firstCard = (FrameworkElement)profiles.ItemContainerGenerator.ContainerFromIndex(0);
+            Check.True(Bounds(firstCard, viewport).Top >= 3,
+                "The first profile card lifts on hover, so it needs headroom below the clipping edge of the list.");
             // This harness does not load App.xaml, so scroll bars keep their light system look here.
             var scrollBarParts = disabled.SelectMany(Descendants).OfType<System.Windows.Controls.Primitives.ScrollBar>()
                 .SelectMany(Descendants).ToHashSet();
