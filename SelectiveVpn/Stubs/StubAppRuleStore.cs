@@ -97,10 +97,10 @@ public sealed class StubAppRuleStore : IAppRuleStore
     {
         var desired = string.IsNullOrWhiteSpace(name) ? Loc.T("AddressList.DefaultName") : name.Trim();
         if (desired.Contains(',') || desired.Contains('\''))
-            return OperationResult.Fail("Название списка содержит недопустимый символ.");
+            return OperationResult.Fail(Loc.T("Msg.Rules.BadListName"));
 
         if (entries.Count == 0)
-            return OperationResult.Fail("Список пуст. Добавьте домены или IP-адреса.");
+            return OperationResult.Fail(Loc.T("Core.List.Empty"));
 
         var title = AllocateUniqueAddressListTitle(desired);
         var ips = skipDomainResolve ? Array.Empty<string>() : resolvedIps.ToArray();
@@ -140,20 +140,20 @@ public sealed class StubAppRuleStore : IAppRuleStore
             rule.EffectiveKind == RouteKind.AddressList
             && string.Equals(rule.ExecutablePath, currentName, StringComparison.OrdinalIgnoreCase));
         if (index < 0)
-            return OperationResult.Fail("Список адресов не найден.");
+            return OperationResult.Fail(Loc.T("Msg.Rules.ListNotFound"));
 
-        var title = string.IsNullOrWhiteSpace(name) ? "Список адресов" : name.Trim();
+        var title = string.IsNullOrWhiteSpace(name) ? Loc.T("AddressList.DefaultName") : name.Trim();
         if (title.Contains(',') || title.Contains('\''))
-            return OperationResult.Fail("Название списка содержит недопустимый символ.");
+            return OperationResult.Fail(Loc.T("Msg.Rules.BadListName"));
 
         if (entries.Count == 0)
-            return OperationResult.Fail("Список пуст. Добавьте домены или IP-адреса.");
+            return OperationResult.Fail(Loc.T("Core.List.Empty"));
 
         if (_rules.Exists(rule =>
                 rule.EffectiveKind == RouteKind.AddressList
                 && !string.Equals(rule.ExecutablePath, currentName, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(rule.ExecutablePath, title, StringComparison.OrdinalIgnoreCase)))
-            return OperationResult.Fail("Список с таким названием уже есть.");
+            return OperationResult.Fail(Loc.T("Msg.Rules.ListNameExists"));
 
         var ips = skipDomainResolve ? Array.Empty<string>() : resolvedIps.ToArray();
         _rules[index] = new AppRule(title, false, RouteKind.AddressList, entries.ToArray(), ips, skipDomainResolve);
@@ -167,11 +167,11 @@ public sealed class StubAppRuleStore : IAppRuleStore
             rule.EffectiveKind == RouteKind.AddressList
             && string.Equals(rule.ExecutablePath, name, StringComparison.OrdinalIgnoreCase));
         if (index < 0)
-            return OperationResult.Fail("Список адресов не найден.");
+            return OperationResult.Fail(Loc.T("Msg.Rules.ListNotFound"));
 
         var current = _rules[index];
         _rules[index] = current with { ResolvedIps = resolvedIps.ToArray() };
-        return OperationResult.Ok($"Обновлены IP списка «{current.ExecutablePath}».");
+        return OperationResult.Ok(Loc.Tf("Msg.Rules.ListIpsUpdated", current.ExecutablePath));
     }
 
     public OperationResult RemoveExecutable(string executablePath)
@@ -180,9 +180,9 @@ public sealed class StubAppRuleStore : IAppRuleStore
             string.Equals(rule.ExecutablePath, executablePath, StringComparison.OrdinalIgnoreCase));
 
         if (removed == 0)
-            return OperationResult.Fail("Приложение не найдено в списке.");
+            return OperationResult.Fail(Loc.T("Msg.Rules.AppNotFound"));
 
-        return OperationResult.Ok("Цель убрана из списка. Уже запущенный туннель от этого сам не меняется.");
+        return OperationResult.Ok(Loc.T("Msg.Rules.TargetRemoved"));
     }
 
     public Task<OperationResult> ApplyAsync(CancellationToken cancellationToken = default)
@@ -190,10 +190,10 @@ public sealed class StubAppRuleStore : IAppRuleStore
         cancellationToken.ThrowIfCancellationRequested();
 
         var details = _rules.Count == 0
-            ? "Список приложений пуст."
-            : $"В списке приложений: {_rules.Count}.";
+            ? Loc.T("Msg.Rules.AppsEmpty")
+            : Loc.Tf("Msg.Rules.AppsCount", _rules.Count);
 
         return Task.FromResult(OperationResult.Ok(
-            details + " Они будут записаны в профиль Mihomo при подключении."));
+            details + " " + Loc.T("Msg.Rules.WillBeWritten")));
     }
 }

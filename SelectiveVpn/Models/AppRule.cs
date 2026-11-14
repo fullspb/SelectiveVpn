@@ -41,7 +41,7 @@ public sealed record AppRule(
     public string DetailText => EffectiveKind switch
     {
         RouteKind.AddressList => SkipDomainResolve
-            ? FormatListSummary(EntryList, ResolvedIpList) + " · без проверки IP"
+            ? FormatListSummary(EntryList, ResolvedIpList) + " · " + Loc.T("List.NoIpCheck")
             : FormatListSummary(EntryList, ResolvedIpList),
         RouteKind.File or RouteKind.Folder => ExecutablePath,
         _ => ExecutablePath
@@ -69,20 +69,33 @@ public sealed record AppRule(
         }
 
         ips += resolvedIps.Count;
-        return $"{FormatCount(domains, "домен", "домена", "доменов")} · {FormatCount(ips, "IP", "IP", "IP")}";
+        return $"{FormatDomainCount(domains)} · {ips} IP";
     }
 
-    private static string FormatCount(int count, string one, string few, string many)
+    /// <summary>
+    /// "N domains" in the current language. The word form follows its plural rule (List.Plural):
+    /// "slavic" has one/few/many, "simple" has one/many, "none" always uses many.
+    /// </summary>
+    public static string FormatDomainCount(int count)
     {
-        var mod100 = count % 100;
-        var mod10 = count % 10;
-        var word = mod100 is >= 11 and <= 14
-            ? many
-            : mod10 == 1
-                ? one
-                : mod10 is >= 2 and <= 4
-                    ? few
-                    : many;
-        return $"{count} {word}";
+        string form;
+        switch (Loc.T("List.Plural"))
+        {
+            case "none":
+                form = "DomainMany";
+                break;
+            case "simple":
+                form = count == 1 ? "Domain1" : "DomainMany";
+                break;
+            default:
+                var mod100 = count % 100;
+                var mod10 = count % 10;
+                form = mod100 is >= 11 and <= 14 ? "DomainMany"
+                    : mod10 == 1 ? "Domain1"
+                    : mod10 is >= 2 and <= 4 ? "DomainFew"
+                    : "DomainMany";
+                break;
+        }
+        return $"{count} {Loc.T("AddressList." + form)}";
     }
 }

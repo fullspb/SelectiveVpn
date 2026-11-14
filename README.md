@@ -12,7 +12,7 @@ Built with **.NET / WPF**, powered by **Mihomo** and **AmneziaWG** configs / sub
 
 ## Features
 
-- **Profiles** — multiple AmneziaWG configs or subscription URLs side by side
+- **Profiles** — multiple AmneziaWG configs, subscription URLs, or pasted server links (`vless://`, `vmess://`, `trojan://`, `ss://`) side by side
 - **Selective routing** — apps (`.exe`), folders, and address lists per profile
 - **Except-list mode** — all traffic via VPN except the listed targets
 - **Server picker** — choose a node from a subscription (with ping when available)
@@ -55,7 +55,7 @@ Windows may ask for **administrator** rights when creating the TUN adapter.
 
 ## Quick start
 
-1. **Add profile** — import an AmneziaWG `.conf` / `.json`, or **Add by link** for a subscription URL  
+1. **Add profile** — import an AmneziaWG `.conf` / `.json`, or **Add by link** for a subscription URL or one or more `vless://` server links  
 2. Optionally pick a **server** for subscription profiles  
 3. Add apps / folders / address lists for selective routing (empty list ⇒ all traffic via VPN)  
 4. Press **Start**

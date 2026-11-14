@@ -17,7 +17,7 @@ public static class SubscriptionNodeCatalog
     {
         var list = new List<VpnNodeInfo>
         {
-            new(SubscriptionProfile.AutoNodeName, SubscriptionProfile.AutoNodeDisplayName, true)
+            new(SubscriptionProfile.AutoNodeName, SubscriptionProfile.DisplayNodeName(SubscriptionProfile.AutoNodeName), true)
         };
 
         foreach (var name in nodeNames
@@ -70,7 +70,7 @@ public static class SubscriptionNodeCatalog
         error = "";
         if (string.IsNullOrWhiteSpace(cachePath) || !File.Exists(cachePath))
         {
-            error = "Кэш подписки ещё не загружен. Запустите маршрутизацию или обновите список.";
+            error = CoreText.T("Core.Sub.CacheMissing", "Кэш подписки ещё не загружен. Запустите маршрутизацию или обновите список.");
             return false;
         }
 
@@ -82,7 +82,7 @@ public static class SubscriptionNodeCatalog
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            error = "Не удалось прочитать кэш подписки.";
+            error = CoreText.T("Core.Sub.CacheReadFail", "Не удалось прочитать кэш подписки.");
             return false;
         }
     }
@@ -136,11 +136,11 @@ public static class SubscriptionNodeCatalog
             }
             else
             {
-                name = $"Узел {index}";
+                name = CoreText.F("Core.Sub.NodeN", "Узел {0}", index);
             }
 
             if (string.IsNullOrWhiteSpace(name))
-                name = $"Узел {index}";
+                name = CoreText.F("Core.Sub.NodeN", "Узел {0}", index);
 
             names.Add(name);
             index++;

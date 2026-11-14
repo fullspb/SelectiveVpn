@@ -26,7 +26,7 @@ public static class AddressListResolver
         var lines = (text ?? "")
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (lines.Length == 0)
-            return new AddressListParseResult(false, "Список пуст. Добавьте домены или IP-адреса.", [], [], []);
+            return new AddressListParseResult(false, CoreText.T("Core.List.Empty", "Список пуст. Добавьте домены или IP-адреса."), [], [], []);
 
         var entries = new List<string>();
         var domains = new List<string>();
@@ -56,11 +56,11 @@ public static class AddressListResolver
         }
 
         if (entries.Count == 0)
-            return new AddressListParseResult(false, "Список пуст. Добавьте домены или IP-адреса.", [], [], []);
+            return new AddressListParseResult(false, CoreText.T("Core.List.Empty", "Список пуст. Добавьте домены или IP-адреса."), [], [], []);
 
         return new AddressListParseResult(
             true,
-            $"Распознано адресов: {entries.Count}.",
+            CoreText.F("Core.List.Parsed", "Распознано адресов: {0}.", entries.Count),
             entries,
             domains,
             ips);
@@ -83,10 +83,10 @@ public static class AddressListResolver
 
         if (domains.Count == 0)
         {
-            progress?.Report($"Готово: IP в списке — {ips.Count}.");
+            progress?.Report(CoreText.F("Core.List.IpOnlyDone", "Готово: IP в списке — {0}.", ips.Count));
             return new AddressListResolveResult(
                 true,
-                $"Список готов: 0 доменов, {ips.Count} IP.",
+                CoreText.F("Core.List.Ready", "Список готов: доменов — {0}, IP — {1}.", 0, ips.Count),
                 entries.ToArray(),
                 [],
                 0,
@@ -100,7 +100,7 @@ public static class AddressListResolver
             cancellationToken.ThrowIfCancellationRequested();
             var domain = domains[index];
             var step = index + 1;
-            progress?.Report($"Проверяю {step}/{domains.Count}: {domain}");
+            progress?.Report(CoreText.F("Core.List.Checking", "Проверяю {0}/{1}: {2}", step, domains.Count, domain));
             try
             {
                 var addresses = await Dns.GetHostAddressesAsync(domain, cancellationToken).ConfigureAwait(false);
@@ -131,8 +131,8 @@ public static class AddressListResolver
         var resolvedIps = resolved.OrderBy(static value => value, StringComparer.OrdinalIgnoreCase).ToArray();
         var totalIps = ips.Count + resolvedIps.Length;
         var message = failed == 0
-            ? $"Список готов: {domains.Count} доменов, {totalIps} IP."
-            : $"Список готов: {domains.Count} доменов, {totalIps} IP. Не удалось разрешить доменов: {failed}.";
+            ? CoreText.F("Core.List.Ready", "Список готов: доменов — {0}, IP — {1}.", domains.Count, totalIps)
+            : CoreText.F("Core.List.ReadyFailed", "Список готов: доменов — {0}, IP — {1}. Не удалось разрешить доменов: {2}.", domains.Count, totalIps, failed);
         progress?.Report(message);
         return new AddressListResolveResult(true, message, entries.ToArray(), resolvedIps, domains.Count, failed);
     }

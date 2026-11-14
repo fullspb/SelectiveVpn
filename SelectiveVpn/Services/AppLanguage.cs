@@ -89,6 +89,15 @@ internal static class AppLanguage
 
         dictionary[DictionaryTag] = true;
         merged.Add(dictionary);
+
+        // The engine library runs off the UI thread, so it gets an immutable copy of the strings.
+        var texts = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var key in dictionary.Keys)
+        {
+            if (key is string name && dictionary[name] is string text)
+                texts[name] = text;
+        }
+        CoreText.Lookup = name => texts.GetValueOrDefault(name);
         CurrentCode = resolved;
         LanguageChanged?.Invoke(null, EventArgs.Empty);
     }

@@ -62,26 +62,38 @@ public static class MihomoProfileWriter
         AppendDns(builder, ["udp://1.1.1.1", "udp://8.8.8.8"], targets, exceptListed);
         builder.AppendLine("proxy-providers:");
         builder.AppendLine("  subscription:");
-        builder.AppendLine("    type: http");
-        builder.AppendLine("    url: " + Quote(subscription.Url));
-        builder.AppendLine("    path: " + Quote(providerCachePath.Replace('\\', '/')));
-        builder.AppendLine("    interval: 3600");
+        if (subscription.IsInline)
+        {
+            // Pasted links: the engine has already written them to this file, nothing to download.
+            builder.AppendLine("    type: file");
+            builder.AppendLine("    path: " + Quote(providerCachePath.Replace('\\', '/')));
+        }
+        else
+        {
+            builder.AppendLine("    type: http");
+            builder.AppendLine("    url: " + Quote(subscription.Url));
+            builder.AppendLine("    path: " + Quote(providerCachePath.Replace('\\', '/')));
+            builder.AppendLine("    interval: 3600");
+        }
         builder.AppendLine("    health-check:");
         builder.AppendLine("      enable: true");
         builder.AppendLine("      url: https://www.gstatic.com/generate_204");
         builder.AppendLine("      interval: 300");
         builder.AppendLine("      lazy: true");
-        builder.AppendLine("    header:");
-        builder.AppendLine("      User-Agent:");
-        builder.AppendLine("        - " + Quote("SelectiveVpn/" + MihomoRelease.Version));
-        builder.AppendLine("      x-hwid:");
-        builder.AppendLine("        - " + Quote(hardwareId));
-        builder.AppendLine("      x-device-os:");
-        builder.AppendLine("        - " + Quote("Windows"));
-        builder.AppendLine("      x-ver-os:");
-        builder.AppendLine("        - " + Quote(Environment.OSVersion.Version.ToString()));
-        builder.AppendLine("      x-device-model:");
-        builder.AppendLine("        - " + Quote("SelectiveVpn"));
+        if (!subscription.IsInline)
+        {
+            builder.AppendLine("    header:");
+            builder.AppendLine("      User-Agent:");
+            builder.AppendLine("        - " + Quote("SelectiveVpn/" + MihomoRelease.Version));
+            builder.AppendLine("      x-hwid:");
+            builder.AppendLine("        - " + Quote(hardwareId));
+            builder.AppendLine("      x-device-os:");
+            builder.AppendLine("        - " + Quote("Windows"));
+            builder.AppendLine("      x-ver-os:");
+            builder.AppendLine("        - " + Quote(Environment.OSVersion.Version.ToString()));
+            builder.AppendLine("      x-device-model:");
+            builder.AppendLine("        - " + Quote("SelectiveVpn"));
+        }
         builder.AppendLine("proxy-groups:");
         builder.AppendLine("  - name: " + Quote(SubscriptionProfile.AutoNodeName));
         builder.AppendLine("    type: url-test");

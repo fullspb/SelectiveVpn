@@ -36,7 +36,7 @@ public partial class ConfigEditPrompt : Window
         if (!parsed.Succeeded || parsed.Profile is null)
         {
             ShowError(string.IsNullOrWhiteSpace(parsed.Message)
-                ? "Конфигурация не прошла проверку."
+                ? Loc.T("ConfigEdit.Invalid")
                 : parsed.Message);
             return;
         }
@@ -45,12 +45,12 @@ public partial class ConfigEditPrompt : Window
         {
             File.WriteAllText(_path, NormalizeNewlines(text), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
             SavedContent = text;
-            ResultMessage = $"Конфиг сохранён: {parsed.Profile.Describe()}.";
+            ResultMessage = Loc.Tf("ConfigEdit.Saved", parsed.Profile.Describe());
             DialogResult = true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            ShowError("Не удалось сохранить файл конфигурации.");
+            ShowError(Loc.T("ConfigEdit.SaveFail"));
         }
     }
 

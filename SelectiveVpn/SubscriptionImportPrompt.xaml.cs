@@ -29,7 +29,7 @@ public partial class SubscriptionImportPrompt : Window
         if (_busy)
             return;
 
-        if (!ConfigSubscriptionImporter.TryNormalizeUrl(UrlBox.Text, out _, out var urlError))
+        if (!ConfigSubscriptionImporter.TryValidateInput(UrlBox.Text, out var urlError))
         {
             ShowError(urlError);
             return;
@@ -41,11 +41,11 @@ public partial class SubscriptionImportPrompt : Window
         UrlBox.IsEnabled = false;
         NameBox.IsEnabled = false;
         ErrorText.Visibility = Visibility.Collapsed;
-        SetStatus("Загружаю ссылку…");
+        SetStatus(Loc.T("SubImport.Loading"));
 
         try
         {
-            var result = await ConfigSubscriptionImporter.ImportFromUrlAsync(
+            var result = await ConfigSubscriptionImporter.ImportAsync(
                     UrlBox.Text,
                     NameBox.Text,
                     cancellationToken: _importCts.Token)
@@ -63,11 +63,11 @@ public partial class SubscriptionImportPrompt : Window
         }
         catch (OperationCanceledException)
         {
-            ShowError("Импорт отменён.");
+            ShowError(Loc.T("SubImport.Canceled"));
         }
         catch (Exception)
         {
-            ShowError("Не удалось импортировать профиль по ссылке.");
+            ShowError(Loc.T("SubImport.Fail"));
         }
         finally
         {
@@ -80,11 +80,27 @@ public partial class SubscriptionImportPrompt : Window
         }
     }
 
+    /// <summary>
+    /// The link box takes several lines so a pasted list of servers stays intact, but a plain
+    /// Enter still starts the import, as it did when the box held a single URL.
+    /// </summary>
+    private void UrlBoxPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Enter
+            || System.Windows.Input.Keyboard.Modifiers != System.Windows.Input.ModifierKeys.None)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        ImportClick(sender, e);
+    }
+
     private void CancelClick(object sender, RoutedEventArgs e)
     {
         if (_busy && _importCts is not null)
         {
-            SetStatus("Отмена…");
+            SetStatus(Loc.T("AddressList.Canceling"));
             _importCts.Cancel();
             return;
         }

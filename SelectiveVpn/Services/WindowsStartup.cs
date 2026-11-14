@@ -16,31 +16,31 @@ internal static class WindowsStartup
             using var key = Registry.CurrentUser.CreateSubKey(RunPath, writable: true);
             if (key is null)
             {
-                message = "Не удалось открыть автозагрузку Windows.";
+                message = Loc.T("Msg.Startup.OpenFail");
                 return false;
             }
 
             if (!enabled)
             {
                 key.DeleteValue(ValueName, throwOnMissingValue: false);
-                message = "Автозапуск с Windows выключен.";
+                message = Loc.T("Msg.Startup.Off");
                 return true;
             }
 
             var executable = Environment.ProcessPath;
             if (string.IsNullOrWhiteSpace(executable))
             {
-                message = "Не удалось определить путь к SelectiveVpn.exe. Автозапуск не записан.";
+                message = Loc.T("Msg.Startup.NoPath");
                 return false;
             }
 
             key.SetValue(ValueName, $"\"{executable}\"");
-            message = "Автозапуск с Windows включён. При входе откроется приложение, без подключения VPN.";
+            message = Loc.T("Msg.Startup.On");
             return true;
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or SecurityException or IOException)
         {
-            message = "Не удалось изменить автозапуск Windows.";
+            message = Loc.T("Msg.Startup.ChangeFail");
             return false;
         }
     }

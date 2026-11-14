@@ -181,8 +181,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     public string ConnectionProfileName => IsConnected ? RunningProfileName : ProfileName;
 
-    public string ConnectionProtocol => SubscriptionProfile.IsSubscriptionPath(IsConnected ? _runningConfigPath : ConfigPath)
-        ? Loc.T("Orbit.Subscription") : "AmneziaWG";
+    public string ConnectionProtocol
+    {
+        get
+        {
+            var path = IsConnected ? _runningConfigPath : ConfigPath;
+            return Profiles.FirstOrDefault(profile => SamePath(profile.ConfigPath, path))?.KindLabel
+                ?? (SubscriptionProfile.IsSubscriptionPath(path) ? Loc.T("Orbit.Subscription") : "AmneziaWG");
+        }
+    }
 
     public bool IsSelectedProfileRunning => IsConnected && SamePath(ConfigPath, _runningConfigPath);
 
@@ -805,6 +812,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             return SubscriptionNodeCatalog.WithAuto(cached);
         }
 
+        // Pasted links carry their own node list: nothing to download.
+        if (subscription.IsInline)
+            return SubscriptionNodeCatalog.WithAuto(SubscriptionNodeCatalog.ExtractNames(string.Join("\n", subscription.Links!)));
+
         try
         {
             using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
@@ -1143,7 +1154,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                     _pendingProfilePaths.Remove(request.ConfigFilePath);
                 SetStatus(Loc.T("Status.Running"), "connected");
             }
-            else if (result.Message.Contains("отменено", StringComparison.OrdinalIgnoreCase)
+            else if (string.Equals(result.Message, MihomoEngine.ConnectCanceledMessage, StringComparison.Ordinal)
                      || result.Message.Contains("cancel", StringComparison.OrdinalIgnoreCase))
                 SetStatus(Loc.T("Status.Stopped"), "disconnected");
             else
@@ -1416,9 +1427,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 return;
             ConnectedServer = string.IsNullOrWhiteSpace(node)
                 ? ""
-                : "· " + (node.Equals(SubscriptionProfile.AutoNodeName, StringComparison.OrdinalIgnoreCase)
+                : node.Equals(SubscriptionProfile.AutoNodeName, StringComparison.OrdinalIgnoreCase)
                     ? Loc.T("Node.Auto")
-                    : node);
+                    : node;
         }
         catch (Exception)
         {

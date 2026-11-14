@@ -8,7 +8,7 @@ public static class SecretRedactor
                      .Where(static value => !string.IsNullOrWhiteSpace(value) && value.Length >= 8)
                      .OrderByDescending(static value => value.Length))
         {
-            text = text.Replace(secret, "[скрыто]", StringComparison.Ordinal);
+            text = text.Replace(secret, CoreText.T("Core.Redacted", "[скрыто]"), StringComparison.Ordinal);
         }
 
         return text;

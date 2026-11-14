@@ -101,19 +101,7 @@ public partial class AddressListPrompt : Window
         return count;
     }
 
-    private static string FormatDomainCount(int count)
-    {
-        var mod100 = count % 100;
-        var mod10 = count % 10;
-        var word = mod100 is >= 11 and <= 14
-            ? Loc.T("AddressList.DomainMany")
-            : mod10 == 1
-                ? Loc.T("AddressList.Domain1")
-                : mod10 is >= 2 and <= 4
-                    ? Loc.T("AddressList.DomainFew")
-                    : Loc.T("AddressList.DomainMany");
-        return $"{count} {word}";
-    }
+    private static string FormatDomainCount(int count) => AppRule.FormatDomainCount(count);
 
     private async void AddClick(object sender, RoutedEventArgs e)
     {

@@ -12,8 +12,8 @@ public sealed class WpfFilePicker : IFilePicker
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Конфигурация AmneziaWG",
-            Filter = "Конфигурация AmneziaWG (*.conf;*.awg)|*.conf;*.awg|Все файлы (*.*)|*.*",
+            Title = Loc.T("File.ConfigTitle"),
+            Filter = Loc.T("File.ConfigTitle") + " (*.conf;*.awg)|*.conf;*.awg|" + Loc.T("File.AllFiles") + " (*.*)|*.*",
             CheckFileExists = true,
             Multiselect = false,
             DereferenceLinks = true
@@ -26,8 +26,8 @@ public sealed class WpfFilePicker : IFilePicker
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Исполняемый файл приложения",
-            Filter = "Приложения (*.exe)|*.exe",
+            Title = Loc.T("File.ExeTitle"),
+            Filter = Loc.T("File.ExeFilter") + " (*.exe)|*.exe",
             CheckFileExists = true,
             Multiselect = false,
             DereferenceLinks = true
@@ -40,7 +40,7 @@ public sealed class WpfFilePicker : IFilePicker
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "Папка приложений",
+            Title = Loc.T("File.FolderTitle"),
             Multiselect = false
         };
 
@@ -51,7 +51,7 @@ public sealed class WpfFilePicker : IFilePicker
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Исполняемый файл Mihomo",
+            Title = Loc.T("File.EngineTitle"),
             Filter = "Mihomo (*.exe)|*.exe",
             CheckFileExists = true,
             Multiselect = false,

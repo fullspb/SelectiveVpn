@@ -14,6 +14,9 @@ namespace SelectiveVpn.Engine;
 
 public sealed class MihomoEngine : IMihomoController
 {
+    /// <summary>The message a cancelled start returns, so callers can tell it from a failure.</summary>
+    public static string ConnectCanceledMessage
+        => CoreText.T("Core.Engine.Canceled", "Подключение отменено. Туннель не запускался.");
     private readonly string _engineDirectory;
     private readonly string _runtimeDirectory;
     private readonly HttpMessageHandler? _downloadHandler;
@@ -27,6 +30,7 @@ public sealed class MihomoEngine : IMihomoController
     private string? _apiSecret;
     private string? _configPath;
     private string? _providerCachePath;
+    private string? _inlineProviderPath;
     private string? _preferredNode;
     private MihomoStartRequest? _activeRequest;
     private AmneziaWgProfile? _activeWireGuardProfile;
@@ -62,7 +66,7 @@ public sealed class MihomoEngine : IMihomoController
         CancellationToken cancellationToken = default)
     {
         if (IsRunning)
-            return OperationResult.Fail("Уже подключено.");
+            return OperationResult.Fail(CoreText.T("Core.Engine.AlreadyConnected", "Уже подключено."));
 
         lock (_traffic)
             _traffic.Reset();
@@ -75,7 +79,7 @@ public sealed class MihomoEngine : IMihomoController
                 || target.Path.Contains('\n')
                 || target.Path.Contains('\r'))
             {
-                return OperationResult.Fail("Путь содержит недопустимый символ. Туннель не запускался.");
+                return OperationResult.Fail(CoreText.T("Core.Engine.BadPath", "Путь содержит недопустимый символ. Туннель не запускался."));
             }
         }
 
@@ -105,7 +109,7 @@ public sealed class MihomoEngine : IMihomoController
             string? preferredNode = null;
             if (SubscriptionProfile.IsSubscriptionPath(request.ConfigFilePath))
             {
-                Publish("Готовлю подписку для Mihomo.");
+                Publish(CoreText.T("Core.Engine.PreparingSubscription", "Готовлю подписку для Mihomo."));
                 if (!SubscriptionProfile.TryRead(request.ConfigFilePath, out var subscription, out var subError))
                     return OperationResult.Fail(subError);
                 subscriptionSnapshot = subscription;
@@ -113,14 +117,25 @@ public sealed class MihomoEngine : IMihomoController
                 var providersDir = Path.Combine(_runtimeDirectory, "providers");
                 Directory.CreateDirectory(providersDir);
                 var providerCache = Path.Combine(providersDir, "subscription.yaml");
-                try
+                if (subscription.IsInline)
                 {
-                    if (File.Exists(providerCache))
-                        File.Delete(providerCache);
+                    // Pasted links are the node list itself: Mihomo reads them from this file.
+                    _secrets.AddRange(subscription.SecretValues());
+                    _inlineProviderPath = providerCache;
+                    await File.WriteAllTextAsync(providerCache, subscription.BuildProviderPayload(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), cancellationToken)
+                        .ConfigureAwait(false);
                 }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                else
                 {
-                    // stale cache is fine; mihomo will refresh
+                    try
+                    {
+                        if (File.Exists(providerCache))
+                            File.Delete(providerCache);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        // stale cache is fine; mihomo will refresh
+                    }
                 }
 
                 var yaml = MihomoProfileWriter.BuildSubscription(
@@ -140,7 +155,7 @@ public sealed class MihomoEngine : IMihomoController
             }
             else
             {
-                Publish("Читаю конфигурацию AmneziaWG локально.");
+                Publish(CoreText.T("Core.Engine.ReadingConfig", "Читаю конфигурацию AmneziaWG локально."));
                 var read = AmneziaWgConfigReader.ReadFile(request.ConfigFilePath);
                 if (!read.Succeeded || read.Profile is null)
                     return OperationResult.Fail(read.Message);
@@ -159,16 +174,16 @@ public sealed class MihomoEngine : IMihomoController
                 summary = read.Profile.Describe();
                 ignored = read.Profile.IgnoredParameters.Count == 0
                     ? ""
-                    : " Локальные параметры проигнорированы: " + string.Join(", ", read.Profile.IgnoredParameters) + ".";
+                    : " " + CoreText.F("Core.Engine.Ignored", "Локальные параметры проигнорированы: {0}.", string.Join(", ", read.Profile.IgnoredParameters));
                 _providerCachePath = null;
             }
 
-            Publish("Запускаю Mihomo.");
+            Publish(CoreText.T("Core.Engine.Starting", "Запускаю Mihomo."));
             process = CreateProcess(binary.Path, configPath);
             if (!process.Start())
             {
                 ForgetSecrets(configPath);
-                return OperationResult.Fail("Не удалось запустить процесс Mihomo.");
+                return OperationResult.Fail(CoreText.T("Core.Engine.StartFail", "Не удалось запустить процесс Mihomo."));
             }
             processStarted = true;
 
@@ -200,21 +215,21 @@ public sealed class MihomoEngine : IMihomoController
             {
                 var selected = await SelectVpnNodeAsync(preferredNode, cancellationToken).ConfigureAwait(false);
                 nodeNote = selected.Succeeded
-                    ? $" Сервер: {SubscriptionProfile.DisplayNodeName(preferredNode)}."
-                    : $" Сервер «{preferredNode}» пока не выбран: {selected.Message}";
+                    ? " " + CoreText.F("Core.Engine.NodeSelected", "Сервер: {0}.", SubscriptionProfile.DisplayNodeName(preferredNode))
+                    : " " + CoreText.F("Core.Engine.NodeNotSelected", "Сервер «{0}» пока не выбран: {1}", preferredNode, selected.Message);
             }
             else if (!string.IsNullOrWhiteSpace(preferredNode))
             {
-                nodeNote = " Сервер: авто.";
+                nodeNote = " " + CoreText.T("Core.Engine.NodeAuto", "Сервер: авто.");
             }
 
             var scope = request.Targets.Count == 0
-                ? "Весь трафик идёт через VPN."
+                ? CoreText.T("Core.Engine.ScopeAll", "Весь трафик идёт через VPN.")
                 : request.ExceptListed
-                    ? $"Исключений из VPN: {request.Targets.Count}. Остальной трафик идёт через VPN."
-                    : $"Целей через VPN: {request.Targets.Count}. Остальной трафик идёт напрямую.";
+                    ? CoreText.F("Core.Engine.ScopeExcept", "Исключений из VPN: {0}. Остальной трафик идёт через VPN.", request.Targets.Count)
+                    : CoreText.F("Core.Engine.ScopeOnly", "Целей через VPN: {0}. Остальной трафик идёт напрямую.", request.Targets.Count);
             return OperationResult.Ok(
-                $"Подключено. {summary}. {scope}{ignored}{nodeNote}");
+                CoreText.F("Core.Engine.Connected", "Подключено. {0}.", summary) + " " + scope + ignored + nodeNote);
         }
         catch (OperationCanceledException)
         {
@@ -223,7 +238,7 @@ public sealed class MihomoEngine : IMihomoController
                 await StopProcessAsync(process, port, secret).ConfigureAwait(false);
 
             ForgetSecrets(configPath);
-            return OperationResult.Fail("Подключение отменено. Туннель не запускался.");
+            return OperationResult.Fail(ConnectCanceledMessage);
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or HttpRequestException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         {
@@ -232,7 +247,7 @@ public sealed class MihomoEngine : IMihomoController
                 await StopProcessAsync(process, port, secret).ConfigureAwait(false);
 
             ForgetSecrets(configPath);
-            return OperationResult.Fail("Не удалось подготовить Mihomo. Туннель не запускался.");
+            return OperationResult.Fail(CoreText.T("Core.Engine.PrepareFail", "Не удалось подготовить Mihomo. Туннель не запускался."));
         }
         finally
         {
@@ -244,7 +259,7 @@ public sealed class MihomoEngine : IMihomoController
     public async Task<OperationResult> QueryExitIpAsync(CancellationToken cancellationToken = default)
     {
         if (!IsRunning || _ipCheckPort <= 0)
-            return OperationResult.Fail("Маршрутизация не запущена. Внешний IP не запрашивался.");
+            return OperationResult.Fail(CoreText.T("Core.Engine.IpNotRunning", "Маршрутизация не запущена. Внешний IP не запрашивался."));
 
         try
         {
@@ -256,7 +271,7 @@ public sealed class MihomoEngine : IMihomoController
             using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(12) };
             var text = (await client.GetStringAsync("https://api.ipify.org", cancellationToken).ConfigureAwait(false)).Trim();
             if (!IPAddress.TryParse(text, out _))
-                return OperationResult.Fail("Сервис проверки IP вернул неожиданный ответ. Адрес не сохранён.");
+                return OperationResult.Fail(CoreText.T("Core.Engine.IpUnexpected", "Сервис проверки IP вернул неожиданный ответ. Адрес не сохранён."));
 
             return OperationResult.Ok(text);
         }
@@ -266,7 +281,7 @@ public sealed class MihomoEngine : IMihomoController
         }
         catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException or OperationCanceledException)
         {
-            return OperationResult.Fail("Не удалось получить внешний IP через VPN.");
+            return OperationResult.Fail(CoreText.T("Core.Engine.IpFail", "Не удалось получить внешний IP через VPN."));
         }
     }
 
@@ -303,7 +318,7 @@ public sealed class MihomoEngine : IMihomoController
     public async Task<OperationResult> SelectVpnNodeAsync(string nodeName, CancellationToken cancellationToken = default)
     {
         if (!IsRunning || _apiPort <= 0 || string.IsNullOrWhiteSpace(_apiSecret))
-            return OperationResult.Fail("Маршрутизация не запущена.");
+            return OperationResult.Fail(CoreText.T("Core.Engine.NotRunning", "Маршрутизация не запущена."));
 
         var target = string.IsNullOrWhiteSpace(nodeName) ? SubscriptionProfile.AutoNodeName : nodeName.Trim();
         try
@@ -323,10 +338,10 @@ public sealed class MihomoEngine : IMihomoController
                 _preferredNode = target;
                 if (_activeSubscriptionProfile is { } activeSubscription)
                     activeSubscription.SelectedNode = target;
-                return OperationResult.Ok($"Выбран сервер: {SubscriptionProfile.DisplayNodeName(target)}.");
+                return OperationResult.Ok(CoreText.F("Core.Engine.ServerChosen", "Выбран сервер: {0}.", SubscriptionProfile.DisplayNodeName(target)));
             }
 
-            return OperationResult.Fail("Не удалось переключить сервер в Mihomo.");
+            return OperationResult.Fail(CoreText.T("Core.Engine.SwitchFail", "Не удалось переключить сервер в Mihomo."));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -334,7 +349,7 @@ public sealed class MihomoEngine : IMihomoController
         }
         catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
         {
-            return OperationResult.Fail("Не удалось переключить сервер в Mihomo.");
+            return OperationResult.Fail(CoreText.T("Core.Engine.SwitchFail", "Не удалось переключить сервер в Mihomo."));
         }
     }
 
@@ -575,7 +590,7 @@ public sealed class MihomoEngine : IMihomoController
             _activeWireGuardProfile = null;
             _activeSubscriptionProfile = null;
             ForgetSecrets(_configPath);
-            return OperationResult.Fail("Соединение не запущено.");
+            return OperationResult.Fail(CoreText.T("Core.Engine.NoConnection", "Соединение не запущено."));
         }
 
         try
@@ -587,11 +602,11 @@ public sealed class MihomoEngine : IMihomoController
             _activeSubscriptionProfile = null;
             ForgetSecrets(_configPath);
             _providerCachePath = null;
-            return OperationResult.Ok("Отключено. Процесс Mihomo остановлен, TUN выключен.");
+            return OperationResult.Ok(CoreText.T("Core.Engine.Disconnected", "Отключено. Процесс Mihomo остановлен, TUN выключен."));
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            return OperationResult.Fail("Не удалось остановить Mihomo.");
+            return OperationResult.Fail(CoreText.T("Core.Engine.StopFail", "Не удалось остановить Mihomo."));
         }
         finally
         {
@@ -846,22 +861,22 @@ public sealed class MihomoEngine : IMihomoController
             if (!File.Exists(customEnginePath)
                 || !string.Equals(Path.GetExtension(customEnginePath), ".exe", StringComparison.OrdinalIgnoreCase))
             {
-                return new PreparedBinary(false, "", "Выбранное ядро не найдено. Туннель не запускался.");
+                return new PreparedBinary(false, "", CoreText.T("Core.Engine.CustomMissing", "Выбранное ядро не найдено. Туннель не запускался."));
             }
 
-            Publish($"Используется выбранное ядро «{Path.GetFileName(customEnginePath)}».");
+            Publish(CoreText.F("Core.Engine.UsingCustom", "Используется выбранное ядро «{0}».", Path.GetFileName(customEnginePath)));
             return new PreparedBinary(true, Path.GetFullPath(customEnginePath), "");
         }
 
         var bundled = Path.Combine(AppContext.BaseDirectory, "mihomo.exe");
         if (File.Exists(bundled))
         {
-            Publish("Используется Mihomo из комплекта приложения.");
+            Publish(CoreText.T("Core.Engine.UsingBundled", "Используется Mihomo из комплекта приложения."));
             return new PreparedBinary(true, Path.GetFullPath(bundled), "");
         }
 
         if (!MihomoRelease.TryGetAsset(System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture, out var asset))
-            return new PreparedBinary(false, "", "Нужна 64-разрядная Windows. Туннель не запускался.");
+            return new PreparedBinary(false, "", CoreText.T("Core.Engine.Need64", "Нужна 64-разрядная Windows. Туннель не запускался."));
 
         Directory.CreateDirectory(_engineDirectory);
         var exePath = Path.Combine(_engineDirectory, "mihomo.exe");
@@ -873,7 +888,7 @@ public sealed class MihomoEngine : IMihomoController
             return new PreparedBinary(true, exePath, "");
         }
 
-        Publish($"Скачиваю Mihomo {MihomoRelease.Version}.");
+        Publish(CoreText.F("Core.Engine.Downloading", "Скачиваю Mihomo {0}.", MihomoRelease.Version));
         var zipPath = Path.Combine(_engineDirectory, asset.FileName);
         using var client = new HttpClient(_downloadHandler ?? new SocketsHttpHandler(), disposeHandler: _downloadHandler is null)
         {
@@ -883,7 +898,7 @@ public sealed class MihomoEngine : IMihomoController
         using var response = await client.GetAsync(MihomoRelease.DownloadUrl(asset), HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
-            return new PreparedBinary(false, "", "Не удалось скачать Mihomo. Туннель не запускался.");
+            return new PreparedBinary(false, "", CoreText.T("Core.Engine.DownloadFail", "Не удалось скачать Mihomo. Туннель не запускался."));
 
         await using (var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
         await using (var destination = File.Create(zipPath))
@@ -893,10 +908,10 @@ public sealed class MihomoEngine : IMihomoController
         if (!string.Equals(actual, asset.Sha256, StringComparison.OrdinalIgnoreCase))
         {
             File.Delete(zipPath);
-            return new PreparedBinary(false, "", "Контрольная сумма Mihomo не совпала. Архив удалён, туннель не запускался.");
+            return new PreparedBinary(false, "", CoreText.T("Core.Engine.ChecksumBad", "Контрольная сумма Mihomo не совпала. Архив удалён, туннель не запускался."));
         }
 
-        Publish("Контрольная сумма Mihomo совпала.");
+        Publish(CoreText.T("Core.Engine.ChecksumOk", "Контрольная сумма Mihomo совпала."));
         ExtractEngine(zipPath, exePath);
         await File.WriteAllTextAsync(versionPath, MihomoRelease.Version, cancellationToken).ConfigureAwait(false);
         File.Delete(zipPath);
@@ -914,7 +929,7 @@ public sealed class MihomoEngine : IMihomoController
 
             var normalized = entry.FullName.Replace('\\', '/');
             if (normalized.Contains("..", StringComparison.Ordinal) || Path.IsPathRooted(entry.FullName))
-                throw new InvalidDataException("Архив Mihomo содержит небезопасный путь.");
+                throw new InvalidDataException(CoreText.T("Core.Engine.ArchiveUnsafe", "Архив Mihomo содержит небезопасный путь."));
 
             entries.Add(entry);
         }
@@ -925,7 +940,7 @@ public sealed class MihomoEngine : IMihomoController
             ?? entries.FirstOrDefault(entry => entry.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
 
         if (executable is null)
-            throw new InvalidDataException("В архиве Mihomo нет исполняемого файла.");
+            throw new InvalidDataException(CoreText.T("Core.Engine.ArchiveNoExe", "В архиве Mihomo нет исполняемого файла."));
 
         executable.ExtractToFile(exePath, overwrite: true);
         var directory = Path.GetDirectoryName(exePath)!;
@@ -945,7 +960,7 @@ public sealed class MihomoEngine : IMihomoController
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (process.HasExited)
-                return OperationResult.Fail("Mihomo завершился при запуске. " + Tail());
+                return OperationResult.Fail(CoreText.T("Core.Engine.ExitedOnStart", "Mihomo завершился при запуске.") + " " + Tail());
 
             try
             {
@@ -965,7 +980,7 @@ public sealed class MihomoEngine : IMihomoController
             await Task.Delay(400, cancellationToken).ConfigureAwait(false);
         }
 
-        return OperationResult.Fail("Mihomo не ответил на локальный запрос. " + Tail());
+        return OperationResult.Fail(CoreText.T("Core.Engine.NoApiReply", "Mihomo не ответил на локальный запрос.") + " " + Tail());
     }
 
     private async Task StopProcessAsync(Process process, int port, string? secret)
@@ -1001,13 +1016,20 @@ public sealed class MihomoEngine : IMihomoController
         _ipCheckPort = 0;
         _apiSecret = null;
         _configPath = null;
-        if (string.IsNullOrWhiteSpace(configPath) || !File.Exists(configPath))
+        Wipe(_inlineProviderPath);
+        _inlineProviderPath = null;
+        Wipe(configPath);
+    }
+
+    private static void Wipe(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             return;
 
         try
         {
-            File.WriteAllText(configPath, "removed\n");
-            File.Delete(configPath);
+            File.WriteAllText(path, "removed\n");
+            File.Delete(path);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -1036,7 +1058,7 @@ public sealed class MihomoEngine : IMihomoController
     {
         var lines = _logTail.ToArray();
         if (lines.Length == 0)
-            return "Журнал процесса пуст.";
+            return CoreText.T("Core.Engine.LogEmpty", "Журнал процесса пуст.");
 
         return string.Join(" | ", lines.TakeLast(5));
     }

@@ -25,6 +25,185 @@ public static class ConfigSubscriptionImporter
         "SelectiveVpn",
         "profiles");
 
+    /// <summary>Most links one pasted profile may hold.</summary>
+    public const int MaxShareLinks = 200;
+
+    /// <summary>
+    /// Imports whatever was pasted into the "by link" dialog: server links such as vless://…
+    /// (one per line) become a profile on the spot, anything else is treated as an http(s) URL.
+    /// </summary>
+    public static Task<ConfigImportResult> ImportAsync(
+        string input,
+        string? displayName = null,
+        HttpMessageHandler? handler = null,
+        string? hardwareId = null,
+        string? profilesDirectory = null,
+        CancellationToken cancellationToken = default)
+        => LooksLikeShareLinks(input)
+            ? Task.FromResult(ImportShareLinks(input, displayName, profilesDirectory))
+            : ImportFromUrlAsync(input, displayName, handler, hardwareId, profilesDirectory, cancellationToken);
+
+    /// <summary>Cheap check for the dialog before it starts importing.</summary>
+    public static bool TryValidateInput(string? input, out string error)
+    {
+        error = "";
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            error = CoreText.T("Core.Import.PasteLink", "Вставьте ссылку на конфигурацию или подписку.");
+            return false;
+        }
+
+        return LooksLikeShareLinks(input) || TryNormalizeUrl(input, out _, out error);
+    }
+
+    /// <summary>True when the first meaningful line is a server link (vless://, vmess://, trojan://, ss://…).</summary>
+    public static bool LooksLikeShareLinks(string? input)
+    {
+        foreach (var rawLine in (input ?? "").Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var line = rawLine.Trim();
+            if (line.Length == 0 || line.StartsWith('#') || line.StartsWith(';'))
+                continue;
+
+            return IsShareLink(line);
+        }
+
+        return false;
+    }
+
+    public static bool IsShareLink(string? line)
+        => !string.IsNullOrWhiteSpace(line) && TryParseShareScheme(line.Trim(), out _);
+
+    /// <summary>
+    /// Saves pasted server links as a profile. Mihomo parses the protocols; this only checks that
+    /// every line is a link and that vless/trojan links carry an identifier, a host and a port.
+    /// </summary>
+    public static ConfigImportResult ImportShareLinks(
+        string input,
+        string? displayName = null,
+        string? profilesDirectory = null)
+    {
+        var links = new List<string>();
+        var protocols = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var usable = 0;
+        var number = 0;
+        foreach (var rawLine in StripBom(input ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
+        {
+            number++;
+            var line = rawLine.Trim();
+            if (line.Length == 0 || line.StartsWith('#') || line.StartsWith(';'))
+                continue;
+
+            if (!TryParseShareScheme(line, out var scheme))
+            {
+                return ConfigImportResult.Fail(CoreText.F("Core.Import.BadLinkLine", "Строка {0} не похожа на ссылку сервера (vless://, vmess://, trojan://, ss://).",
+                    number));
+            }
+
+            if (!HasEndpoint(line, scheme))
+            {
+                return ConfigImportResult.Fail(CoreText.F("Core.Import.BadShareLink", "Ссылка {0}:// в строке {1} неполная: нужны идентификатор, адрес сервера и порт.",
+                    scheme.ToLowerInvariant(),
+                    number));
+            }
+
+            if (!seen.Add(line))
+                continue;
+
+            if (links.Count >= MaxShareLinks)
+            {
+                return ConfigImportResult.Fail(CoreText.F("Core.Import.TooManyLinks", "Слишком много ссылок. В одном профиле может быть не больше {0}.",
+                    MaxShareLinks));
+            }
+
+            links.Add(line);
+            protocols.Add(NormalizeProtocolName(scheme));
+            if (!IsPlaceholderShareLink(line))
+                usable++;
+        }
+
+        if (links.Count == 0)
+            return ConfigImportResult.Fail(CoreText.T("Core.Import.PasteLink", "Вставьте ссылку на конфигурацию или подписку."));
+
+        if (usable == 0)
+        {
+            return ConfigImportResult.Fail(
+                CoreText.T("Core.Import.LinkPlaceholder", "Ссылка указывает на заглушку (0.0.0.0), а не на рабочий сервер."));
+        }
+
+        var directory = string.IsNullOrWhiteSpace(profilesDirectory) ? ProfilesDirectory : profilesDirectory;
+        try
+        {
+            var title = !string.IsNullOrWhiteSpace(displayName)
+                ? displayName.Trim()
+                : SuggestNameFromShareLink(links[0]) ?? CoreText.T("Core.Sub.DefaultTitle", "Подписка");
+            var profile = new SubscriptionProfile
+            {
+                Url = "",
+                Links = links.ToArray(),
+                Title = title,
+                NodeCount = links.Count,
+                Protocols = protocols.ToArray(),
+                SavedAt = DateTimeOffset.UtcNow
+            };
+            var savedPath = SubscriptionProfile.Write(directory, profile, title);
+            return ConfigImportResult.Ok(
+                savedPath,
+                profile.Describe(),
+                CoreText.F("Core.Import.LinksImported", "Импортирован профиль «{0}»: серверов — {1} ({2}).",
+                    title,
+                    links.Count,
+                    string.Join(", ", protocols)));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return ConfigImportResult.Fail(CoreText.T("Core.Import.SaveSubFail", "Не удалось сохранить профиль подписки."));
+        }
+    }
+
+    private static bool HasEndpoint(string line, string scheme)
+    {
+        // Other schemes pack everything into Base64 (vmess, some ss links): leave those to Mihomo.
+        if (!scheme.Equals("vless", StringComparison.OrdinalIgnoreCase)
+            && !scheme.Equals("trojan", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var hash = line.IndexOf('#');
+        var body = hash >= 0 ? line[..hash] : line;
+        return Uri.TryCreate(body, UriKind.Absolute, out var uri)
+               && uri.UserInfo.Length > 0
+               && !string.IsNullOrWhiteSpace(uri.Host)
+               && uri.Port is > 0 and <= 65535;
+    }
+
+    private static string? SuggestNameFromShareLink(string link)
+    {
+        var hash = link.IndexOf('#');
+        if (hash >= 0 && hash < link.Length - 1)
+        {
+            string name;
+            try
+            {
+                name = Uri.UnescapeDataString(link[(hash + 1)..]).Trim();
+            }
+            catch (UriFormatException)
+            {
+                name = link[(hash + 1)..].Trim();
+            }
+
+            if (name.Length > 0)
+                return name;
+        }
+
+        var body = hash >= 0 ? link[..hash] : link;
+        return Uri.TryCreate(body, UriKind.Absolute, out var uri) && !string.IsNullOrWhiteSpace(uri.Host)
+            ? uri.Host
+            : null;
+    }
+
     public static async Task<ConfigImportResult> ImportFromUrlAsync(
         string url,
         string? displayName = null,
@@ -58,7 +237,7 @@ public static class ConfigSubscriptionImporter
             if (!response.IsSuccessStatusCode)
             {
                 return ConfigImportResult.Fail(
-                    $"Ссылка ответила {(int)response.StatusCode} {response.ReasonPhrase}. Конфигурация не загружена.");
+                    CoreText.F("Core.Import.HttpStatus", "Ссылка ответила {0} {1}. Конфигурация не загружена.", (int)response.StatusCode, response.ReasonPhrase));
             }
 
             if (response.Headers.TryGetValues("profile-title", out var titles))
@@ -68,7 +247,7 @@ public static class ConfigSubscriptionImporter
 
             var length = response.Content.Headers.ContentLength;
             if (length is > MaxBytes)
-                return ConfigImportResult.Fail("Ответ по ссылке больше 1 МБ и не был прочитан.");
+                return ConfigImportResult.Fail(CoreText.T("Core.Import.TooLarge", "Ответ по ссылке больше 1 МБ и не был прочитан."));
 
             await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
             using var memory = new MemoryStream(checked((int)Math.Min(MaxBytes + 1L, int.MaxValue)));
@@ -77,7 +256,7 @@ public static class ConfigSubscriptionImporter
             while ((read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false)) > 0)
             {
                 if (memory.Length + read > MaxBytes)
-                    return ConfigImportResult.Fail("Ответ по ссылке больше 1 МБ и не был прочитан.");
+                    return ConfigImportResult.Fail(CoreText.T("Core.Import.TooLarge", "Ответ по ссылке больше 1 МБ и не был прочитан."));
 
                 memory.Write(buffer, 0, read);
             }
@@ -86,15 +265,15 @@ public static class ConfigSubscriptionImporter
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return ConfigImportResult.Fail("Таймаут при загрузке ссылки.");
+            return ConfigImportResult.Fail(CoreText.T("Core.Import.Timeout", "Таймаут при загрузке ссылки."));
         }
         catch (HttpRequestException)
         {
-            return ConfigImportResult.Fail("Не удалось загрузить ссылку.");
+            return ConfigImportResult.Fail(CoreText.T("Core.Import.LoadFail", "Не удалось загрузить ссылку."));
         }
         catch (IOException)
         {
-            return ConfigImportResult.Fail("Не удалось прочитать ответ по ссылке.");
+            return ConfigImportResult.Fail(CoreText.T("Core.Import.ReadFail", "Не удалось прочитать ответ по ссылке."));
         }
 
         var payload = DecodePayload(bytes);
@@ -123,7 +302,7 @@ public static class ConfigSubscriptionImporter
         string? profilesDirectory = null)
     {
         if (string.IsNullOrWhiteSpace(payload))
-            return ConfigImportResult.Fail("По ссылке пустой ответ.");
+            return ConfigImportResult.Fail(CoreText.T("Core.Import.Empty", "По ссылке пустой ответ."));
 
         var directory = string.IsNullOrWhiteSpace(profilesDirectory) ? ProfilesDirectory : profilesDirectory;
 
@@ -135,7 +314,7 @@ public static class ConfigSubscriptionImporter
                 profileTitleHeader,
                 sourceHint,
                 shareInspection,
-                "URI-подписка");
+                CoreText.T("Core.Import.KindUri", "URI-подписка"));
 
         if (TryInspectClashSubscription(payload, out var clashInspection))
             return SaveSubscriptionProfile(
@@ -145,7 +324,7 @@ public static class ConfigSubscriptionImporter
                 profileTitleHeader,
                 sourceHint,
                 clashInspection,
-                "Clash/Mihomo подписка");
+                CoreText.T("Core.Import.KindClash", "подписка Clash/Mihomo"));
 
         if (!TryMaterializeConfig(payload, out var confText, out var materializeMessage))
             return ConfigImportResult.Fail(materializeMessage);
@@ -164,12 +343,12 @@ public static class ConfigSubscriptionImporter
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return ConfigImportResult.Fail("Не удалось сохранить конфигурацию в папку профилей.");
+            return ConfigImportResult.Fail(CoreText.T("Core.Import.SaveConfFail", "Не удалось сохранить конфигурацию в папку профилей."));
         }
 
         var description = parsed.Profile.Describe();
         var message = string.IsNullOrWhiteSpace(materializeMessage)
-            ? $"Импортирован профиль: {description}."
+            ? CoreText.F("Core.Import.ProfileImported", "Импортирован профиль: {0}.", description)
             : $"{materializeMessage} {description}.";
         return ConfigImportResult.Ok(savedConfPath, description, message.Trim());
     }
@@ -219,47 +398,47 @@ public static class ConfigSubscriptionImporter
         var text = StripBom(payload).Trim();
         if (text.Length == 0)
         {
-            message = "По ссылке пустой ответ.";
+            message = CoreText.T("Core.Import.Empty", "По ссылке пустой ответ.");
             return false;
         }
 
         if (LooksLikeShareList(text) || (TryDecodeBase64(text, out var shareDecoded) && LooksLikeShareList(shareDecoded)))
         {
-            message = "Это URI-подписка. Её нужно импортировать как профиль подписки, а не как одиночный .conf.";
+            message = CoreText.T("Core.Import.IsUriSubscription", "Это URI-подписка. Её нужно импортировать как профиль подписки, а не как одиночный .conf.");
             return false;
         }
 
         if (LooksLikeWgIni(text))
         {
             confText = text;
-            message = "Найдена конфигурация AmneziaWG/WireGuard.";
+            message = CoreText.T("Core.Import.FoundConf", "Найдена конфигурация AmneziaWG/WireGuard.");
             return true;
         }
 
         if (TryMaterializeFromSubscriptionLines(text, out confText, out var found, out var total))
         {
             message = total > 1
-                ? $"В подписке найдено конфигураций: {found} из {total}. Взят первый подходящий профиль."
-                : "В подписке найдена конфигурация AmneziaWG/WireGuard.";
+                ? CoreText.F("Core.Import.FoundSeveral", "В подписке найдено конфигураций: {0} из {1}. Взят первый подходящий профиль.", found, total)
+                : CoreText.T("Core.Import.FoundInSubscription", "В подписке найдена конфигурация AmneziaWG/WireGuard.");
             return true;
         }
 
         if (TryDecodeBase64(text, out var wholeDecoded) && LooksLikeWgIni(wholeDecoded))
         {
             confText = wholeDecoded.Trim();
-            message = "Конфигурация была в Base64.";
+            message = CoreText.T("Core.Import.WasBase64", "Конфигурация была в Base64.");
             return true;
         }
 
         if (TryMaterializeFromClashYaml(text, out confText, out var clashName))
         {
             message = string.IsNullOrWhiteSpace(clashName)
-                ? "Из Clash/Mihomo YAML взят первый WireGuard-прокси."
-                : $"Из Clash/Mihomo YAML взят прокси «{clashName}».";
+                ? CoreText.T("Core.Import.ClashFirst", "Из Clash/Mihomo YAML взят первый WireGuard-прокси.")
+                : CoreText.F("Core.Import.ClashNamed", "Из Clash/Mihomo YAML взят прокси «{0}».", clashName);
             return true;
         }
 
-        message = "Ссылка не распознана. Поддерживаются URI-подписки (vless/vmess/ss/trojan/…), Clash/Mihomo YAML и .conf/.awg.";
+        message = CoreText.T("Core.Import.NotRecognized", "Ссылка не распознана. Поддерживаются URI-подписки (vless/vmess/ss/trojan/…), Clash/Mihomo YAML и .conf/.awg.");
         return false;
     }
 
@@ -275,19 +454,19 @@ public static class ConfigSubscriptionImporter
         if (inspection.UsableCount == 0)
         {
             return ConfigImportResult.Fail(
-                "Подписка ответила заглушками без рабочих узлов. Обычно так при лимите устройств: очистите список в боте/панели (/devices) и повторите импорт.");
+                CoreText.T("Core.Import.Stubs", "Подписка ответила заглушками без рабочих узлов. Обычно так при лимите устройств: очистите список в боте/панели (/devices) и повторите импорт."));
         }
 
         if (string.IsNullOrWhiteSpace(subscriptionUrl))
         {
             return ConfigImportResult.Fail(
-                $"Найдена {kindLabel.ToLowerInvariant()}, но нет исходной ссылки для сохранения профиля.");
+                CoreText.F("Core.Import.NoSourceUrl", "Найдена {0}, но нет исходной ссылки для сохранения профиля.", kindLabel));
         }
 
         try
         {
             var title = string.IsNullOrWhiteSpace(displayName)
-                ? (profileTitleHeader ?? sourceHint ?? "Подписка")
+                ? (profileTitleHeader ?? sourceHint ?? CoreText.T("Core.Sub.DefaultTitle", "Подписка"))
                 : displayName.Trim();
             var profile = new SubscriptionProfile
             {
@@ -303,11 +482,11 @@ public static class ConfigSubscriptionImporter
             return ConfigImportResult.Ok(
                 savedPath,
                 profile.Describe(),
-                $"Импортирована {kindLabel.ToLowerInvariant()} «{title}»: {inspection.UsableCount} узлов ({protocols}). Разбор протоколов делает Mihomo.");
+                CoreText.F("Core.Import.SubscriptionImported", "Импортирована {0} «{1}»: узлов — {2} ({3}). Разбор протоколов делает Mihomo.", kindLabel, title, inspection.UsableCount, protocols));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return ConfigImportResult.Fail("Не удалось сохранить профиль подписки.");
+            return ConfigImportResult.Fail(CoreText.T("Core.Import.SaveSubFail", "Не удалось сохранить профиль подписки."));
         }
     }
 
@@ -442,7 +621,7 @@ public static class ConfigSubscriptionImporter
         error = "";
         if (string.IsNullOrWhiteSpace(url))
         {
-            error = "Вставьте ссылку на конфигурацию или подписку.";
+            error = CoreText.T("Core.Import.PasteLink", "Вставьте ссылку на конфигурацию или подписку.");
             return false;
         }
 
@@ -450,7 +629,7 @@ public static class ConfigSubscriptionImporter
         if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var parsed)
             || (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps))
         {
-            error = "Нужна ссылка http:// или https://.";
+            error = CoreText.T("Core.Import.NeedHttp", "Нужна ссылка http:// или https:// либо ссылка сервера: vless://, vmess://, trojan://, ss://.");
             return false;
         }
 

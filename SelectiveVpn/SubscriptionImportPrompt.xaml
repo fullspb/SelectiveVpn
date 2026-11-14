@@ -34,6 +34,8 @@
 
             <TextBlock Grid.Row="2" Margin="0,14,0,4" Text="{DynamicResource Import.Url}" FontSize="12" Foreground="{DynamicResource MutedForeground}"/>
             <TextBox x:Name="UrlBox" Grid.Row="3" Padding="8,6"
+                     AcceptsReturn="True" TextWrapping="Wrap" MaxLines="5" VerticalScrollBarVisibility="Auto"
+                     PreviewKeyDown="UrlBoxPreviewKeyDown"
                      Background="{DynamicResource FieldBackground}"
                      Foreground="{DynamicResource WindowForeground}"
                      BorderBrush="{DynamicResource FieldBorder}"

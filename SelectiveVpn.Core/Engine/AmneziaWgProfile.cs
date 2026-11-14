@@ -130,7 +130,7 @@ public sealed class AmneziaWgProfile
                     ? "AmneziaWG"
                     : "WireGuard";
 
-        return $"{kind}, конечная точка {EndpointHost}:{EndpointPort.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        return CoreText.F("Core.Config.Describe", "{0}, конечная точка {1}:{2}", kind, EndpointHost, EndpointPort.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
     public IEnumerable<string> SecretValues()

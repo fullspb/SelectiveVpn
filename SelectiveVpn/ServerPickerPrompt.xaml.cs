@@ -51,8 +51,8 @@ public partial class ServerPickerPrompt : Window
         PingButton.IsEnabled = _canPing && !_busy;
         ToolTipService.SetShowOnDisabled(PingButton, true);
         PingButton.ToolTip = _canPing
-            ? "Измерить задержку узлов через запущенный Mihomo"
-            : "Кнопка станет активной после подключения к туннелю";
+            ? Loc.T("Servers.PingTip")
+            : Loc.T("Servers.PingDisabledTip");
     }
 
     private void LoadNodes(IReadOnlyList<VpnNodeInfo> nodes, string? selectedName)
@@ -140,14 +140,14 @@ public partial class ServerPickerPrompt : Window
         if (_busy || _refresh is null)
             return;
 
-        await RunBusyAsync("Обновляю список серверов…", async ct =>
+        await RunBusyAsync(Loc.T("Servers.Refreshing"), async ct =>
         {
             var nodes = await _refresh(ct).ConfigureAwait(true);
             var current = (ServerList.SelectedItem as VpnNodeInfo)?.Name;
             LoadNodes(nodes, current);
             SetStatus(nodes.Count <= 1
-                ? "Пока только режим авто — кэш узлов пуст. Подключитесь, чтобы Mihomo загрузил подписку."
-                : $"Загружено узлов: {nodes.Count - 1}.");
+                ? Loc.T("Servers.OnlyAuto")
+                : Loc.Tf("Servers.Loaded", nodes.Count - 1));
         }).ConfigureAwait(true);
     }
 
@@ -155,18 +155,18 @@ public partial class ServerPickerPrompt : Window
     {
         if (_busy || !_canPing || _measureDelays is null)
         {
-            ShowError("Ping доступен только когда маршрутизация уже запущена.");
+            ShowError(Loc.T("Servers.PingNeedsRouting"));
             return;
         }
 
         var names = _nodes.Where(node => !node.IsAuto).Select(node => node.Name).ToArray();
         if (names.Length == 0)
         {
-            ShowError("Нет серверов для измерения.");
+            ShowError(Loc.T("Servers.NothingToPing"));
             return;
         }
 
-        await RunBusyAsync($"Пингую {names.Length} серверов…", async ct =>
+        await RunBusyAsync(Loc.Tf("Servers.Pinging", names.Length), async ct =>
         {
             var delays = await _measureDelays(names, ct).ConfigureAwait(true);
             var current = (ServerList.SelectedItem as VpnNodeInfo)?.Name;
@@ -178,10 +178,10 @@ public partial class ServerPickerPrompt : Window
             var ok = delays.Count(pair => pair.Value > 0);
             var best = delays.Where(pair => pair.Value > 0).OrderBy(pair => pair.Value).FirstOrDefault();
             SetStatus(ok == 0
-                ? "Ping завершён: ни один узел не ответил вовремя."
+                ? Loc.T("Servers.PingNone")
                 : best.Key is null
-                    ? $"Ping завершён: ответили {ok} из {names.Length}."
-                    : $"Ping завершён: ответили {ok} из {names.Length}. Лучший: {best.Key} ({best.Value} мс).");
+                    ? Loc.Tf("Servers.PingDone", ok, names.Length)
+                    : Loc.Tf("Servers.PingBest", ok, names.Length, best.Key, best.Value));
         }).ConfigureAwait(true);
     }
 
@@ -189,7 +189,7 @@ public partial class ServerPickerPrompt : Window
     {
         if (ServerList.SelectedItem is not VpnNodeInfo node)
         {
-            ShowError("Выберите сервер из списка.");
+            ShowError(Loc.T("Servers.PickOne"));
             return;
         }
 
@@ -201,7 +201,7 @@ public partial class ServerPickerPrompt : Window
     {
         if (_busy && _cts is not null)
         {
-            SetStatus("Отмена…");
+            SetStatus(Loc.T("AddressList.Canceling"));
             _cts.Cancel();
             return;
         }
@@ -225,11 +225,11 @@ public partial class ServerPickerPrompt : Window
         }
         catch (OperationCanceledException)
         {
-            ShowError("Операция отменена.");
+            ShowError(Loc.T("Common.OperationCanceled"));
         }
         catch (Exception)
         {
-            ShowError("Не удалось выполнить операцию.");
+            ShowError(Loc.T("Common.OperationFailed"));
         }
         finally
         {

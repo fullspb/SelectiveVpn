@@ -112,14 +112,14 @@
                         <ColumnDefinition Width="110"/>
                         <ColumnDefinition x:Name="HeaderScrollSpacer" Width="0"/>
                     </Grid.ColumnDefinitions>
-                    <Button x:Name="NameHeaderButton" Grid.Column="0" Content="Имя ▾"
+                    <Button x:Name="NameHeaderButton" Grid.Column="0" Content="{DynamicResource Ui.Name}"
                             Style="{StaticResource ColumnHeaderButton}"
                             Margin="4,0,8,0"
                             Click="SortByNameClick"/>
                     <Border Grid.Column="1" Width="1" Margin="8,0,10,0"
                             Background="{DynamicResource FieldBorder}"
                             VerticalAlignment="Stretch"/>
-                    <Button x:Name="DelayHeaderButton" Grid.Column="2" Content="Задержка"
+                    <Button x:Name="DelayHeaderButton" Grid.Column="2" Content="{DynamicResource Ui.Delay}"
                             Style="{StaticResource ColumnHeaderButton}"
                             HorizontalContentAlignment="Right"
                             Margin="0,0,8,0"

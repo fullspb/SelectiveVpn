@@ -9,10 +9,22 @@ public sealed class VpnProfileOption : ViewModelBase
     private bool _isActive;
     private bool _isRunning;
 
+    private readonly string? _linkProtocols;
+
     public VpnProfileOption(string configPath)
     {
         ConfigPath = configPath;
-        Name = ResolveName(configPath);
+        if (SubscriptionProfile.TryRead(configPath, out var subscription, out _))
+        {
+            Name = subscription.Title;
+            // A profile made from pasted links is named after its protocol, not "Subscription".
+            if (subscription.IsInline && subscription.Protocols.Length > 0)
+                _linkProtocols = string.Join(" / ", subscription.Protocols).ToUpperInvariant();
+        }
+        else
+        {
+            Name = Path.GetFileNameWithoutExtension(configPath);
+        }
     }
 
     public string ConfigPath { get; }
@@ -21,15 +33,8 @@ public sealed class VpnProfileOption : ViewModelBase
 
     public string Initial => string.IsNullOrWhiteSpace(Name) ? "?" : Name.Trim()[..1].ToUpperInvariant();
 
-    public string KindLabel => SubscriptionProfile.IsSubscriptionPath(ConfigPath) ? Loc.T("Orbit.Subscription") : "AmneziaWG";
-
-    private static string ResolveName(string configPath)
-    {
-        if (SubscriptionProfile.TryRead(configPath, out var subscription, out _))
-            return subscription.Title;
-
-        return Path.GetFileNameWithoutExtension(configPath);
-    }
+    public string KindLabel => _linkProtocols
+        ?? (SubscriptionProfile.IsSubscriptionPath(ConfigPath) ? Loc.T("Orbit.Subscription") : "AmneziaWG");
 
     public bool IsActive
     {

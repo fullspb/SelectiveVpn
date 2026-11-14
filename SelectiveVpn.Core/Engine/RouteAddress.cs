@@ -14,13 +14,13 @@ public static class RouteAddress
         var text = input?.Trim() ?? "";
         if (text.Length == 0)
         {
-            error = "Укажите домен или IP-адрес.";
+            error = CoreText.T("Core.Address.Required", "Укажите домен или IP-адрес.");
             return false;
         }
 
         if (text.Any(character => char.IsWhiteSpace(character) || character is ',' or '\'' or '"' or '\\'))
         {
-            error = "Адрес содержит недопустимый символ.";
+            error = CoreText.T("Core.Address.BadChar", "Адрес содержит недопустимый символ.");
             return false;
         }
 
@@ -50,7 +50,7 @@ public static class RouteAddress
         text = StripPort(text);
         if (text.Length == 0)
         {
-            error = "Укажите домен или IP-адрес.";
+            error = CoreText.T("Core.Address.Required", "Укажите домен или IP-адрес.");
             return false;
         }
 
@@ -63,7 +63,7 @@ public static class RouteAddress
                     || prefix < 0
                     || prefix > maxPrefix))
             {
-                error = "Некорректная маска сети.";
+                error = CoreText.T("Core.Address.BadMask", "Некорректная маска сети.");
                 return false;
             }
 
@@ -75,7 +75,7 @@ public static class RouteAddress
 
         if (prefixText is not null)
         {
-            error = "Некорректный IP-адрес.";
+            error = CoreText.T("Core.Address.BadIp", "Некорректный IP-адрес.");
             return false;
         }
 
@@ -88,13 +88,13 @@ public static class RouteAddress
         }
         catch (ArgumentException)
         {
-            error = "Некорректный домен. Пример: example.com.";
+            error = CoreText.T("Core.Address.BadDomain", "Некорректный домен. Пример: example.com.");
             return false;
         }
 
         if (!IsDomain(text))
         {
-            error = "Некорректный домен. Пример: example.com.";
+            error = CoreText.T("Core.Address.BadDomain", "Некорректный домен. Пример: example.com.");
             return false;
         }
 

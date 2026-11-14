@@ -38,16 +38,16 @@ public static class AmneziaWgConfigReader
         {
             var info = new FileInfo(path);
             if (!info.Exists)
-                return AmneziaConfigReadResult.Fail("Файл конфигурации не найден.");
+                return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.NotFound", "Файл конфигурации не найден."));
 
             if (info.Length > MaxBytes)
-                return AmneziaConfigReadResult.Fail("Файл конфигурации больше 256 КБ и не был прочитан.");
+                return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.TooLarge", "Файл конфигурации больше 256 КБ и не был прочитан."));
 
             return Read(File.ReadAllText(path));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return AmneziaConfigReadResult.Fail("Не удалось прочитать файл конфигурации. Содержимое в журнал не записывалось.");
+            return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.ReadFail", "Не удалось прочитать файл конфигурации. Содержимое в журнал не записывалось."));
         }
     }
 
@@ -72,7 +72,7 @@ public static class AmneziaWgConfigReader
                 if (name.Equals("Interface", StringComparison.OrdinalIgnoreCase))
                 {
                     if (sawInterface)
-                        return AmneziaConfigReadResult.Fail("Секция [Interface] повторяется.");
+                        return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.InterfaceTwice", "Секция [Interface] повторяется."));
 
                     sawInterface = true;
                     section = "Interface";
@@ -83,7 +83,7 @@ public static class AmneziaWgConfigReader
                 {
                     peerCount++;
                     if (peerCount > 1)
-                        return AmneziaConfigReadResult.Fail("Поддерживается только один [Peer].");
+                        return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.OnePeer", "Поддерживается только один [Peer]."));
 
                     section = "Peer";
                     continue;
@@ -94,7 +94,7 @@ public static class AmneziaWgConfigReader
 
             var separator = line.IndexOf('=');
             if (separator <= 0 || section is null)
-                return AmneziaConfigReadResult.Fail("Строка конфигурации не распознана. Её текст в журнал не записывался.");
+                return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.BadLine", "Строка конфигурации не распознана. Её текст в журнал не записывался."));
 
             var key = line[..separator].Trim();
             var value = line[(separator + 1)..].Trim();
@@ -104,7 +104,7 @@ public static class AmneziaWgConfigReader
                 if (canonical is not null)
                 {
                     if (!Add(interfaceValues, canonical, value))
-                        return AmneziaConfigReadResult.Fail($"Параметр {canonical} указан дважды.");
+                        return AmneziaConfigReadResult.Fail(CoreText.F("Core.Config.Duplicate", "Параметр {0} указан дважды.", canonical));
                     continue;
                 }
 
@@ -124,14 +124,14 @@ public static class AmneziaWgConfigReader
                 return AmneziaConfigReadResult.Fail(SafeParameterMessage(key));
 
             if (!Add(peerValues, peerName, value))
-                return AmneziaConfigReadResult.Fail($"Параметр {peerName} указан дважды.");
+                return AmneziaConfigReadResult.Fail(CoreText.F("Core.Config.Duplicate", "Параметр {0} указан дважды.", peerName));
         }
 
         if (!sawInterface)
-            return AmneziaConfigReadResult.Fail("Файл не похож на конфигурацию AmneziaWG: нет секции [Interface].");
+            return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.NoInterface", "Файл не похож на конфигурацию AmneziaWG: нет секции [Interface]."));
 
         if (peerCount == 0)
-            return AmneziaConfigReadResult.Fail("В конфигурации нет секции [Peer].");
+            return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.NoPeer", "В конфигурации нет секции [Peer]."));
 
         return Build(interfaceValues, peerValues, ignored);
     }
@@ -146,23 +146,23 @@ public static class AmneziaWgConfigReader
             || !TryRequired(interfaceValues, "Address", out var address)
             || !TryRequired(peerValues, "Endpoint", out var endpoint))
         {
-            return AmneziaConfigReadResult.Fail("В конфигурации не хватает PrivateKey, Address, PublicKey или Endpoint.");
+            return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.MissingRequired", "В конфигурации не хватает PrivateKey, Address, PublicKey или Endpoint."));
         }
 
         if (!IsCompactSecret(privateKey) || !IsCompactSecret(publicKey))
-            return AmneziaConfigReadResult.Fail("PrivateKey или PublicKey пуст либо содержит пробелы.");
+            return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.BadKeys", "PrivateKey или PublicKey пуст либо содержит пробелы."));
 
         if (!TrySplitAddresses(address, out var addressV4, out var addressV6))
-            return AmneziaConfigReadResult.Fail("В секции [Interface] нужен IPv4-адрес.");
+            return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.NeedIpv4", "В секции [Interface] нужен IPv4-адрес."));
 
         if (!TryEndpoint(endpoint, out var host, out var port))
-            return AmneziaConfigReadResult.Fail("Endpoint не распознан. Ожидается адрес и порт.");
+            return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.BadEndpoint", "Endpoint не распознан. Ожидается адрес и порт."));
 
         string? preshared = null;
         if (peerValues.TryGetValue("PresharedKey", out var presharedValue))
         {
             if (!IsCompactSecret(presharedValue))
-                return AmneziaConfigReadResult.Fail("PresharedKey пуст либо содержит пробелы.");
+                return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.BadPreshared", "PresharedKey пуст либо содержит пробелы."));
 
             preshared = presharedValue;
         }
@@ -178,13 +178,13 @@ public static class AmneziaWgConfigReader
             || !TryOptionalInt(interfaceValues, "ITime", 0, 86400, out var itime)
             || !TryOptionalInt(peerValues, "PersistentKeepalive", 0, 65535, out var keepalive))
         {
-            return AmneziaConfigReadResult.Fail("Числовой параметр конфигурации имеет недопустимое значение.");
+            return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.BadNumber", "Числовой параметр конфигурации имеет недопустимое значение."));
         }
 
         if (!TryOptionalBool(interfaceValues, "RandomTrailers", out var randomTrailers)
             || !TryOptionalBool(interfaceValues, "DisableCookies", out var disableCookies))
         {
-            return AmneziaConfigReadResult.Fail("RandomTrailers или DisableCookies имеет недопустимое значение.");
+            return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.BadFlags", "RandomTrailers или DisableCookies имеет недопустимое значение."));
         }
 
         var hasVersion3 = HasAny(
@@ -200,7 +200,7 @@ public static class AmneziaWgConfigReader
             "DisableCookies");
 
         if (hasVersion3 && HasAny(interfaceValues, "J1", "J2", "J3", "ITime"))
-            return AmneziaConfigReadResult.Fail("Параметры J1, J2, J3 и ITime нельзя сочетать с AmneziaWG 3.");
+            return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.JWithV3", "Параметры J1, J2, J3 и ITime нельзя сочетать с AmneziaWG 3."));
 
         var allowed = SplitList(peerValues.GetValueOrDefault("AllowedIPs"));
         if (allowed.Count == 0)
@@ -252,7 +252,7 @@ public static class AmneziaWgConfigReader
         };
 
         if (profile.HeaderProtectionKey is not null && !IsCompactSecret(profile.HeaderProtectionKey))
-            return AmneziaConfigReadResult.Fail("HeaderProtectionKey пуст либо содержит пробелы.");
+            return AmneziaConfigReadResult.Fail(CoreText.T("Core.Config.BadHeaderKey", "HeaderProtectionKey пуст либо содержит пробелы."));
 
         return AmneziaConfigReadResult.Ok(profile);
     }
@@ -389,13 +389,13 @@ public static class AmneziaWgConfigReader
 
     private static string SafeParameterMessage(string key)
         => IsSafeName(key)
-            ? $"Неизвестный параметр «{key}». Подключение не запускалось."
-            : "Неизвестный параметр с недопустимым именем. Подключение не запускалось.";
+            ? CoreText.F("Core.Config.UnknownParam", "Неизвестный параметр «{0}». Подключение не запускалось.", key)
+            : CoreText.T("Core.Config.UnknownParamUnsafe", "Неизвестный параметр с недопустимым именем. Подключение не запускалось.");
 
     private static string SafeSectionMessage(string name)
         => IsSafeName(name)
-            ? $"Неизвестная секция «{name}»."
-            : "Неизвестная секция конфигурации.";
+            ? CoreText.F("Core.Config.UnknownSection", "Неизвестная секция «{0}».", name)
+            : CoreText.T("Core.Config.UnknownSectionUnsafe", "Неизвестная секция конфигурации.");
 
     private static bool IsSafeName(string value)
         => value.Length is > 0 and <= 64

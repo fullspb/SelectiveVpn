@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -21,7 +22,16 @@ public sealed class SubscriptionProfile
 
     public string Url { get; set; } = "";
 
-    public string Title { get; set; } = "Подписка";
+    /// <summary>
+    /// Server links pasted directly (vless://…, one per entry). A profile that has them needs no
+    /// subscription URL: the links themselves are the node list.
+    /// </summary>
+    public string[]? Links { get; set; }
+
+    [JsonIgnore]
+    public bool IsInline => Links is { Length: > 0 };
+
+    public string Title { get; set; } = CoreText.T("Core.Sub.DefaultTitle", "Подписка");
 
     public string? ProfileTitleHeader { get; set; }
 
@@ -34,18 +44,38 @@ public sealed class SubscriptionProfile
 
     public DateTimeOffset SavedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    [JsonIgnore]
     public string EffectiveSelectedNode
         => string.IsNullOrWhiteSpace(SelectedNode) ? AutoNodeName : SelectedNode.Trim();
 
+    /// <summary>
+    /// What Mihomo reads as the node list of an inline profile: the links in the usual
+    /// Base64 subscription form, which survives any characters a link name may contain.
+    /// </summary>
+    public string BuildProviderPayload()
+        => Convert.ToBase64String(Encoding.UTF8.GetBytes(string.Join("\n", Links ?? [])));
+
+    /// <summary>Identifiers inside the links (UUIDs, passwords) that must not reach the log.</summary>
+    public IEnumerable<string> SecretValues()
+    {
+        foreach (var link in Links ?? [])
+        {
+            var hash = link.IndexOf('#');
+            var body = hash >= 0 ? link[..hash] : link;
+            if (Uri.TryCreate(body, UriKind.Absolute, out var uri) && uri.UserInfo.Length >= 8)
+                yield return Uri.UnescapeDataString(uri.UserInfo);
+        }
+    }
+
     public static string DisplayNodeName(string? nodeName)
         => string.IsNullOrWhiteSpace(nodeName) || nodeName.Equals(AutoNodeName, StringComparison.OrdinalIgnoreCase)
-            ? AutoNodeDisplayName
+            ? CoreText.T("Node.Auto", AutoNodeDisplayName)
             : nodeName;
 
     public string Describe()
     {
-        var protocols = Protocols.Length == 0 ? "узлы" : string.Join("/", Protocols);
-        var nodes = NodeCount <= 0 ? "подписка" : $"{NodeCount} {FormatNodes(NodeCount)}";
+        var protocols = Protocols.Length == 0 ? CoreText.T("Core.Sub.NodesWord", "узлы") : string.Join("/", Protocols);
+        var nodes = NodeCount <= 0 ? CoreText.T("Core.Sub.SubscriptionWord", "подписка") : $"{NodeCount} {FormatNodes(NodeCount)}";
         return $"{Title}: {nodes} ({protocols})";
     }
 
@@ -61,35 +91,53 @@ public sealed class SubscriptionProfile
         {
             if (!File.Exists(path))
             {
-                error = "Файл подписки не найден.";
+                error = CoreText.T("Core.Sub.FileMissing", "Файл подписки не найден.");
                 return false;
             }
 
             var parsed = JsonSerializer.Deserialize<SubscriptionProfile>(File.ReadAllText(path), JsonOptions);
-            if (parsed is null
-                || !string.Equals(parsed.Kind, KindValue, StringComparison.OrdinalIgnoreCase)
-                || string.IsNullOrWhiteSpace(parsed.Url))
+            if (parsed is null || !string.Equals(parsed.Kind, KindValue, StringComparison.OrdinalIgnoreCase))
             {
-                error = "Файл подписки повреждён.";
+                error = CoreText.T("Core.Sub.FileCorrupt", "Файл подписки повреждён.");
                 return false;
             }
 
-            if (!Uri.TryCreate(parsed.Url.Trim(), UriKind.Absolute, out var uri)
-                || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            var links = (parsed.Links ?? [])
+                .Select(link => link?.Trim() ?? "")
+                .Where(ConfigSubscriptionImporter.IsShareLink)
+                .ToArray();
+            if (links.Length > 0)
             {
-                error = "В файле подписки некорректная ссылка.";
-                return false;
+                parsed.Links = links;
+                parsed.Url = "";
+            }
+            else
+            {
+                parsed.Links = null;
+                if (string.IsNullOrWhiteSpace(parsed.Url))
+                {
+                    error = CoreText.T("Core.Sub.FileCorrupt", "Файл подписки повреждён.");
+                    return false;
+                }
+
+                if (!Uri.TryCreate(parsed.Url.Trim(), UriKind.Absolute, out var uri)
+                    || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                {
+                    error = CoreText.T("Core.Sub.BadUrl", "В файле подписки некорректная ссылка.");
+                    return false;
+                }
+
+                parsed.Url = uri.AbsoluteUri;
             }
 
-            parsed.Url = uri.AbsoluteUri;
             if (string.IsNullOrWhiteSpace(parsed.Title))
-                parsed.Title = "Подписка";
+                parsed.Title = CoreText.T("Core.Sub.DefaultTitle", "Подписка");
             profile = parsed;
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
-            error = "Не удалось прочитать файл подписки.";
+            error = CoreText.T("Core.Sub.FileReadFail", "Не удалось прочитать файл подписки.");
             return false;
         }
     }
@@ -134,7 +182,7 @@ public sealed class SubscriptionProfile
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            error = "Не удалось сохранить выбранный сервер.";
+            error = CoreText.T("Core.Sub.SaveNodeFail", "Не удалось сохранить выбранный сервер.");
             return false;
         }
     }
@@ -150,16 +198,5 @@ public sealed class SubscriptionProfile
     }
 
     private static string FormatNodes(int count)
-    {
-        var mod100 = count % 100;
-        var mod10 = count % 10;
-        if (mod100 is >= 11 and <= 14)
-            return "узлов";
-        return mod10 switch
-        {
-            1 => "узел",
-            2 or 3 or 4 => "узла",
-            _ => "узлов"
-        };
-    }
+        => CoreText.Plural(count, "Core.Sub.Node", "узел", "узла", "узлов");
 }

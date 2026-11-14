@@ -40,8 +40,25 @@ internal static class ViewModelChecks
         ("recovery stops after three failed attempts", RecoveryIsBoundedAsync),
         ("late IP response cannot restore an address after disconnect", LateIpAfterDisconnectAsync),
         ("old session cannot replace a new session IP", OldSessionIpAsync),
-        ("late server response cannot repopulate a disconnected session", LateServerAsync)
+        ("late server response cannot repopulate a disconnected session", LateServerAsync),
+        ("a profile made from pasted server links is named after its protocol", PastedLinkProfileAsync)
     ];
+
+    private static async Task PastedLinkProfileAsync()
+    {
+        await using var fixture = new TestFixture(subscriptions: true);
+        const string link = "vless://11111111-2222-3333-4444-555555555555@203.0.113.10:443?type=tcp&security=tls&sni=example.com#Amsterdam";
+        var imported = ConfigSubscriptionImporter.ImportShareLinks(link, profilesDirectory: fixture.Root);
+        Check.True(imported.Succeeded && imported.SavedPath is not null, "A pasted vless link should import without a network request: " + imported.Message);
+
+        var pasted = new VpnProfileOption(imported.SavedPath!);
+        Check.Equal("Amsterdam", pasted.Name, "The profile takes its name from the link.");
+        Check.Equal("VLESS", pasted.KindLabel, "A pasted-link profile shows its protocol instead of the subscription label.");
+        Check.Equal(Loc.T("Orbit.Subscription"), new VpnProfileOption(fixture.AlphaPath).KindLabel,
+            "A subscription by URL keeps the subscription label.");
+        Check.True(SubscriptionProfile.IsSubscriptionPath(imported.SavedPath),
+            "Pasted links reuse the subscription profile machinery, including the server picker.");
+    }
 
     private static async Task SettingsAreIsolatedAsync()
     {

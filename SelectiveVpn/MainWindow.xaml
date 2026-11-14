@@ -125,6 +125,26 @@
             </Setter.Value></Setter>
         </Style>
 
+        <!-- Server selector: looks like a field with a chevron, opens the server picker. -->
+        <Style x:Key="ServerSelector" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template"><Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="10" Padding="9,5" Background="#12FFFFFF" BorderBrush="#407FE3FF" BorderThickness="1">
+                        <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#247FE3FF"/><Setter TargetName="Bd" Property="BorderBrush" Value="#7FE3FF"/></Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#7FE3FF"/></Trigger>
+                        <Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Opacity" Value="0.75"/></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Opacity" Value="0.5"/></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value></Setter>
+        </Style>
+
         <!-- Clickable 3D scene (globe / tunnel / coin). -->
         <Style x:Key="HeroButton" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
@@ -387,6 +407,7 @@
                                 <StackPanel Margin="0,0,18,16">
                                     <TextBlock Text="{DynamicResource Orbit.Server}" Style="{StaticResource Hint}"/>
                                     <DockPanel Margin="0,6,0,0">
+                                        <DockPanel.Style><Style TargetType="DockPanel"><Style.Triggers><DataTrigger Binding="{Binding IsSubscriptionProfile}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></DockPanel.Style>
                                         <Image x:Name="ExternalIpFlag" DockPanel.Dock="Left" Width="22" Height="15" Margin="0,0,8,0" Stretch="Uniform" VerticalAlignment="Center" Source="{Binding ExternalIpCountryCode, Converter={StaticResource CountryFlagImage}}" ToolTip="{Binding ExternalIpCountryName}">
                                             <!-- No country known: collapse, so the server name does not sit behind an empty gap. -->
                                             <Image.Style><Style TargetType="Image"><Style.Triggers><Trigger Property="Source" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></Image.Style>
@@ -398,6 +419,25 @@
                                             </Style.Triggers></Style></TextBlock.Style>
                                         </TextBlock>
                                     </DockPanel>
+                                    <!-- Subscription profiles pick a server right here, where its name is shown. -->
+                                    <Button x:Name="SubscriptionServersButton" Style="{StaticResource ServerSelector}" Margin="0,1,0,-6" Command="{Binding ManageServersCommand}" ToolTip="{DynamicResource Orbit.ManageServers}" AutomationProperties.Name="{DynamicResource Orbit.ManageServers}" Visibility="{Binding IsSubscriptionProfile, Converter={StaticResource BooleanVisibility}}">
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Right" FontFamily="Segoe MDL2 Assets" Text="&#xE70D;" FontSize="10" Margin="8,1,0,0" VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
+                                            <Image DockPanel.Dock="Left" Width="22" Height="15" Margin="0,0,8,0" Stretch="Uniform" VerticalAlignment="Center" Source="{Binding ExternalIpCountryCode, Converter={StaticResource CountryFlagImage}}">
+                                                <Image.Style><Style TargetType="Image"><Style.Triggers><Trigger Property="Source" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></Image.Style>
+                                            </Image>
+                                            <TextBlock FontWeight="Bold" FontSize="15" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding ConnectedServer}"/><Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ConnectedServer}" Value=""><Setter Property="Text" Value="{Binding ExternalIpCountryName}"/></DataTrigger>
+                                                    <DataTrigger Binding="{Binding ConnectedServer}" Value="{x:Null}"><Setter Property="Text" Value="{Binding ExternalIpCountryName}"/></DataTrigger>
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions><Condition Binding="{Binding ConnectedServer}" Value=""/><Condition Binding="{Binding ExternalIpCountryName}" Value=""/></MultiDataTrigger.Conditions>
+                                                        <Setter Property="Text" Value="{DynamicResource Orbit.ManageServers}"/><Setter Property="Foreground" Value="{DynamicResource Accent}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontSize" Value="13.5"/>
+                                                    </MultiDataTrigger>
+                                                </Style.Triggers></Style></TextBlock.Style>
+                                            </TextBlock>
+                                        </DockPanel>
+                                    </Button>
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Margin="18,0,0,16">
                                     <TextBlock Text="{DynamicResource Orbit.ExternalIp}" Style="{StaticResource Hint}"/>
@@ -428,7 +468,6 @@
                         </Border>
                     </Grid>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,0">
-                        <Button x:Name="SubscriptionServersButton" Style="{StaticResource OrbitTextButton}" Command="{Binding ManageServersCommand}" Content="{DynamicResource Orbit.ManageServers}" Visibility="{Binding IsSubscriptionProfile, Converter={StaticResource BooleanVisibility}}"/>
                         <Button Style="{StaticResource NewProfileAction}" Click="OpenMenuClick" ContextMenu="{StaticResource ImportProfileMenu}" Content="{DynamicResource Ui.AddProfile}"/>
                     </StackPanel>
                 </StackPanel>
@@ -488,7 +527,7 @@
                             </Border>
                         </StackPanel>
                         <Grid>
-                            <ListBox x:Name="RulesList" Style="{StaticResource BusyList}" ItemsSource="{Binding Apps}" SelectedItem="{Binding SelectedApp}" ItemContainerStyle="{StaticResource OrbitRuleItem}" AutomationProperties.Name="{DynamicResource Orbit.RoutingTitle}">
+                            <ListBox x:Name="RulesList" Style="{StaticResource BusyList}" Padding="0,0,4,0" ItemsSource="{Binding Apps}" SelectedItem="{Binding SelectedApp}" ItemContainerStyle="{StaticResource OrbitRuleItem}" AutomationProperties.Name="{DynamicResource Orbit.RoutingTitle}">
                                 <ListBox.ItemTemplate><DataTemplate>
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

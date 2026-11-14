@@ -19,7 +19,7 @@ internal static class WindowsElevation
             var executable = Environment.ProcessPath;
             if (string.IsNullOrWhiteSpace(executable))
             {
-                message = "Не удалось определить путь к SelectiveVpn.exe.";
+                message = Loc.T("Msg.Elev.NoPath");
                 return false;
             }
 
@@ -33,21 +33,21 @@ internal static class WindowsElevation
 
             if (started is null)
             {
-                message = "Запрос прав администратора не выполнен. Туннель не запускался.";
+                message = Loc.T("Msg.Elev.NotDone");
                 return false;
             }
 
-            message = "Запрошены права администратора для TUN.";
+            message = Loc.T("Msg.Elev.Requested");
             return true;
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
-            message = "Запрос прав администратора отменён. Туннель не запускался.";
+            message = Loc.T("Msg.Elev.Canceled");
             return false;
         }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
         {
-            message = "Не удалось запросить права администратора. Туннель не запускался.";
+            message = Loc.T("Msg.Elev.Fail");
             return false;
         }
     }
