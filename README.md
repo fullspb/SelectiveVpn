@@ -17,6 +17,7 @@ Built with **.NET / WPF**, powered by **Mihomo** and **AmneziaWG** configs / sub
 - **Except-list mode** — all traffic via VPN except the listed targets
 - **Server picker** — choose a node from a subscription (with ping when available)
 - **Orbit interface** — connection control, per-profile routing, current server/IP, and a collapsible event log
+- **Color schemes** — Orbit, Northern lights, Ocean, Plum, Sunset, Graphite; chosen in Settings
 - **Languages** — Russian, English, Spanish, Portuguese, Chinese (+ Auto)
 - **Tray** — minimize to tray, connect / disconnect / exit; menu follows the app theme
 - **Autostart** — launch with Windows and optional connect-on-start

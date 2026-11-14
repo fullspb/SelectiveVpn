@@ -227,6 +227,7 @@
     <sys:String x:Key="Orbit.ThemeOcean">Océano</sys:String>
     <sys:String x:Key="Orbit.ThemePlum">Ciruela</sys:String>
     <sys:String x:Key="Orbit.ThemeAurora">Aurora boreal</sys:String>
+    <sys:String x:Key="Orbit.ThemeSunset">Atardecer</sys:String>
     <sys:String x:Key="Orbit.ThemeDepth">Profundidad</sys:String>
     <sys:String x:Key="Orbit.ThemeRetro">Retro</sys:String>
     <sys:String x:Key="Orbit.ThemeOrbit">Órbita</sys:String>

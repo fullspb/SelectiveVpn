@@ -18,6 +18,11 @@ public sealed class ThemeOption(string code, string title) : ViewModelBase
 
     internal static IReadOnlyList<ThemeOption> CreateOptions() =>
     [
-        new(AppTheme.Orbit, Loc.T("Orbit.ThemeOrbit"))
+        new(AppTheme.Orbit, Loc.T("Orbit.ThemeOrbit")),
+        new(AppTheme.Aurora, Loc.T("Orbit.ThemeAurora")),
+        new(AppTheme.Ocean, Loc.T("Orbit.ThemeOcean")),
+        new(AppTheme.Plum, Loc.T("Orbit.ThemePlum")),
+        new(AppTheme.Sunset, Loc.T("Orbit.ThemeSunset")),
+        new(AppTheme.Graphite, Loc.T("Orbit.ThemeGraphite"))
     ];
 }

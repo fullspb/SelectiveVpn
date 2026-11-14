@@ -240,6 +240,7 @@
     <sys:String x:Key="Orbit.ThemeOcean">Ocean</sys:String>
     <sys:String x:Key="Orbit.ThemePlum">Plum</sys:String>
     <sys:String x:Key="Orbit.ThemeAurora">Northern lights</sys:String>
+    <sys:String x:Key="Orbit.ThemeSunset">Sunset</sys:String>
     <sys:String x:Key="Orbit.ThemeDepth">Depth</sys:String>
     <sys:String x:Key="Orbit.ThemeRetro">Retro</sys:String>
     <sys:String x:Key="Orbit.ThemeOrbit">Orbit</sys:String>

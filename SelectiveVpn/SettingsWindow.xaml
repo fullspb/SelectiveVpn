@@ -13,11 +13,11 @@
                        Foreground="{DynamicResource MutedForeground}" FontSize="12"/>
             <Grid Margin="0,24,0,0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <StackPanel Visibility="Collapsed">
+                <StackPanel>
                     <TextBlock Text="{DynamicResource Orbit.ColorScheme}" Foreground="{DynamicResource MutedForeground}" FontSize="11" Margin="0,0,0,7"/>
                     <ComboBox x:Name="ThemeBox" Style="{StaticResource OrbitComboBox}" DisplayMemberPath="Title" SelectedValuePath="Code" AutomationProperties.Name="{DynamicResource Orbit.ColorScheme}"/>
                 </StackPanel>
-                <StackPanel Grid.ColumnSpan="3">
+                <StackPanel Grid.Column="2">
                     <TextBlock Text="{DynamicResource Ui.Language}" Foreground="{DynamicResource MutedForeground}" FontSize="11" Margin="0,0,0,7"/>
                     <ComboBox x:Name="LanguageBox" Style="{StaticResource OrbitComboBox}" DisplayMemberPath="Title" SelectedValuePath="Code" AutomationProperties.Name="{DynamicResource Ui.Language}"/>
                 </StackPanel>

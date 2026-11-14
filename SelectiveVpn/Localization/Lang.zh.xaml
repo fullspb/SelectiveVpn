@@ -227,6 +227,7 @@
     <sys:String x:Key="Orbit.ThemeOcean">海洋</sys:String>
     <sys:String x:Key="Orbit.ThemePlum">梅紫</sys:String>
     <sys:String x:Key="Orbit.ThemeAurora">极光</sys:String>
+    <sys:String x:Key="Orbit.ThemeSunset">日落</sys:String>
     <sys:String x:Key="Orbit.ThemeDepth">深海</sys:String>
     <sys:String x:Key="Orbit.ThemeRetro">复古</sys:String>
     <sys:String x:Key="Orbit.ThemeOrbit">轨道</sys:String>

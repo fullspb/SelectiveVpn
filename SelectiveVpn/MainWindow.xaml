@@ -132,12 +132,12 @@
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="Template"><Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bd" CornerRadius="10" Padding="9,5" Background="#12FFFFFF" BorderBrush="#407FE3FF" BorderThickness="1">
+                    <Border x:Name="Bd" CornerRadius="10" Padding="9,5" Background="#12FFFFFF" BorderBrush="{DynamicResource AccentLineStrong}" BorderThickness="1">
                         <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#247FE3FF"/><Setter TargetName="Bd" Property="BorderBrush" Value="#7FE3FF"/></Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#7FE3FF"/></Trigger>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentWashStrong}"/><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>
                         <Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Opacity" Value="0.75"/></Trigger>
                         <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Opacity" Value="0.5"/></Trigger>
                     </ControlTemplate.Triggers>
@@ -279,21 +279,19 @@
                         <Border.RenderTransform><TransformGroup><ScaleTransform/><TranslateTransform/></TransformGroup></Border.RenderTransform>
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <Border x:Name="Avatar" Width="34" Height="34" CornerRadius="11" Background="#7FE3FF">
-                                <TextBlock Text="{Binding Initial}" FontWeight="ExtraBold" FontSize="13" Foreground="#0B0E1C" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Border x:Name="Avatar" Width="34" Height="34" CornerRadius="11" Background="{DynamicResource Accent}">
+                                <TextBlock Text="{Binding Initial}" FontWeight="ExtraBold" FontSize="13" Foreground="{DynamicResource PrimaryForeground}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis" Foreground="#E8ECFF"/>
-                                <TextBlock Text="{Binding KindLabel}" FontSize="11.5" Foreground="#9AA3C7" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource WindowForeground}"/>
+                                <TextBlock Text="{Binding KindLabel}" FontSize="11.5" Foreground="{DynamicResource MutedForeground}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
-                            <Ellipse x:Name="RunDot" Grid.Column="2" Width="8" Height="8" Fill="#7FE3FF" VerticalAlignment="Center" Visibility="Collapsed">
-                                <Ellipse.Effect><DropShadowEffect Color="#7FE3FF" BlurRadius="10" ShadowDepth="0" Opacity="0.9"/></Ellipse.Effect>
-                            </Ellipse>
+                            <Ellipse x:Name="RunDot" Grid.Column="2" Width="8" Height="8" Fill="{DynamicResource Accent}" VerticalAlignment="Center" Visibility="Collapsed" Effect="{DynamicResource RunDotEffect}"/>
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="ItemsControl.AlternationIndex" Value="1"><Setter TargetName="Avatar" Property="Background" Value="#B9A6FF"/></Trigger>
-                        <Trigger Property="ItemsControl.AlternationIndex" Value="2"><Setter TargetName="Avatar" Property="Background" Value="#FFC46E"/></Trigger>
+                        <Trigger Property="ItemsControl.AlternationIndex" Value="1"><Setter TargetName="Avatar" Property="Background" Value="{DynamicResource Accent2}"/></Trigger>
+                        <Trigger Property="ItemsControl.AlternationIndex" Value="2"><Setter TargetName="Avatar" Property="Background" Value="{DynamicResource Avatar3}"/></Trigger>
                         <DataTrigger Binding="{Binding IsRunning}" Value="True"><Setter TargetName="RunDot" Property="Visibility" Value="Visible"/></DataTrigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Trigger.EnterActions><BeginStoryboard><Storyboard>
@@ -304,13 +302,11 @@
                             </Storyboard></BeginStoryboard></Trigger.ExitActions>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Card" Property="BorderBrush" Value="#737FE3FF"/>
-                            <Setter TargetName="Card" Property="Background">
-                                <Setter.Value><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#2E7FE3FF" Offset="0"/><GradientStop Color="#1F8C6EFF" Offset="1"/></LinearGradientBrush></Setter.Value>
-                            </Setter>
-                            <Setter TargetName="Card" Property="Effect"><Setter.Value><DropShadowEffect Color="#50B4FF" BlurRadius="26" ShadowDepth="8" Direction="270" Opacity="0.55"/></Setter.Value></Setter>
+                            <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource AccentLineBright}"/>
+                            <Setter TargetName="Card" Property="Background" Value="{DynamicResource ProfileSelectedBackground}"/>
+                            <Setter TargetName="Card" Property="Effect" Value="{DynamicResource ProfileSelectedEffect}"/>
                         </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Card" Property="BorderBrush" Value="#7FE3FF"/></Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value></Setter>
@@ -330,7 +326,7 @@
                             <Trigger.EnterActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Row" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="4" Duration="0:0:0.25"/></Storyboard></BeginStoryboard></Trigger.EnterActions>
                             <Trigger.ExitActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Row" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="0" Duration="0:0:0.25"/></Storyboard></BeginStoryboard></Trigger.ExitActions>
                         </Trigger>
-                        <Trigger Property="IsSelected" Value="True"><Setter TargetName="Row" Property="Background" Value="#1A7FE3FF"/></Trigger>
+                        <Trigger Property="IsSelected" Value="True"><Setter TargetName="Row" Property="Background" Value="{DynamicResource AccentWash}"/></Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value></Setter>
@@ -345,10 +341,10 @@
         <Grid x:Name="MainBody" Margin="20,0,20,20">
             <Grid.RowDefinitions><RowDefinition Height="52"/><RowDefinition Height="*"/></Grid.RowDefinitions>
             <DockPanel LastChildFill="False" VerticalAlignment="Center">
-                <Viewbox Width="22" Height="22" Margin="0,0,10,0"><Path Data="M12,3 L20,6 L20,12 C20,16.5 16.6,20.2 12,21 C7.4,20.2 4,16.5 4,12 L4,6 Z M9,12 L11,14 L15,10" Stroke="#7FE3FF" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Viewbox>
+                <Viewbox Width="22" Height="22" Margin="0,0,10,0"><Path Data="M12,3 L20,6 L20,12 C20,16.5 16.6,20.2 12,21 C7.4,20.2 4,16.5 4,12 L4,6 Z M9,12 L11,14 L15,10" Stroke="{DynamicResource Accent}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Viewbox>
                 <TextBlock Text="SelectiveVPN" FontWeight="ExtraBold" FontSize="14" VerticalAlignment="Center"/>
                 <Border BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="10" Padding="8,1" Margin="10,0,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding VersionLabel}" FontSize="11" Foreground="#8E97BD"/>
+                    <TextBlock Text="{Binding VersionLabel}" FontSize="11" Foreground="{DynamicResource MutedForeground}"/>
                 </Border>
                 <Button Content="{DynamicResource Update.BadgeTip}" Command="{Binding OpenUpdateCommand}" Style="{StaticResource OrbitTextButton}" Margin="10,0,0,0" Visibility="{Binding UpdateAvailable, Converter={StaticResource BooleanVisibility}}"/>
                 <Button x:Name="LogToggleButton" DockPanel.Dock="Right" Style="{StaticResource GhostButton}" MinHeight="36" Margin="0,0,10,0" Click="ToggleLogClick" ToolTip="{DynamicResource Orbit.ShowLog}">
@@ -455,11 +451,11 @@
                                     <Grid Margin="0,6,0,0">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                         <StackPanel>
-                                            <TextBlock Text="{Binding IncomingTraffic, StringFormat='↓ {0}'}" FontWeight="Bold" FontSize="15" Foreground="#7FE3FF" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding IncomingTraffic, StringFormat='↓ {0}'}" FontWeight="Bold" FontSize="15" Foreground="{DynamicResource Accent}" TextTrimming="CharacterEllipsis"/>
                                             <TextBlock Text="{DynamicResource Orbit.Received}" Style="{StaticResource Hint}" FontSize="10.5" Margin="0,2,0,0"/>
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                            <TextBlock Text="{Binding OutgoingTraffic, StringFormat='↑ {0}'}" FontWeight="Bold" FontSize="15" Foreground="#B9A6FF" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding OutgoingTraffic, StringFormat='↑ {0}'}" FontWeight="Bold" FontSize="15" Foreground="{DynamicResource Accent2}" TextTrimming="CharacterEllipsis"/>
                                             <TextBlock Text="{DynamicResource Orbit.Sent}" Style="{StaticResource Hint}" FontSize="10.5" Margin="0,2,0,0"/>
                                         </StackPanel>
                                     </Grid>
@@ -496,29 +492,29 @@
                             </DockPanel>
                         </StackPanel>
                         <StackPanel DockPanel.Dock="Bottom">
-                            <Button x:Name="AddTargetsButton" Style="{StaticResource GhostButton}" Margin="0,6,0,0" Click="OpenMenuClick" ContextMenu="{StaticResource AddRuleMenu}" BorderBrush="#337FE3FF">
+                            <Button x:Name="AddTargetsButton" Style="{StaticResource GhostButton}" Margin="0,6,0,0" Click="OpenMenuClick" ContextMenu="{StaticResource AddRuleMenu}" BorderBrush="{DynamicResource AccentLine}">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="＋" Margin="0,0,8,0"/><TextBlock Text="{DynamicResource Orbit.AddTargets}"/></StackPanel>
                             </Button>
                             <Border BorderBrush="#17FFFFFF" BorderThickness="0,1,0,0" Margin="0,14,0,0" Padding="0,12,0,0">
                                 <StackPanel>
                                     <DockPanel>
-                                        <TextBlock Text="{DynamicResource Orbit.ThroughVpn}" Width="90" FontWeight="Bold" FontSize="12" Foreground="#7FE3FF" VerticalAlignment="Center"/>
-                                        <Border Height="6" CornerRadius="3" Background="#267FE3FF" ClipToBounds="True">
+                                        <TextBlock Text="{DynamicResource Orbit.ThroughVpn}" Width="90" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
+                                        <Border Height="6" CornerRadius="3" Background="{DynamicResource AccentWashStrong}" ClipToBounds="True">
                                             <Canvas>
                                                 <Canvas.Triggers><EventTrigger RoutedEvent="FrameworkElement.Loaded"><BeginStoryboard Storyboard="{StaticResource LaneRun}"/></EventTrigger></Canvas.Triggers>
-                                                <Ellipse x:Name="P1" Width="8" Height="6" Fill="#7FE3FF" Canvas.Left="-30"/>
-                                                <Ellipse x:Name="P2" Width="8" Height="6" Fill="#C9F4FF" Canvas.Left="-30"/>
-                                                <Ellipse x:Name="P3" Width="8" Height="6" Fill="#7FE3FF" Canvas.Left="-30"/>
+                                                <Ellipse x:Name="P1" Width="8" Height="6" Fill="{DynamicResource Accent}" Canvas.Left="-30"/>
+                                                <Ellipse x:Name="P2" Width="8" Height="6" Fill="{DynamicResource AccentBright}" Canvas.Left="-30"/>
+                                                <Ellipse x:Name="P3" Width="8" Height="6" Fill="{DynamicResource Accent}" Canvas.Left="-30"/>
                                             </Canvas>
                                         </Border>
                                     </DockPanel>
                                     <DockPanel Margin="0,10,0,0">
-                                        <TextBlock Text="{DynamicResource Orbit.Direct}" Width="90" FontWeight="Bold" FontSize="12" Foreground="#9AA3C7" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{DynamicResource Orbit.Direct}" Width="90" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource MutedForeground}" VerticalAlignment="Center"/>
                                         <Border Height="6" CornerRadius="3" Background="#12FFFFFF" ClipToBounds="True">
                                             <Canvas>
                                                 <Canvas.Triggers><EventTrigger RoutedEvent="FrameworkElement.Loaded"><BeginStoryboard><Storyboard RepeatBehavior="Forever"><DoubleAnimation Storyboard.TargetName="D1" Storyboard.TargetProperty="(Canvas.Left)" From="-30" To="320" Duration="0:0:3.6"/><DoubleAnimation Storyboard.TargetName="D2" Storyboard.TargetProperty="(Canvas.Left)" From="-30" To="320" Duration="0:0:3.6" BeginTime="0:0:1.8"/></Storyboard></BeginStoryboard></EventTrigger></Canvas.Triggers>
-                                                <Ellipse x:Name="D1" Width="8" Height="6" Fill="#8A93B5" Canvas.Left="-30"/>
-                                                <Ellipse x:Name="D2" Width="8" Height="6" Fill="#8A93B5" Canvas.Left="-30"/>
+                                                <Ellipse x:Name="D1" Width="8" Height="6" Fill="{DynamicResource HeroIdle}" Canvas.Left="-30"/>
+                                                <Ellipse x:Name="D2" Width="8" Height="6" Fill="{DynamicResource HeroIdle}" Canvas.Left="-30"/>
                                             </Canvas>
                                         </Border>
                                     </DockPanel>
@@ -531,12 +527,12 @@
                                 <ListBox.ItemTemplate><DataTemplate>
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <Border Width="32" Height="32" CornerRadius="10" Background="#1A7FE3FF" BorderBrush="#337FE3FF" BorderThickness="1" TextElement.Foreground="#7FE3FF">
+                                        <Border Width="32" Height="32" CornerRadius="10" Background="{DynamicResource AccentWash}" BorderBrush="{DynamicResource AccentLine}" BorderThickness="1" TextElement.Foreground="{DynamicResource Accent}">
                                             <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RuleGlyph}" Focusable="False"/>
                                         </Border>
                                         <StackPanel Grid.Column="1" Margin="12,0,6,0" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding FileName}" FontWeight="Bold" FontSize="13.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding DetailText}"/>
-                                            <TextBlock FontSize="11.5" Foreground="#8E97BD" TextTrimming="CharacterEllipsis">
+                                            <TextBlock FontSize="11.5" Foreground="{DynamicResource MutedForeground}" TextTrimming="CharacterEllipsis">
                                                 <TextBlock.Text><MultiBinding StringFormat="{}{0} · {1}"><Binding Path="KindLabel"/><Binding Path="DetailText"/></MultiBinding></TextBlock.Text>
                                             </TextBlock>
                                         </StackPanel>

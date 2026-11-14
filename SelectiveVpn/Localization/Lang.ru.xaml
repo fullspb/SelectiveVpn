@@ -240,6 +240,7 @@
     <sys:String x:Key="Orbit.ThemeOcean">Океан</sys:String>
     <sys:String x:Key="Orbit.ThemePlum">Слива</sys:String>
     <sys:String x:Key="Orbit.ThemeAurora">Северное сияние</sys:String>
+    <sys:String x:Key="Orbit.ThemeSunset">Закат</sys:String>
     <sys:String x:Key="Orbit.ThemeDepth">Глубина</sys:String>
     <sys:String x:Key="Orbit.ThemeRetro">Ретро</sys:String>
     <sys:String x:Key="Orbit.ThemeOrbit">Орбита</sys:String>

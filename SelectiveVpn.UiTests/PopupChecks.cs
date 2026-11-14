@@ -21,7 +21,7 @@ internal static class PopupChecks
 {
     public static IReadOnlyList<(string Name, Func<Task> Run)> All { get; } =
     [
-        ("the main window offers no theme selector now that Orbit is the only look", NoThemeSelectorAsync),
+        ("colour schemes are chosen in settings, not in the main window", NoThemeSelectorAsync),
         ("both routing tabs remain visible and selectable when their lists are empty", EmptyModeSelectorAsync),
         ("routing tabs restore their own populated rule lists", PopulatedRoutingTabsAsync),
         ("routing tabs prevent mode changes during a pending connection", BusyRoutingTabsAsync),
@@ -97,10 +97,9 @@ internal static class PopupChecks
             await Dispatcher.Yield(DispatcherPriority.DataBind);
             Check.True(!Descendants(window).OfType<ComboBox>().Any(combo =>
                     BindingOperations.GetBinding(combo, Selector.SelectedValueProperty)?.Path?.Path == nameof(fixture.Model.SelectedThemeId)),
-                "With Orbit as the only look, the main window must not offer a theme dropdown.");
-            Check.Equal(1, fixture.Model.ThemeOptions.Count, "Orbit should be the only offered theme.");
-            Check.Equal(AppTheme.Orbit, fixture.Model.ThemeOptions.Single().Code, "The single offered theme must be Orbit.");
-            Check.True(!string.IsNullOrWhiteSpace(fixture.Model.ThemeOptions.Single().Title), "The Orbit theme needs a readable localized title.");
+                "Colour schemes live in settings: the main window must not offer a theme dropdown.");
+            Check.Equal(AppTheme.All.Length, fixture.Model.ThemeOptions.Count, "The view model should know every colour scheme.");
+            Check.Equal(AppTheme.Orbit, fixture.Model.ThemeOptions[0].Code, "Orbit stays the first, default colour scheme.");
             Check.Equal(0, fixture.DialogCount, "Showing the main window must not open settings or any other dialog.");
         }
         finally

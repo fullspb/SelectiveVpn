@@ -218,7 +218,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         set { if (value is 0 or 1) ExceptListed = value == 1; }
     }
 
-    public string ThemeDisplayName => Loc.T("Orbit.ThemeOrbit");
+    public string ThemeDisplayName => ThemeOptions.FirstOrDefault(option => option.Code == _theme)?.Title ?? Loc.T("Orbit.ThemeOrbit");
 
     public bool UpdateAvailable
     {

@@ -15,8 +15,9 @@ internal static class ViewModelChecks
     public static IReadOnlyList<(string Name, Func<Task> Run)> All { get; } =
     [
         ("settings and startup boundaries remain isolated", SettingsAreIsolatedAsync),
-        ("theme identifiers from earlier releases resolve to the single Orbit look", LegacyThemesResolveToOrbitAsync),
-        ("cancelling settings discards startup edits and keeps the Orbit theme", SettingsCancelKeepsThemeAsync),
+        ("theme selection applies and persists before any save action", ThemeSelectionPersistsImmediatelyAsync),
+        ("settings theme applies immediately and survives cancel", SettingsThemeSurvivesCancelAsync),
+        ("every colour scheme is complete, distinct and readable", ThemePalettesAreCompleteAndReadableAsync),
         ("profile selection keeps the actual running profile visible", SelectedVersusRunningAsync),
         ("empty rules always route all traffic through VPN", EmptyRulesAsync),
         ("connect and disconnect update real command states", ConnectDisconnectAsync),
@@ -70,63 +71,150 @@ internal static class ViewModelChecks
         {
             Check.True(dialog is SettingsWindow, "The real settings command should construct SettingsWindow.");
             var themeBox = (ComboBox)dialog.FindName("ThemeBox");
-            Check.True(themeBox.Items.Count == 1 && themeBox.SelectedValue as string == AppTheme.Orbit,
-                "Settings should offer Orbit as the only, already selected theme.");
+            Check.True(themeBox.IsVisible || themeBox.Visibility == Visibility.Visible, "The colour scheme must be offered in settings.");
+            Check.Equal(AppTheme.All.Length, themeBox.Items.Count, "Settings should offer every colour scheme.");
+            themeBox.SelectedValue = AppTheme.Ocean;
             ((CheckBox)dialog.FindName("AutoReconnectBox")).IsChecked = true;
             return true;
         };
         fixture.Model.OpenSettingsCommand.Execute(null);
-        Check.Equal(AppTheme.Orbit, fixture.Model.ThemeId, "Saving settings must keep the Orbit theme.");
+        Check.Equal(AppTheme.Ocean, fixture.Model.ThemeId, "The selected theme should apply through the real settings command.");
+        Check.Equal(AppTheme.Ocean, fixture.Settings.Theme, "The selected theme should persist to injected settings.");
         Check.True(fixture.Settings.AutoReconnect && fixture.Model.AutoReconnect, "Recovery should be saved only when explicitly enabled in settings.");
         Check.Equal(0, fixture.StartupRequests.Count, "Saving unchanged startup flags must not alter Windows startup.");
     }
 
-    private static async Task LegacyThemesResolveToOrbitAsync()
+    private static async Task ThemeSelectionPersistsImmediatelyAsync()
     {
         await using var fixture = new TestFixture();
-        foreach (var legacy in new[] { AppTheme.Ocean, AppTheme.Plum, AppTheme.Indigo, AppTheme.Retro, AppTheme.Light })
+        try
         {
-            fixture.Model.SelectedThemeId = legacy;
-            Check.Equal(AppTheme.Orbit, fixture.Model.ThemeId, "A theme saved by an earlier release must resolve to Orbit: " + legacy);
-            Check.Equal(AppTheme.Orbit, fixture.Model.SelectedThemeId, "The selected theme property must follow the applied theme: " + legacy);
+            Check.Equal(AppTheme.Orbit, fixture.Model.ThemeId, "A theme saved by a release with other looks must fall back to Orbit.");
+            var originalSaveCount = fixture.SaveCount;
+            var notifications = new HashSet<string>();
+            fixture.Model.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName is { } property) notifications.Add(property);
+            };
+
+            fixture.Model.SelectedThemeId = AppTheme.Ocean;
+
+            Check.Equal(AppTheme.Ocean, fixture.Model.ThemeId, "Selecting a theme must apply it immediately.");
+            Check.Equal(AppTheme.Ocean, fixture.Model.SelectedThemeId, "The selected theme property must follow the applied theme.");
+            Check.Equal(AppTheme.Ocean, fixture.Settings.Theme, "Theme selection must update the persisted settings before any dialog is saved.");
+            Check.True(fixture.SaveCount > originalSaveCount, "Selecting a theme must invoke persistence immediately.");
+            Check.True(notifications.Contains(nameof(MainViewModel.SelectedThemeId)), "Theme selection must notify bound controls.");
+            Check.True(AppTheme.TryGetColor(AppTheme.Ocean, "WindowBackground", out var expectedBackground), "The selected theme must have a window background.");
+            Check.Equal(expectedBackground, ((SolidColorBrush)Application.Current.Resources["WindowBackground"]).Color,
+                "The actual WPF resource palette must change before a save action.");
+            Check.Equal(fixture.Model.ThemeOptions.Single(option => option.Code == AppTheme.Ocean).Title, fixture.Model.ThemeDisplayName,
+                "The reported theme name must be the selected one.");
+            Check.Equal(AppTheme.All.Length, fixture.Model.ThemeOptions.Count, "Every colour scheme must be offered.");
+            Check.True(fixture.Model.ThemeOptions.All(option => !string.IsNullOrWhiteSpace(option.Title) && !option.Title.StartsWith("Orbit.", StringComparison.Ordinal)),
+                "Every colour scheme needs a readable localized title.");
+
+            foreach (var retired in new[] { AppTheme.Dark, AppTheme.Light, AppTheme.Retro, AppTheme.Indigo, "no-such-theme" })
+                Check.Equal(AppTheme.Orbit, AppTheme.Normalize(retired), "A retired or unknown theme must fall back to Orbit: " + retired);
+            Check.Equal(AppTheme.Plum, AppTheme.Normalize(" PLUM "), "Theme identifiers are matched without regard to case or spaces.");
+            Check.Equal(0, fixture.Engine.Starts.Count, "Selecting a theme must not connect the VPN.");
+            Check.Equal(0, fixture.StartupRequests.Count, "Selecting a theme must not modify Windows startup.");
         }
-        Check.True(AppTheme.TryGetColor(AppTheme.Orbit, "WindowBackground", out var expectedBackground), "Orbit must have a window background.");
-        Check.Equal(expectedBackground, ((SolidColorBrush)Application.Current.Resources["WindowBackground"]).Color,
-            "The actual WPF resource palette must stay on Orbit.");
-        Check.True(fixture.Model.ThemeOptions.Count == 1 && fixture.Model.ThemeOptions[0].Code == AppTheme.Orbit
-            && !string.IsNullOrWhiteSpace(fixture.Model.ThemeOptions[0].Title),
-            "Orbit must be the only offered theme, with a readable localized title.");
-        Check.Equal(0, fixture.Engine.Starts.Count, "Selecting a theme must not connect the VPN.");
-        Check.Equal(0, fixture.StartupRequests.Count, "Selecting a theme must not modify Windows startup.");
+        finally { AppTheme.Apply(AppTheme.Orbit); }
     }
 
-    private static async Task SettingsCancelKeepsThemeAsync()
+    private static async Task SettingsThemeSurvivesCancelAsync()
     {
         await using var fixture = new TestFixture();
-        ComboBox? dismissedThemeBox = null;
-        fixture.DialogChoice = dialog =>
+        try
         {
-            Check.True(dialog is SettingsWindow, "The settings command must construct the actual settings window.");
-            var themeBox = (ComboBox)dialog.FindName("ThemeBox");
-            dismissedThemeBox = themeBox;
-            Check.Equal(AppTheme.Orbit, themeBox.SelectedValue as string, "Settings must start with the Orbit theme selected.");
-            ((CheckBox)dialog.FindName("LaunchBox")).IsChecked = true;
-            ((CheckBox)dialog.FindName("ConnectBox")).IsChecked = true;
-            return false;
-        };
+            fixture.Model.SelectedThemeId = AppTheme.Aurora;
+            ComboBox? dismissedThemeBox = null;
+            fixture.DialogChoice = dialog =>
+            {
+                Check.True(dialog is SettingsWindow, "The settings command must construct the actual settings window.");
+                var themeBox = (ComboBox)dialog.FindName("ThemeBox");
+                dismissedThemeBox = themeBox;
+                Check.Equal(AppTheme.Aurora, themeBox.SelectedValue as string, "Settings must start with the current theme selected.");
+                var previousSaveCount = fixture.SaveCount;
+                themeBox.SelectedValue = AppTheme.Ocean;
+                Check.Equal(AppTheme.Ocean, fixture.Model.ThemeId, "The theme must apply while the settings dialog is still open.");
+                Check.Equal(AppTheme.Ocean, fixture.Settings.Theme, "The new theme must persist before ShowDialog returns.");
+                Check.True(fixture.SaveCount > previousSaveCount, "An open-dialog theme change must persist immediately.");
 
-        fixture.Model.OpenSettingsCommand.Execute(null);
+                previousSaveCount = fixture.SaveCount;
+                themeBox.SelectedValue = AppTheme.Plum;
+                Check.Equal(AppTheme.Plum, fixture.Model.SelectedThemeId, "A second open-dialog selection must update the selection.");
+                Check.Equal(AppTheme.Plum, fixture.Settings.Theme, "Each open-dialog theme change must persist independently.");
+                Check.True(fixture.SaveCount > previousSaveCount, "The second theme selection must also be persisted before dismissing settings.");
+                ((CheckBox)dialog.FindName("LaunchBox")).IsChecked = true;
+                ((CheckBox)dialog.FindName("ConnectBox")).IsChecked = true;
+                return false;
+            };
 
-        Check.Equal(AppTheme.Orbit, fixture.Model.ThemeId, "Cancel must leave the Orbit theme applied.");
-        Check.True(!fixture.Settings.LaunchWithWindows && !fixture.Settings.ConnectOnLaunch,
-            "Cancel must discard startup and automatic connection edits.");
-        Check.Equal(0, fixture.StartupRequests.Count, "Discarded startup edits must not reach Windows startup.");
-        Check.True(dismissedThemeBox is not null, "The settings theme control should have been intercepted.");
-        var savedAfterCancel = fixture.SaveCount;
-        dismissedThemeBox!.SelectedIndex = -1;
-        dismissedThemeBox.SelectedValue = AppTheme.Orbit;
-        Check.Equal(AppTheme.Orbit, fixture.Model.ThemeId, "A dismissed settings window must no longer change the active theme.");
-        Check.Equal(savedAfterCancel, fixture.SaveCount, "A dismissed settings window must not persist anything.");
+            fixture.Model.OpenSettingsCommand.Execute(null);
+
+            Check.Equal(AppTheme.Plum, fixture.Model.ThemeId, "Cancel must not revert an already applied theme.");
+            Check.Equal(AppTheme.Plum, fixture.Settings.Theme, "Cancel must retain the persisted theme.");
+            Check.True(!fixture.Settings.LaunchWithWindows && !fixture.Settings.ConnectOnLaunch,
+                "Cancel must still discard unrelated startup and automatic connection edits.");
+            Check.Equal(0, fixture.StartupRequests.Count, "Discarded startup edits must not reach Windows startup.");
+            Check.True(dismissedThemeBox is not null, "The settings theme control should have been intercepted.");
+            var savedAfterCancel = fixture.SaveCount;
+            dismissedThemeBox!.SelectedValue = AppTheme.Ocean;
+            Check.Equal(AppTheme.Plum, fixture.Model.ThemeId, "A dismissed settings window must no longer change the active theme.");
+            Check.Equal(savedAfterCancel, fixture.SaveCount, "The scoped settings theme event must detach after dialog dismissal.");
+        }
+        finally { AppTheme.Apply(AppTheme.Orbit); }
+    }
+
+    private static Task ThemePalettesAreCompleteAndReadableAsync()
+    {
+        var reference = AppTheme.ColorsFor(AppTheme.Orbit).Keys.Order().ToArray();
+        var accents = new HashSet<Color>();
+        foreach (var theme in AppTheme.All)
+        {
+            Check.True(reference.SequenceEqual(AppTheme.ColorsFor(theme).Keys.Order()), "Every theme must define the same colours as Orbit: " + theme);
+            Color Get(string key) => AppTheme.TryGetColor(theme, key, out var color) ? color : throw new InvalidOperationException(key);
+            var background = Get("WindowBackground");
+            var panel = Get("CardBackground");
+            Check.True(accents.Add(Get("Accent")), "Each theme needs its own accent colour: " + theme);
+            Check.True(Contrast(Get("WindowForeground"), background) >= 7 && Contrast(Get("WindowForeground"), panel) >= 7,
+                "Body text must be clearly readable on the window and on panels: " + theme);
+            Check.True(Contrast(Get("MutedForeground"), background) >= 4.5 && Contrast(Get("MutedForeground"), panel) >= 4.5,
+                "Secondary text must stay readable: " + theme);
+            Check.True(Contrast(Get("Accent"), background) >= 4.5 && Contrast(Get("Accent2"), panel) >= 4.5,
+                "Accent-coloured text must stay readable: " + theme);
+            Check.True(Contrast(Get("PrimaryForeground"), Get("Accent")) >= 4.5 && Contrast(Get("PrimaryForeground"), Get("HeroActive2")) >= 3,
+                "The label of the main button must be readable across its gradient: " + theme);
+            Check.True(Distance(Get("HeroActive"), Get("HeroIdle")) >= 80 && Distance(Get("HeroBusy"), Get("HeroActive")) >= 80 && Distance(Get("HeroBusy"), Get("HeroIdle")) >= 80,
+                "Idle, connecting and connected must look different: " + theme);
+
+            AppTheme.Apply(theme);
+            foreach (var key in new[] { "AccentWash", "AccentLine", "AccentLineBright", "AccentBright", "ProfileSelectedBackground", "PushBackground", "PanelSurface" })
+                Check.True(Application.Current.Resources[key] is Brush, $"Theme {theme} must publish the {key} brush used by the main window.");
+            Check.Equal(Get("Accent"), ((SolidColorBrush)Application.Current.Resources["Accent"]).Color, "Applying a theme must publish its accent: " + theme);
+        }
+        AppTheme.Apply(AppTheme.Orbit);
+        return Task.CompletedTask;
+    }
+
+    // Plain RGB distance: states of the globe differ by hue as much as by brightness.
+    private static double Distance(Color a, Color b)
+        => Math.Sqrt(Math.Pow(a.R - b.R, 2) + Math.Pow(a.G - b.G, 2) + Math.Pow(a.B - b.B, 2));
+
+    private static double Contrast(Color a, Color b)
+    {
+        static double Luminance(Color color)
+        {
+            static double Channel(byte value)
+            {
+                var c = value / 255.0;
+                return c <= 0.03928 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+            }
+            return 0.2126 * Channel(color.R) + 0.7152 * Channel(color.G) + 0.0722 * Channel(color.B);
+        }
+        var (la, lb) = (Luminance(a), Luminance(b));
+        return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
     }
 
     private static async Task SelectedVersusRunningAsync()

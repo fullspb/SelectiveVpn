@@ -168,9 +168,10 @@ public sealed class AnimatedBackground : Grid
 
     private void CreateOrbit()
     {
-        AddGlow(520, -260, 1000, 900, "#5A4BD6", 0.42, 46, -50, 60, -20, 50);
-        AddGlow(-380, 280, 1000, 860, "#2B9EC4", 0.38, 58, 30, -60, 40, -30);
-        AddStars("#DDE4FF", 64, 0.6);
+        var palette = AppTheme.ColorsFor(ThemeId);
+        AddGlow(520, -260, 1000, 900, palette["BackgroundGlow1"], 0.42, 46, -50, 60, -20, 50);
+        AddGlow(-380, 280, 1000, 860, palette["BackgroundGlow2"], 0.38, 58, 30, -60, 40, -30);
+        AddStars(palette["BackgroundStar"], 64, 0.6);
     }
 
     private void AddStars(string color, int count, double peak)
