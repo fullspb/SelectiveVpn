@@ -67,7 +67,7 @@
       <Button Content="Apply capabilities" Command="{Binding ApplyCapabilitiesCommand}"
               ToolTip.Tip="One pkexec/sudo setcap on mihomo — preferred elevation path" />
       <Button Content="Emergency teardown" Command="{Binding EmergencyTeardownCommand}"
-              ToolTip.Tip="Kill leftovers + delete Meta + flush ip rules 9000–9010 + resolvectl flush" />
+              ToolTip.Tip="Kill leftovers + delete Meta + flush ip rules 9000–9010" />
     </StackPanel>
 
     <Border Grid.Row="4" Padding="10" CornerRadius="8" Background="#12000000">

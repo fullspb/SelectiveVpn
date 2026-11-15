@@ -17,7 +17,6 @@ for pref in 9000 9001 9002 9010; do
   while ip rule del pref "$pref" 2>/dev/null; do :; done
 done
 
-resolvectl flush-caches 2>/dev/null || true
-resolvectl reset-server-features 2>/dev/null || true
+# Intentionally no resolvectl flush-caches — it prompts polkit on CachyOS.
 
-echo "OK: mihomo killed (best-effort), Meta deleted, ip rules 9000–9010 flushed, DNS caches flushed"
+echo "OK: mihomo killed (best-effort), Meta deleted, ip rules 9000–9010 flushed"

@@ -26,9 +26,8 @@ public static class LinuxTunnelCleanup
             }
         }
 
-        // Best-effort DNS restore: flush stub cache after Meta/rules are gone (no root needed).
-        TryRun("resolvectl", "flush-caches");
-        TryRun("resolvectl", "reset-server-features");
+        // Do NOT call resolvectl flush-caches here — on CachyOS it triggers
+        // polkit "Authentication is required to flush DNS caches."
     }
 
     public static void TryHardKillExecutable(string executablePath)

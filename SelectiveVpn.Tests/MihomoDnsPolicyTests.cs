@@ -134,6 +134,7 @@ public sealed class MihomoDnsPolicyTests
             return;
 
         Assert.Contains("dns-mode: disabled", yaml);
+        Assert.Contains("auto-redirect: true", yaml);
         Assert.DoesNotContain("dns-hijack:", yaml);
     }
 

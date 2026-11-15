@@ -146,8 +146,10 @@ public static class MihomoProfileWriter
         builder.AppendLine("  strict-route: false");
         if (OperatingSystem.IsLinux())
         {
-            // Avoid rewriting systemd-resolved (password spam / broken host DNS on CachyOS).
-            // Traffic still uses auto-route; domain split uses sniffer when fake-ip is off the host path.
+            // Without auto-redirect, auto-route on CachyOS black-holes TCP (MATCH,DIRECT and
+            // MATCH,VPN both time out). auto-redirect marks/redir so dial-out works.
+            builder.AppendLine("  auto-redirect: true");
+            // Do not rewrite systemd-resolved (avoids DNS polkit prompts / host DNS breakage).
             builder.AppendLine("  dns-mode: disabled");
         }
         else

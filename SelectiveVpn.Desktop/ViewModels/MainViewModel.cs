@@ -140,8 +140,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     }
 
     public string RoutingHint => FullTunnel
-        ? "Full tunnel: all traffic via VPN. Host systemd-resolved is not rewritten (dns-mode: disabled)."
-        : "Selective: listed DOMAIN/IP → VPN; everything else DIRECT. Empty list = browsing stays direct.";
+        ? "Full tunnel: all traffic via VPN. Linux uses dns-mode:disabled + auto-redirect (no DNS polkit)."
+        : "Selective: listed DOMAIN/IP → VPN; rest DIRECT. Linux: dns-mode:disabled + auto-redirect.";
 
     public string ConnectionActionText => IsConnected ? "Disconnect" : "Connect";
 
