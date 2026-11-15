@@ -12,8 +12,8 @@ using SelectiveVpn.Models;
 namespace SelectiveVpn.Desktop.ViewModels;
 
 /// <summary>
-/// Lean Avalonia MVP ViewModel: connect/disconnect, import Amnezia .conf, status/IP, tray.
-/// Full WPF MainViewModel stays Windows-only; shared seam is IUiDispatcher + Core engine.
+/// Lean Avalonia MVP ViewModel: connect/disconnect, import Amnezia .conf, status/IP, tray,
+/// DOMAIN/IP selective list. Full WPF MainViewModel stays Windows-only.
 /// </summary>
 public sealed class MainViewModel : ViewModelBase, IDisposable
 {
@@ -25,6 +25,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private bool _isBusy;
     private bool _isConnected;
     private bool _disconnecting;
+    private bool _fullTunnel;
     private string _statusText = "Disconnected";
     private string _statusKind = "disconnected";
     private string _profileName = "(no profile)";
@@ -33,6 +34,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private string _engineLabel = "";
     private string _logLine = "";
     private string _privilegeStatus = "";
+    private string _newTargetText = "";
+    private string? _selectedTarget;
     private CancellationTokenSource? _connectCts;
 
     public MainViewModel(IMihomoController mihomo, IUiDispatcher dispatcher)
@@ -45,11 +48,18 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _settings = DesktopSettingsStore.Load(out _);
         // Hard rule for development: never auto-start VPN without Sergey's ok.
         _settings.ConnectOnLaunch = false;
+        _fullTunnel = _settings.FullTunnel;
 
         if (!string.IsNullOrWhiteSpace(_settings.ConfigPath) && File.Exists(_settings.ConfigPath))
         {
             _configPath = _settings.ConfigPath;
             _profileName = Path.GetFileNameWithoutExtension(_configPath);
+        }
+
+        foreach (var target in _settings.IncludeTargets ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(target))
+                IncludeTargets.Add(target);
         }
 
         _engineLabel = _mihomo.EngineId;
@@ -61,15 +71,22 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         RefreshIpCommand = new RelayCommand(RefreshIpAsync, () => IsConnected && !IsBusy);
         ApplyCapabilitiesCommand = new RelayCommand(ApplyCapabilitiesAsync, () => !IsBusy);
         EmergencyTeardownCommand = new RelayCommand(EmergencyTeardownAsync, () => !IsBusy);
+        AddTargetCommand = new RelayCommand(AddTarget, () => !IsBusy && !string.IsNullOrWhiteSpace(NewTargetText));
+        RemoveTargetCommand = new RelayCommand(RemoveTarget, () => !IsBusy && SelectedTarget is not null);
         ShowWindowCommand = new RelayCommand(ShowWindow);
         ExitCommand = new RelayCommand(ExitAsync);
 
         AppendLog("Linux Avalonia MVP ready. ConnectOnLaunch is off.");
         AppendLog($"Settings: {AppPaths.SettingsPath}");
+        AppendLog(FullTunnel
+            ? "Mode: full tunnel (host DNS left alone via dns-mode: disabled)."
+            : "Mode: selective — empty include → MATCH,DIRECT (browsing stays on LAN).");
         AppendLog(LinuxElevation.PrivilegeHint);
     }
 
     public ObservableCollection<string> LogEntries { get; } = [];
+
+    public ObservableCollection<string> IncludeTargets { get; } = [];
 
     public ICommand ConnectCommand { get; }
     public ICommand DisconnectCommand { get; }
@@ -77,6 +94,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public ICommand RefreshIpCommand { get; }
     public ICommand ApplyCapabilitiesCommand { get; }
     public ICommand EmergencyTeardownCommand { get; }
+    public ICommand AddTargetCommand { get; }
+    public ICommand RemoveTargetCommand { get; }
     public ICommand ShowWindowCommand { get; }
     public ICommand ExitCommand { get; }
 
@@ -104,6 +123,25 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             }
         }
     }
+
+    public bool FullTunnel
+    {
+        get => _fullTunnel;
+        set
+        {
+            if (!SetProperty(ref _fullTunnel, value))
+                return;
+            OnPropertyChanged(nameof(RoutingHint));
+            Persist();
+            AppendLog(value
+                ? "Full tunnel enabled — all MATCH,VPN; host DNS not rewritten."
+                : "Selective mode — listed DOMAIN/IP via VPN, rest DIRECT.");
+        }
+    }
+
+    public string RoutingHint => FullTunnel
+        ? "Full tunnel: all traffic via VPN. Host systemd-resolved is not rewritten (dns-mode: disabled)."
+        : "Selective: listed DOMAIN/IP → VPN; everything else DIRECT. Empty list = browsing stays direct.";
 
     public string ConnectionActionText => IsConnected ? "Disconnect" : "Connect";
 
@@ -162,6 +200,26 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         private set => SetProperty(ref _privilegeStatus, value);
     }
 
+    public string NewTargetText
+    {
+        get => _newTargetText;
+        set
+        {
+            if (SetProperty(ref _newTargetText, value))
+                (AddTargetCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        }
+    }
+
+    public string? SelectedTarget
+    {
+        get => _selectedTarget;
+        set
+        {
+            if (SetProperty(ref _selectedTarget, value))
+                (RemoveTargetCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        }
+    }
+
     public void AttachWindow(Window window) => _window = window;
 
     private void RefreshPrivilegeStatus()
@@ -169,6 +227,51 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         PrivilegeStatus = LinuxElevation.CanConfigureTun()
             ? "Privileges: CAP_NET_ADMIN / root available"
             : "Privileges: need setcap on mihomo (or sudo). See Apply capabilities.";
+    }
+
+    private void AddTarget()
+    {
+        if (!RouteAddress.TryParse(NewTargetText, out var normalized, out var kind, out var error))
+        {
+            AppendLog($"Bad target: {error}");
+            return;
+        }
+
+        if (IncludeTargets.Any(existing => string.Equals(existing, normalized, StringComparison.OrdinalIgnoreCase)))
+        {
+            AppendLog($"Already listed: {normalized}");
+            return;
+        }
+
+        IncludeTargets.Add(normalized);
+        NewTargetText = "";
+        Persist();
+        AppendLog($"Added {kind}: {normalized}");
+    }
+
+    private void RemoveTarget()
+    {
+        if (SelectedTarget is null)
+            return;
+
+        var removed = SelectedTarget;
+        IncludeTargets.Remove(removed);
+        SelectedTarget = null;
+        Persist();
+        AppendLog($"Removed: {removed}");
+    }
+
+    private RouteTarget[] BuildTargets()
+    {
+        var list = new List<RouteTarget>();
+        foreach (var entry in IncludeTargets)
+        {
+            if (!RouteAddress.TryParse(entry, out var normalized, out var kind, out _))
+                continue;
+            list.Add(new RouteTarget(normalized, Kind: kind));
+        }
+
+        return list.ToArray();
     }
 
     private async Task ConnectAsync()
@@ -196,18 +299,24 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _connectCts = new CancellationTokenSource();
         try
         {
-            // Empty targets → full tunnel (MATCH,VPN). Full-tunnel breaks direct browsing while up — expected.
+            var targets = BuildTargets();
             var request = new MihomoStartRequest(
                 ConfigPath,
-                Array.Empty<RouteTarget>(),
-                string.IsNullOrWhiteSpace(_settings.EnginePath) ? null : _settings.EnginePath);
+                targets,
+                string.IsNullOrWhiteSpace(_settings.EnginePath) ? null : _settings.EnginePath,
+                ExceptListed: false,
+                FullTunnelWhenEmpty: FullTunnel);
 
             var result = await _mihomo.StartAsync(request, _connectCts.Token);
             AppendLog(result.Message);
             IsConnected = result.Succeeded && _mihomo.IsRunning;
             if (IsConnected)
             {
-                StatusText = "Connected (full tunnel)";
+                StatusText = FullTunnel
+                    ? "Connected (full tunnel)"
+                    : targets.Length == 0
+                        ? "Connected (selective, empty → DIRECT)"
+                        : $"Connected (selective, {targets.Length} via VPN)";
                 StatusKind = "connected";
                 Persist();
                 _ = RefreshIpAsync();
@@ -256,7 +365,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 AppendLog(result.Message);
             }
 
-            // Spike emergency cleanup: Meta + ip rules 9000–9010 (also done inside engine Stop).
             LinuxTunnelCleanup.TryCleanup();
             IsConnected = false;
             ExternalIp = "—";
@@ -358,8 +466,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             File.Exists(AppPaths.EngineBinaryPath) ? AppPaths.EngineBinaryPath : null);
         AppendLog(result.Message);
         RefreshPrivilegeStatus();
-        // Note: setcap is on mihomo binary; the app process itself may still lack CapEff.
-        // Capability on the executable is what matters when MihomoEngine starts it.
         if (result.Succeeded)
             AppendLog("mihomo binary now has caps — Connect should work without running the UI as root.");
         return Task.CompletedTask;
@@ -400,6 +506,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     {
         _settings.ConfigPath = ConfigPath;
         _settings.ConnectOnLaunch = false;
+        _settings.FullTunnel = FullTunnel;
+        _settings.IncludeTargets = IncludeTargets.ToList();
         DesktopSettingsStore.Save(_settings);
     }
 
@@ -439,6 +547,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         (RefreshIpCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ApplyCapabilitiesCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (EmergencyTeardownCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (AddTargetCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (RemoveTargetCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     private void Dispatch(Action action)

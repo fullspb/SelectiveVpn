@@ -25,6 +25,10 @@ public static class LinuxTunnelCleanup
                     break;
             }
         }
+
+        // Best-effort DNS restore: flush stub cache after Meta/rules are gone (no root needed).
+        TryRun("resolvectl", "flush-caches");
+        TryRun("resolvectl", "reset-server-features");
     }
 
     public static void TryHardKillExecutable(string executablePath)

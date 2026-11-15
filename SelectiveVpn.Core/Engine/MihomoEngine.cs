@@ -152,7 +152,8 @@ public sealed class MihomoEngine : IMihomoController
                     providerCache,
                     DeviceIdentity.GetHardwareId(Path.GetDirectoryName(_runtimeDirectory)),
                     ipCheckPort,
-                    request.ExceptListed);
+                    request.ExceptListed,
+                    request.FullTunnelWhenEmpty);
                 await File.WriteAllTextAsync(configPath, yaml, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), cancellationToken)
                     .ConfigureAwait(false);
                 summary = subscription.Describe();
@@ -174,7 +175,8 @@ public sealed class MihomoEngine : IMihomoController
                     port,
                     secret,
                     ipCheckPort,
-                    request.ExceptListed);
+                    request.ExceptListed,
+                    request.FullTunnelWhenEmpty);
                 await File.WriteAllTextAsync(configPath, yaml, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), cancellationToken)
                     .ConfigureAwait(false);
                 summary = read.Profile.Describe();
@@ -755,7 +757,8 @@ public sealed class MihomoEngine : IMihomoController
                     _providerCachePath ?? Path.Combine(_runtimeDirectory, "providers", "subscription.yaml"),
                     DeviceIdentity.GetHardwareId(Path.GetDirectoryName(_runtimeDirectory)),
                     _ipCheckPort,
-                    request.ExceptListed);
+                    request.ExceptListed,
+                    request.FullTunnelWhenEmpty);
             }
             else
             {
@@ -768,7 +771,8 @@ public sealed class MihomoEngine : IMihomoController
                     port,
                     secret,
                     _ipCheckPort,
-                    request.ExceptListed);
+                    request.ExceptListed,
+                    request.FullTunnelWhenEmpty);
             }
 
             await File.WriteAllTextAsync(

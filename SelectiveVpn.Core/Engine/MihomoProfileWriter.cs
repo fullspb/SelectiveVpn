@@ -13,7 +13,8 @@ public static class MihomoProfileWriter
         int apiPort,
         string apiSecret,
         int vpnCheckPort = 0,
-        bool exceptListed = false)
+        bool exceptListed = false,
+        bool fullTunnelWhenEmpty = true)
     {
         var builder = new StringBuilder();
         AppendPreamble(builder, apiPort, apiSecret, vpnCheckPort, outboundProxy: "awg");
@@ -43,7 +44,7 @@ public static class MihomoProfileWriter
         builder.AppendLine("    type: select");
         builder.AppendLine("    proxies:");
         builder.AppendLine("      - awg");
-        AppendRules(builder, targets, exceptListed);
+        AppendRules(builder, targets, exceptListed, fullTunnelWhenEmpty);
         return builder.ToString();
     }
 
@@ -55,7 +56,8 @@ public static class MihomoProfileWriter
         string providerCachePath,
         string hardwareId,
         int vpnCheckPort = 0,
-        bool exceptListed = false)
+        bool exceptListed = false,
+        bool fullTunnelWhenEmpty = true)
     {
         var builder = new StringBuilder();
         AppendPreamble(builder, apiPort, apiSecret, vpnCheckPort, outboundProxy: "VPN");
@@ -108,7 +110,7 @@ public static class MihomoProfileWriter
         builder.AppendLine("      - " + Quote(SubscriptionProfile.AutoNodeName));
         builder.AppendLine("    use:");
         builder.AppendLine("      - subscription");
-        AppendRules(builder, targets, exceptListed);
+        AppendRules(builder, targets, exceptListed, fullTunnelWhenEmpty);
         return builder.ToString();
     }
 
@@ -142,8 +144,17 @@ public static class MihomoProfileWriter
         builder.AppendLine("  auto-route: true");
         builder.AppendLine("  auto-detect-interface: true");
         builder.AppendLine("  strict-route: false");
-        builder.AppendLine("  dns-hijack:");
-        builder.AppendLine("    - any:53");
+        if (OperatingSystem.IsLinux())
+        {
+            // Avoid rewriting systemd-resolved (password spam / broken host DNS on CachyOS).
+            // Traffic still uses auto-route; domain split uses sniffer when fake-ip is off the host path.
+            builder.AppendLine("  dns-mode: disabled");
+        }
+        else
+        {
+            builder.AppendLine("  dns-hijack:");
+            builder.AppendLine("    - any:53");
+        }
 
         // Domain lists need SNI/Host sniffing: browsers often use DoH and connect by IP.
         builder.AppendLine("sniffer:");
@@ -180,8 +191,16 @@ public static class MihomoProfileWriter
         builder.AppendLine("    - '+.localdomain'");
         builder.AppendLine("  respect-rules: true");
         builder.AppendLine("  default-nameserver:");
-        builder.AppendLine("    - 1.1.1.1");
-        builder.AppendLine("    - 8.8.8.8");
+        if (OperatingSystem.IsLinux())
+        {
+            // Public bootstrap DNS can loop through TUN under auto-route; system stays on 127.0.0.0/8 exclude.
+            builder.AppendLine("    - system");
+        }
+        else
+        {
+            builder.AppendLine("    - 1.1.1.1");
+            builder.AppendLine("    - 8.8.8.8");
+        }
         builder.AppendLine("  nameserver:");
         foreach (var server in upstreams)
             builder.AppendLine("    - " + Quote(server));
@@ -231,12 +250,13 @@ public static class MihomoProfileWriter
     private static void AppendRules(
         StringBuilder builder,
         IReadOnlyList<RouteTarget> targets,
-        bool exceptListed)
+        bool exceptListed,
+        bool fullTunnelWhenEmpty = true)
     {
         builder.AppendLine("rules:");
         if (targets.Count == 0)
         {
-            builder.AppendLine("  - MATCH,VPN");
+            builder.AppendLine(fullTunnelWhenEmpty ? "  - MATCH,VPN" : "  - MATCH,DIRECT");
             return;
         }
 

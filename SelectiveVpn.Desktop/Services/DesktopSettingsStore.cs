@@ -41,8 +41,15 @@ internal sealed class DesktopSettings
     /// <summary>Always leave false unless Sergey explicitly enables auto-connect.</summary>
     public bool ConnectOnLaunch { get; set; }
 
+    /// <summary>When false (Linux MVP default), empty include list uses MATCH,DIRECT.</summary>
+    public bool FullTunnel { get; set; }
+
+    public List<string> IncludeTargets { get; set; } = [];
+
     public static DesktopSettings CreateDefault() => new()
     {
-        ConnectOnLaunch = false
+        ConnectOnLaunch = false,
+        FullTunnel = false,
+        IncludeTargets = []
     };
 }

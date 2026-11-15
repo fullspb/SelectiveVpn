@@ -4,10 +4,10 @@
         x:Class="SelectiveVpn.Desktop.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="Selective VPN (Linux MVP)"
-        Width="720" Height="520"
-        MinWidth="560" MinHeight="420"
+        Width="760" Height="640"
+        MinWidth="600" MinHeight="520"
         WindowStartupLocation="CenterScreen">
-  <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="14">
+  <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" RowSpacing="12">
     <StackPanel Grid.Row="0" Spacing="4">
       <TextBlock Text="Selective VPN" FontSize="26" FontWeight="SemiBold" />
       <TextBlock Text="{Binding EngineLabel}" Opacity="0.7" />
@@ -41,27 +41,43 @@
         </StackPanel>
 
         <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
-                   Text="Full-tunnel mode: browsing via direct routes may fail while connected (spike lesson)."
-                   Opacity="0.65" TextWrapping="Wrap" FontSize="12" />
+                   Text="{Binding RoutingHint}"
+                   Opacity="0.75" TextWrapping="Wrap" FontSize="12" />
       </Grid>
     </Border>
 
-    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+    <StackPanel Grid.Row="2" Spacing="8">
+      <CheckBox Content="Full tunnel (all traffic via VPN)" IsChecked="{Binding FullTunnel}" />
+      <TextBlock Text="Include via VPN (DOMAIN or IP/CIDR) — used when Full tunnel is off" Opacity="0.8" />
+      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+        <TextBox Grid.Column="0"
+                 Watermark="example.com or 1.2.3.4/32"
+                 Text="{Binding NewTargetText}" />
+        <Button Grid.Column="1" Content="Add" Command="{Binding AddTargetCommand}" MinWidth="72" />
+        <Button Grid.Column="2" Content="Remove" Command="{Binding RemoveTargetCommand}" MinWidth="72" />
+      </Grid>
+      <ListBox ItemsSource="{Binding IncludeTargets}"
+               SelectedItem="{Binding SelectedTarget}"
+               Height="88"
+               FontFamily="monospace" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8">
       <Button Content="Import Amnezia .conf" Command="{Binding ImportConfigCommand}" />
       <Button Content="Apply capabilities" Command="{Binding ApplyCapabilitiesCommand}"
               ToolTip.Tip="One pkexec/sudo setcap on mihomo — preferred elevation path" />
       <Button Content="Emergency teardown" Command="{Binding EmergencyTeardownCommand}"
-              ToolTip.Tip="Kill leftovers + delete Meta + flush ip rules 9000–9010" />
+              ToolTip.Tip="Kill leftovers + delete Meta + flush ip rules 9000–9010 + resolvectl flush" />
     </StackPanel>
 
-    <Border Grid.Row="3" Padding="10" CornerRadius="8" Background="#12000000">
+    <Border Grid.Row="4" Padding="10" CornerRadius="8" Background="#12000000">
       <DockPanel>
         <TextBlock DockPanel.Dock="Top" Text="Log" FontWeight="SemiBold" Margin="0,0,0,8" />
         <ListBox ItemsSource="{Binding LogEntries}" FontFamily="monospace" FontSize="12" />
       </DockPanel>
     </Border>
 
-    <TextBlock Grid.Row="4"
+    <TextBlock Grid.Row="5"
                Text="Settings: ~/.local/share/SelectiveVpn — ConnectOnLaunch disabled"
                Opacity="0.55" FontSize="12" />
   </Grid>

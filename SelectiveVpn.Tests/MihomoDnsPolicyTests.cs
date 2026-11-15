@@ -20,10 +20,11 @@ public sealed class MihomoDnsPolicyTests
         foreach (var domain in new[] { "youtube.com", "googlevideo.com", "ytimg.com", "ggpht.com", "youtubei.googleapis.com" })
             Assert.Equal(["udp://1.1.1.1#VPN", "udp://9.9.9.9#VPN"], policies["+." + domain]);
         Assert.Equal(["udp://1.1.1.1", "udp://9.9.9.9"], ReadDnsList(yaml, "nameserver"));
-        Assert.Equal(["1.1.1.1", "8.8.8.8"], ReadDnsList(yaml, "default-nameserver"));
+        Assert.Equal(ExpectedDefaultNameservers(), ReadDnsList(yaml, "default-nameserver"));
         Assert.Equal(["1.1.1.1", "8.8.8.8"], ReadDnsList(yaml, "proxy-server-nameserver"));
         Assert.Contains("'DOMAIN-SUFFIX,googlevideo.com,VPN'", yaml);
         Assert.Contains("MATCH,DIRECT", yaml);
+        AssertLinuxDnsMode(yaml);
     }
 
     [Fact]
@@ -100,8 +101,40 @@ public sealed class MihomoDnsPolicyTests
             Assert.Empty(ReadDnsPolicies(yaml));
             Assert.Equal(["udp://1.1.1.1", "udp://8.8.8.8"], ReadDnsList(yaml, "nameserver"));
             Assert.Equal(["1.1.1.1", "8.8.8.8"], ReadDnsList(yaml, "proxy-server-nameserver"));
+            Assert.Equal(ExpectedDefaultNameservers(), ReadDnsList(yaml, "default-nameserver"));
             Assert.Contains("MATCH,VPN", yaml);
+            AssertLinuxDnsMode(yaml);
         }
+    }
+
+    [Fact]
+    public void Empty_targets_with_full_tunnel_disabled_keep_match_direct()
+    {
+        var yaml = MihomoProfileWriter.Build(new AmneziaWgProfile
+        {
+            PrivateKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            PublicKey = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+            AddressV4 = "10.9.9.2",
+            EndpointHost = "203.0.113.10",
+            EndpointPort = 51820,
+            DnsServers = ["1.1.1.1"]
+        }, [], 17990, "synthetic-controller-secret", fullTunnelWhenEmpty: false);
+
+        Assert.Contains("MATCH,DIRECT", yaml);
+        Assert.DoesNotContain("MATCH,VPN", yaml);
+        AssertLinuxDnsMode(yaml);
+    }
+
+    private static string[] ExpectedDefaultNameservers()
+        => OperatingSystem.IsLinux() ? ["system"] : ["1.1.1.1", "8.8.8.8"];
+
+    private static void AssertLinuxDnsMode(string yaml)
+    {
+        if (!OperatingSystem.IsLinux())
+            return;
+
+        Assert.Contains("dns-mode: disabled", yaml);
+        Assert.DoesNotContain("dns-hijack:", yaml);
     }
 
     [Fact]
