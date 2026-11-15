@@ -96,6 +96,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         EditConfigCommand = new RelayCommand(EditConfig, () => !IsBusy && IsWireGuardProfile, LogUnexpected);
         SelectProfileCommand = new ParameterRelayCommand(SelectProfile, () => !IsBusy, LogUnexpected);
         AddAppCommand = new RelayCommand(AddApp, () => !IsBusy, LogUnexpected);
+        AddProcessCommand = new RelayCommand(AddProcess, () => !IsBusy, LogUnexpected);
         AddFolderCommand = new RelayCommand(AddFolder, () => !IsBusy, LogUnexpected);
         AddAddressListCommand = new RelayCommand(AddAddressListAsync, () => !IsBusy, LogUnexpected);
         EditAddressListCommand = new RelayCommand(EditAddressListAsync, () => !IsBusy && SelectedApp?.IsAddressList == true, LogUnexpected);
@@ -482,6 +483,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public ParameterRelayCommand SelectProfileCommand { get; }
 
     public RelayCommand AddAppCommand { get; }
+
+    public RelayCommand AddProcessCommand { get; }
 
     public RelayCommand AddFolderCommand { get; }
 
@@ -969,9 +972,14 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         Report(Loc.Tf("Msg.ConfigOk", read.Profile.Describe()));
     }
 
-    private void AddApp()
+    private void AddApp() => AddFromPicker(AppPickerSource.InstalledApps);
+
+    /// <summary>Adds a program that is running right now; the rule is the same as for any app.</summary>
+    private void AddProcess() => AddFromPicker(AppPickerSource.RunningProcesses);
+
+    private void AddFromPicker(AppPickerSource source)
     {
-        var dialog = new SelectiveVpn.AppPickerPrompt(_files.PickExecutable)
+        var dialog = new SelectiveVpn.AppPickerPrompt(_files.PickExecutable, source)
         {
             Owner = Application.Current?.MainWindow
         };

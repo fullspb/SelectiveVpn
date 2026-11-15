@@ -469,4 +469,13 @@
     <sys:String x:Key="Core.Import.TooManyLinks">Too many links. One profile can hold up to {0}.</sys:String>
     <sys:String x:Key="Core.Import.LinkPlaceholder">The link points to a placeholder (0.0.0.0), not a working server.</sys:String>
     <sys:String x:Key="Core.Import.LinksImported">Profile “{0}” imported: servers — {1} ({2}).</sys:String>
+    <sys:String x:Key="Ui.AddProcess">Add process</sys:String>
+    <sys:String x:Key="ProcessPicker.Title">Add process</sys:String>
+    <sys:String x:Key="ProcessPicker.Heading">Choose a running process</sys:String>
+    <sys:String x:Key="ProcessPicker.Hint">Pick a program that is running now. The rule is tied to its file and keeps working after a restart.</sys:String>
+    <sys:String x:Key="Msg.ProcessesLoading">Collecting running processes…</sys:String>
+    <sys:String x:Key="Msg.ProcessesFound">Programs running: {0}.</sys:String>
+    <sys:String x:Key="Msg.ProcessesEmpty">Could not get the process list. Use “Add EXE”.</sys:String>
+    <sys:String x:Key="Msg.ProcessesPick">Choose a process from the list or use “Add EXE”.</sys:String>
+    <sys:String x:Key="Settings.GitHub">Project on GitHub</sys:String>
 </ResourceDictionary>

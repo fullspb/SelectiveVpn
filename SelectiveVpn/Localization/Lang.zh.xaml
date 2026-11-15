@@ -456,4 +456,13 @@
     <sys:String x:Key="Core.Import.TooManyLinks">链接过多。一个配置最多可包含 {0} 个。</sys:String>
     <sys:String x:Key="Core.Import.LinkPlaceholder">该链接指向占位地址（0.0.0.0），不是可用的服务器。</sys:String>
     <sys:String x:Key="Core.Import.LinksImported">已导入配置“{0}”：服务器 {1} 个（{2}）。</sys:String>
+    <sys:String x:Key="Ui.AddProcess">添加进程</sys:String>
+    <sys:String x:Key="ProcessPicker.Title">添加进程</sys:String>
+    <sys:String x:Key="ProcessPicker.Heading">选择正在运行的进程</sys:String>
+    <sys:String x:Key="ProcessPicker.Hint">选择当前正在运行的程序。规则绑定到其文件，重启后仍然有效。</sys:String>
+    <sys:String x:Key="Msg.ProcessesLoading">正在收集运行中的进程…</sys:String>
+    <sys:String x:Key="Msg.ProcessesFound">正在运行的程序：{0} 个。</sys:String>
+    <sys:String x:Key="Msg.ProcessesEmpty">无法获取进程列表。请使用“添加 EXE”。</sys:String>
+    <sys:String x:Key="Msg.ProcessesPick">请从列表中选择进程，或使用“添加 EXE”。</sys:String>
+    <sys:String x:Key="Settings.GitHub">GitHub 上的项目</sys:String>
 </ResourceDictionary>

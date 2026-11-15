@@ -53,7 +53,7 @@ internal static class Program
         var checks = ViewModelChecks.All.Concat(RoutingModeChecks.All).Concat(ConnectionDurationChecks.All)
             .Concat(PopupChecks.All)
             .Concat(MainWindowLayoutChecks.All).Concat(AppIconChecks.All).Concat(IpCountryChecks.All)
-            .Concat(LocalizationChecks.All).ToArray();
+            .Concat(LocalizationChecks.All).Concat(ProcessPickerChecks.All).ToArray();
         var failed = 0;
         foreach (var (name, check) in checks)
         {

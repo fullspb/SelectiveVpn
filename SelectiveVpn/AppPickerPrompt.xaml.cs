@@ -6,21 +6,53 @@ using SelectiveVpn.Services;
 
 namespace SelectiveVpn;
 
+/// <summary>Where the picker takes its list from.</summary>
+public enum AppPickerSource
+{
+    InstalledApps,
+    RunningProcesses
+}
+
 public partial class AppPickerPrompt : Window
 {
     private readonly Func<string?> _pickExecutable;
+    private readonly Func<IReadOnlyList<InstalledAppInfo>> _load;
     private IReadOnlyList<InstalledAppInfo> _apps = [];
     private bool _loaded;
+    private bool _loading;
 
     public AppPickerPrompt(Func<string?> pickExecutable)
+        : this(pickExecutable, AppPickerSource.InstalledApps)
+    {
+    }
+
+    internal AppPickerPrompt(
+        Func<string?> pickExecutable,
+        AppPickerSource source,
+        Func<IReadOnlyList<InstalledAppInfo>>? load = null)
     {
         InitializeComponent();
         _pickExecutable = pickExecutable;
+        Source = source;
+        _load = load ?? (source == AppPickerSource.RunningProcesses ? RunningProcessCatalog.Load : InstalledAppCatalog.Load);
+        if (source == AppPickerSource.RunningProcesses)
+        {
+            SetResourceReference(TitleProperty, "ProcessPicker.Title");
+            HeadingText.SetResourceReference(TextBlock.TextProperty, "ProcessPicker.Heading");
+            HintText.SetResourceReference(TextBlock.TextProperty, "ProcessPicker.Hint");
+            // Processes come and go while the dialog is open; installed programs do not.
+            RefreshButton.Visibility = Visibility.Visible;
+        }
+
         SourceInitialized += (_, _) => TitleBarTheme.ApplyFromResources(this);
         Loaded += OnLoaded;
     }
 
-    public string? SelectedExecutablePath { get; private set; }
+    public AppPickerSource Source { get; }
+
+    public string? SelectedExecutablePath { get; internal set; }
+
+    private bool Running => Source == AppPickerSource.RunningProcesses;
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -33,31 +65,46 @@ public partial class AppPickerPrompt : Window
         await LoadAppsAsync().ConfigureAwait(true);
     }
 
-    private async Task LoadAppsAsync()
+    internal async Task LoadAppsAsync()
     {
+        if (_loading)
+            return;
+
+        _loading = true;
+        var previous = (AppList.SelectedItem as InstalledAppInfo)?.ExecutablePath;
         EmptyText.Visibility = Visibility.Visible;
-        EmptyText.Text = Loc.T("Msg.AppsLoading");
+        EmptyText.Text = Loc.T(Running ? "Msg.ProcessesLoading" : "Msg.AppsLoading");
         AppList.IsEnabled = false;
         AddButton.IsEnabled = false;
+        RefreshButton.IsEnabled = false;
 
         IReadOnlyList<InstalledAppInfo> apps = [];
+        var failed = false;
         try
         {
-            apps = await Task.Run(InstalledAppCatalog.Load).ConfigureAwait(true);
+            apps = await Task.Run(_load).ConfigureAwait(true);
         }
         catch (Exception)
         {
-            EmptyText.Text = Loc.T("Msg.AppsLoadFail");
-            SetStatus(Loc.T("Msg.AppsUnavailable"));
+            failed = true;
         }
 
         _apps = apps;
+        _loading = false;
         AppList.IsEnabled = true;
         AddButton.IsEnabled = true;
-        ApplyFilter(SearchBox.Text);
+        RefreshButton.IsEnabled = true;
+        ApplyFilter(SearchBox.Text, previous);
+        if (failed)
+        {
+            EmptyText.Text = Loc.T("Msg.AppsLoadFail");
+            SetStatus(Loc.T("Msg.AppsUnavailable"));
+            return;
+        }
+
         SetStatus(_apps.Count > 0
-            ? Loc.Tf("Msg.AppsFound", _apps.Count)
-            : Loc.T("Msg.AppsEmpty"));
+            ? Loc.Tf(Running ? "Msg.ProcessesFound" : "Msg.AppsFound", _apps.Count)
+            : Loc.T(Running ? "Msg.ProcessesEmpty" : "Msg.AppsEmpty"));
     }
 
     private void SearchBox_OnTextChanged(object sender, TextChangedEventArgs e)
@@ -65,10 +112,10 @@ public partial class AppPickerPrompt : Window
         SearchHint.Visibility = string.IsNullOrEmpty(SearchBox.Text)
             ? Visibility.Visible
             : Visibility.Collapsed;
-        ApplyFilter(SearchBox.Text);
+        ApplyFilter(SearchBox.Text, (AppList.SelectedItem as InstalledAppInfo)?.ExecutablePath);
     }
 
-    private void ApplyFilter(string? query)
+    private void ApplyFilter(string? query, string? keepSelected = null)
     {
         var text = query?.Trim() ?? "";
         IEnumerable<InstalledAppInfo> filtered = _apps;
@@ -85,16 +132,21 @@ public partial class AppPickerPrompt : Window
         {
             EmptyText.Visibility = Visibility.Visible;
             EmptyText.Text = _apps.Count == 0
-                ? Loc.T("Msg.AppsNone")
+                ? Loc.T(Running ? "Msg.ProcessesEmpty" : "Msg.AppsNone")
                 : Loc.T("Msg.AppsNoMatch");
         }
         else
         {
             EmptyText.Visibility = Visibility.Collapsed;
+            AppList.SelectedItem = list.FirstOrDefault(app =>
+                string.Equals(app.ExecutablePath, keepSelected, StringComparison.OrdinalIgnoreCase));
             if (AppList.SelectedItem is null)
                 AppList.SelectedIndex = 0;
         }
     }
+
+    private async void RefreshClick(object sender, RoutedEventArgs e)
+        => await LoadAppsAsync().ConfigureAwait(true);
 
     private void BrowseExeClick(object sender, RoutedEventArgs e)
     {
@@ -116,7 +168,7 @@ public partial class AppPickerPrompt : Window
     {
         if (AppList.SelectedItem is not InstalledAppInfo app)
         {
-            SetStatus(Loc.T("Msg.AppsPick"));
+            SetStatus(Loc.T(Running ? "Msg.ProcessesPick" : "Msg.AppsPick"));
             return;
         }
 

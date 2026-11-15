@@ -469,4 +469,13 @@
     <sys:String x:Key="Core.Import.TooManyLinks">Слишком много ссылок. В одном профиле может быть не больше {0}.</sys:String>
     <sys:String x:Key="Core.Import.LinkPlaceholder">Ссылка указывает на заглушку (0.0.0.0), а не на рабочий сервер.</sys:String>
     <sys:String x:Key="Core.Import.LinksImported">Импортирован профиль «{0}»: серверов — {1} ({2}).</sys:String>
+    <sys:String x:Key="Ui.AddProcess">Добавить процесс</sys:String>
+    <sys:String x:Key="ProcessPicker.Title">Добавить процесс</sys:String>
+    <sys:String x:Key="ProcessPicker.Heading">Выбор запущенного процесса</sys:String>
+    <sys:String x:Key="ProcessPicker.Hint">Выберите программу из запущенных сейчас. Правило привязывается к её файлу и действует и после перезапуска.</sys:String>
+    <sys:String x:Key="Msg.ProcessesLoading">Собираю список процессов…</sys:String>
+    <sys:String x:Key="Msg.ProcessesFound">Запущено программ: {0}.</sys:String>
+    <sys:String x:Key="Msg.ProcessesEmpty">Не удалось получить список процессов. Нажмите «Добавить EXE».</sys:String>
+    <sys:String x:Key="Msg.ProcessesPick">Выберите процесс из списка или нажмите «Добавить EXE».</sys:String>
+    <sys:String x:Key="Settings.GitHub">Проект на GitHub</sys:String>
 </ResourceDictionary>

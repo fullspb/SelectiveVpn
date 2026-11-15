@@ -13,7 +13,7 @@ Built with **.NET / WPF**, powered by **Mihomo** and **AmneziaWG** configs / sub
 ## Features
 
 - **Profiles** — multiple AmneziaWG configs, subscription URLs, or pasted server links (`vless://`, `vmess://`, `trojan://`, `ss://`) side by side
-- **Selective routing** — apps (`.exe`), folders, and address lists per profile
+- **Selective routing** — apps (`.exe`), running processes, folders, and address lists per profile
 - **Except-list mode** — all traffic via VPN except the listed targets
 - **Server picker** — choose a node from a subscription (with ping when available)
 - **Orbit interface** — connection control, per-profile routing, current server/IP, and a collapsible event log

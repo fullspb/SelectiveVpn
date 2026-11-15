@@ -48,10 +48,19 @@
                 </CheckBox>
             </Border>
             <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Margin="0,25,0,0" Padding="0,18,0,0">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="{DynamicResource Ui.Cancel}" MinWidth="94" Margin="0,0,8,0" Style="{StaticResource OrbitButton}" Click="CancelClick" IsCancel="True"/>
-                    <Button Content="{DynamicResource Ui.Save}" MinWidth="120" Style="{StaticResource OrbitPrimaryButton}" Click="SaveClick" IsDefault="True"/>
-                </StackPanel>
+                <DockPanel LastChildFill="False">
+                    <Button x:Name="GitHubLink" DockPanel.Dock="Left" Style="{StaticResource OrbitTextButton}" Click="GitHubClick" Cursor="Hand"
+                            ToolTip="https://github.com/fullspb/SelectiveVpn" AutomationProperties.Name="{DynamicResource Settings.GitHub}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{DynamicResource Settings.GitHub}"/>
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8A7;" FontSize="11" Margin="6,2,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="{DynamicResource Ui.Cancel}" MinWidth="94" Margin="0,0,8,0" Style="{StaticResource OrbitButton}" Click="CancelClick" IsCancel="True"/>
+                        <Button Content="{DynamicResource Ui.Save}" MinWidth="120" Style="{StaticResource OrbitPrimaryButton}" Click="SaveClick" IsDefault="True"/>
+                    </StackPanel>
+                </DockPanel>
             </Border>
         </StackPanel>
     </Border>

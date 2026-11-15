@@ -456,4 +456,13 @@
     <sys:String x:Key="Core.Import.TooManyLinks">Demasiados enlaces. Un perfil admite como máximo {0}.</sys:String>
     <sys:String x:Key="Core.Import.LinkPlaceholder">El enlace apunta a un marcador (0.0.0.0), no a un servidor operativo.</sys:String>
     <sys:String x:Key="Core.Import.LinksImported">Perfil “{0}” importado: servidores — {1} ({2}).</sys:String>
+    <sys:String x:Key="Ui.AddProcess">Añadir proceso</sys:String>
+    <sys:String x:Key="ProcessPicker.Title">Añadir proceso</sys:String>
+    <sys:String x:Key="ProcessPicker.Heading">Elegir un proceso en ejecución</sys:String>
+    <sys:String x:Key="ProcessPicker.Hint">Elige un programa que esté en ejecución. La regla se vincula a su archivo y sigue funcionando tras reiniciarlo.</sys:String>
+    <sys:String x:Key="Msg.ProcessesLoading">Recopilando procesos en ejecución…</sys:String>
+    <sys:String x:Key="Msg.ProcessesFound">Programas en ejecución: {0}.</sys:String>
+    <sys:String x:Key="Msg.ProcessesEmpty">No se pudo obtener la lista de procesos. Usa «Añadir EXE».</sys:String>
+    <sys:String x:Key="Msg.ProcessesPick">Elige un proceso de la lista o usa «Añadir EXE».</sys:String>
+    <sys:String x:Key="Settings.GitHub">Proyecto en GitHub</sys:String>
 </ResourceDictionary>

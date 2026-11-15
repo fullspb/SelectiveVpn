@@ -456,4 +456,13 @@
     <sys:String x:Key="Core.Import.TooManyLinks">Demasiadas ligações. Um perfil pode ter no máximo {0}.</sys:String>
     <sys:String x:Key="Core.Import.LinkPlaceholder">A ligação aponta para um marcador (0.0.0.0), não para um servidor funcional.</sys:String>
     <sys:String x:Key="Core.Import.LinksImported">Perfil “{0}” importado: servidores — {1} ({2}).</sys:String>
+    <sys:String x:Key="Ui.AddProcess">Adicionar processo</sys:String>
+    <sys:String x:Key="ProcessPicker.Title">Adicionar processo</sys:String>
+    <sys:String x:Key="ProcessPicker.Heading">Escolher um processo em execução</sys:String>
+    <sys:String x:Key="ProcessPicker.Hint">Escolha um programa em execução. A regra fica ligada ao ficheiro e continua a funcionar depois de reiniciar.</sys:String>
+    <sys:String x:Key="Msg.ProcessesLoading">A recolher processos em execução…</sys:String>
+    <sys:String x:Key="Msg.ProcessesFound">Programas em execução: {0}.</sys:String>
+    <sys:String x:Key="Msg.ProcessesEmpty">Não foi possível obter a lista de processos. Use «Adicionar EXE».</sys:String>
+    <sys:String x:Key="Msg.ProcessesPick">Escolha um processo da lista ou use «Adicionar EXE».</sys:String>
+    <sys:String x:Key="Settings.GitHub">Projeto no GitHub</sys:String>
 </ResourceDictionary>

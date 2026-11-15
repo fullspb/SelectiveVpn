@@ -43,6 +43,8 @@ public partial class SettingsWindow : Window
 
     public event EventHandler<string>? ThemeSelected;
 
+    private void GitHubClick(object sender, RoutedEventArgs e) => AppLinks.Open(AppLinks.GitHub);
+
     private void SaveClick(object sender, RoutedEventArgs e) => DialogResult = true;
 
     private void CancelClick(object sender, RoutedEventArgs e) => DialogResult = false;

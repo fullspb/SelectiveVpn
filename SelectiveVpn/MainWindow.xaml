@@ -70,6 +70,7 @@
         </ContextMenu>
         <ContextMenu x:Key="AddRuleMenu" x:Shared="False" Style="{StaticResource OrbitContextMenu}">
             <MenuItem Header="{DynamicResource Ui.AddApp}" Command="{Binding AddAppCommand}" Style="{StaticResource OrbitMenuItem}"/>
+            <MenuItem Header="{DynamicResource Ui.AddProcess}" Command="{Binding AddProcessCommand}" Style="{StaticResource OrbitMenuItem}"/>
             <MenuItem Header="{DynamicResource Ui.AddFolder}" Command="{Binding AddFolderCommand}" Style="{StaticResource OrbitMenuItem}"/>
             <MenuItem Header="{DynamicResource Ui.AddList}" Command="{Binding AddAddressListCommand}" Style="{StaticResource OrbitMenuItem}"/>
         </ContextMenu>

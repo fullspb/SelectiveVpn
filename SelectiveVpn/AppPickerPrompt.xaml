@@ -79,12 +79,15 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <TextBlock Style="{StaticResource OrbitDialogHeading}" Grid.Row="0" Text="{DynamicResource AppPicker.Heading}" FontSize="16" FontWeight="SemiBold"/>
-            <TextBlock Grid.Row="1" Margin="0,8,0,0" TextWrapping="Wrap"
+            <TextBlock x:Name="HeadingText" Style="{StaticResource OrbitDialogHeading}" Grid.Row="0" Text="{DynamicResource AppPicker.Heading}" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock x:Name="HintText" Grid.Row="1" Margin="0,8,0,0" TextWrapping="Wrap"
                        Foreground="{DynamicResource MutedForeground}"
                        Text="{DynamicResource AppPicker.Hint}"/>
 
             <Grid Grid.Row="2" Margin="0,14,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Button x:Name="RefreshButton" Grid.Column="1" Content="{DynamicResource Ui.Refresh}" MinWidth="104" Margin="8,0,0,0"
+                        Style="{StaticResource DialogButton}" Click="RefreshClick" Visibility="Collapsed"/>
                 <TextBox x:Name="SearchBox" Padding="10,8"
                          Background="{DynamicResource FieldBackground}"
                          Foreground="{DynamicResource WindowForeground}"
