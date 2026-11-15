@@ -5,7 +5,6 @@ using System.Net;
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Threading;
 using SelectiveVpn.Abstractions;
 using SelectiveVpn.Engine;
 using SelectiveVpn.Models;
@@ -43,7 +42,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private string _incomingTraffic = "0";
     private string _outgoingTraffic = "0";
     private long? _connectionStartedTimestamp;
-    private DispatcherTimer? _connectionDurationTimer;
+    private IUiTimer? _connectionDurationTimer;
     private bool _exceptListed;
     private bool _suppressExceptListed;
     private bool _updateAvailable;
@@ -1223,12 +1222,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _connectionStartedTimestamp = _environment.TimeProvider.GetTimestamp();
         if (_connectionDurationTimer is null)
         {
-            _connectionDurationTimer = new DispatcherTimer(DispatcherPriority.Background,
-                Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher)
-            {
-                Interval = TimeSpan.FromSeconds(1)
-            };
-            _connectionDurationTimer.Tick += OnConnectionDurationTick;
+            _connectionDurationTimer = _environment.UiDispatcher.CreateTimer(
+                TimeSpan.FromSeconds(1),
+                OnConnectionDurationTick);
         }
 
         _connectionDurationTimer.Start();
@@ -1245,7 +1241,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(ConnectionDuration));
     }
 
-    private void OnConnectionDurationTick(object? sender, EventArgs e)
+    private void OnConnectionDurationTick()
     {
         if (!_disposed && IsConnected && _connectionStartedTimestamp.HasValue)
             OnPropertyChanged(nameof(ConnectionDuration));
@@ -1885,14 +1881,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private void Report(string message)
     {
         var entry = new LogEntry(message);
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess())
-        {
-            LogEntries.Add(entry);
-            return;
-        }
-
-        dispatcher.BeginInvoke(() => LogEntries.Add(entry));
+        Dispatch(() => LogEntries.Add(entry));
     }
 
     private void LogUnexpected(Exception exception)
@@ -1981,8 +1970,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         InvalidateSession();
         if (_connectionDurationTimer is not null)
         {
-            _connectionDurationTimer.Stop();
-            _connectionDurationTimer.Tick -= OnConnectionDurationTick;
+            _connectionDurationTimer.Dispose();
             _connectionDurationTimer = null;
         }
         AppLanguage.LanguageChanged -= OnLanguageChanged;
@@ -2049,12 +2037,11 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         RefreshOrbitProperties();
     }
 
-    private static void Dispatch(Action action)
+    private void Dispatch(Action action)
     {
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess())
+        if (_environment.UiDispatcher.CheckAccess())
             action();
         else
-            dispatcher.BeginInvoke(action);
+            _environment.UiDispatcher.Post(action);
     }
 }

@@ -1,0 +1,68 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SelectiveVpn.Desktop.ViewModels"
+        x:Class="SelectiveVpn.Desktop.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Selective VPN (Linux MVP)"
+        Width="720" Height="520"
+        MinWidth="560" MinHeight="420"
+        WindowStartupLocation="CenterScreen">
+  <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="14">
+    <StackPanel Grid.Row="0" Spacing="4">
+      <TextBlock Text="Selective VPN" FontSize="26" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding EngineLabel}" Opacity="0.7" />
+      <TextBlock Text="{Binding PrivilegeStatus}" Opacity="0.85" TextWrapping="Wrap" />
+    </StackPanel>
+
+    <Border Grid.Row="1" Padding="14" CornerRadius="8" Background="#1AFFFFFF">
+      <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="2">
+          <TextBlock Text="{Binding StatusText}" FontSize="20" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding ProfileName}" Opacity="0.8" />
+          <TextBlock Text="{Binding ConfigPath}" Opacity="0.55" TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Content="{Binding ConnectionActionText}"
+                  Command="{Binding ConnectCommand}"
+                  MinWidth="110"
+                  IsVisible="{Binding !IsConnected}" />
+          <Button Content="Disconnect"
+                  Command="{Binding DisconnectCommand}"
+                  MinWidth="110"
+                  IsVisible="{Binding IsConnected}" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="16">
+          <TextBlock VerticalAlignment="Center">
+            <Run Text="Exit IP:" />
+            <Run Text="{Binding ExternalIp}" FontWeight="SemiBold" />
+          </TextBlock>
+          <Button Content="Refresh IP" Command="{Binding RefreshIpCommand}" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                   Text="Full-tunnel mode: browsing via direct routes may fail while connected (spike lesson)."
+                   Opacity="0.65" TextWrapping="Wrap" FontSize="12" />
+      </Grid>
+    </Border>
+
+    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+      <Button Content="Import Amnezia .conf" Command="{Binding ImportConfigCommand}" />
+      <Button Content="Apply capabilities" Command="{Binding ApplyCapabilitiesCommand}"
+              ToolTip.Tip="One pkexec/sudo setcap on mihomo — preferred elevation path" />
+      <Button Content="Emergency teardown" Command="{Binding EmergencyTeardownCommand}"
+              ToolTip.Tip="Kill leftovers + delete Meta + flush ip rules 9000–9010" />
+    </StackPanel>
+
+    <Border Grid.Row="3" Padding="10" CornerRadius="8" Background="#12000000">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text="Log" FontWeight="SemiBold" Margin="0,0,0,8" />
+        <ListBox ItemsSource="{Binding LogEntries}" FontFamily="monospace" FontSize="12" />
+      </DockPanel>
+    </Border>
+
+    <TextBlock Grid.Row="4"
+               Text="Settings: ~/.local/share/SelectiveVpn — ConnectOnLaunch disabled"
+               Opacity="0.55" FontSize="12" />
+  </Grid>
+</Window>

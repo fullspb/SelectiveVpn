@@ -1,0 +1,28 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SelectiveVpn.Desktop.ViewModels"
+             x:Class="SelectiveVpn.Desktop.App"
+             x:DataType="vm:MainViewModel"
+             RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <FluentTheme />
+  </Application.Styles>
+
+  <TrayIcon.Icons>
+    <TrayIcons>
+      <TrayIcon Icon="/Assets/SelectiveVpn.ico"
+                ToolTipText="Selective VPN"
+                Command="{Binding ShowWindowCommand}">
+        <TrayIcon.Menu>
+          <NativeMenu>
+            <NativeMenuItem Header="Show" Command="{Binding ShowWindowCommand}" />
+            <NativeMenuItem Header="Connect" Command="{Binding ConnectCommand}" />
+            <NativeMenuItem Header="Disconnect" Command="{Binding DisconnectCommand}" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Quit" Command="{Binding ExitCommand}" />
+          </NativeMenu>
+        </TrayIcon.Menu>
+      </TrayIcon>
+    </TrayIcons>
+  </TrayIcon.Icons>
+</Application>

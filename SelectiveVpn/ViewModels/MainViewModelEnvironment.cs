@@ -1,4 +1,5 @@
 using System.Windows;
+using SelectiveVpn.Abstractions;
 using SelectiveVpn.Models;
 using SelectiveVpn.Services;
 
@@ -10,6 +11,8 @@ namespace SelectiveVpn.ViewModels;
 /// </summary>
 internal sealed class MainViewModelEnvironment
 {
+    public IUiDispatcher UiDispatcher { get; init; } = new WpfUiDispatcher();
+
     public Func<(UserSettings Settings, bool Existed)> LoadSettings { get; init; } = static () =>
     {
         var settings = UserSettingsStore.Load(out var existed);

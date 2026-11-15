@@ -1045,9 +1045,13 @@ public sealed class MihomoEngine : IMihomoController
 
         if (!process.HasExited)
         {
+            // POST /shutdown is 404 on current Linux builds — hard-kill the process tree.
             process.Kill(entireProcessTree: true);
             await process.WaitForExitAsync().ConfigureAwait(false);
         }
+
+        // Spike lesson: Meta iface + ip rule prefs 9000–9010 can stick after kill.
+        LinuxTunnelCleanup.TryCleanup();
     }
 
     private void ForgetSecrets(string? configPath)
