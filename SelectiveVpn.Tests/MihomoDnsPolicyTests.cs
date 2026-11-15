@@ -125,6 +125,25 @@ public sealed class MihomoDnsPolicyTests
         AssertLinuxDnsMode(yaml);
     }
 
+    [Fact]
+    public void Full_tunnel_when_empty_true_with_targets_still_uses_include_rules()
+    {
+        // Desktop must clear targets when Full tunnel is on; Core keeps include semantics if targets remain.
+        var yaml = MihomoProfileWriter.Build(new AmneziaWgProfile
+        {
+            PrivateKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            PublicKey = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+            AddressV4 = "10.9.9.2",
+            EndpointHost = "203.0.113.10",
+            EndpointPort = 51820,
+            DnsServers = ["1.1.1.1"]
+        }, [new RouteTarget("example.com", Kind: RouteKind.Domain)], 17990, "synthetic-controller-secret",
+            fullTunnelWhenEmpty: true);
+
+        Assert.Contains("'DOMAIN-SUFFIX,example.com,VPN'", yaml);
+        Assert.Contains("MATCH,DIRECT", yaml);
+    }
+
     private static string[] ExpectedDefaultNameservers()
         => OperatingSystem.IsLinux() ? ["system"] : ["1.1.1.1", "8.8.8.8"];
 

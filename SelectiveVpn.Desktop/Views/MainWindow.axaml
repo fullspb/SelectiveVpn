@@ -47,8 +47,9 @@
     </Border>
 
     <StackPanel Grid.Row="2" Spacing="8">
-      <CheckBox Content="Full tunnel (all traffic via VPN)" IsChecked="{Binding FullTunnel}" />
-      <TextBlock Text="Include via VPN (DOMAIN or IP/CIDR) — used when Full tunnel is off" Opacity="0.8" />
+      <CheckBox Content="Full tunnel (all traffic via VPN)"
+                IsChecked="{Binding FullTunnel, Mode=TwoWay}" />
+      <TextBlock Text="Include via VPN (DOMAIN or IP/CIDR) — ignored while Full tunnel is on" Opacity="0.8" />
       <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
         <TextBox Grid.Column="0"
                  Watermark="example.com or 1.2.3.4/32"

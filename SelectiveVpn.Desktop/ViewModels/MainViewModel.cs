@@ -299,7 +299,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _connectCts = new CancellationTokenSource();
         try
         {
-            var targets = BuildTargets();
+            // Full tunnel must ignore the include list — otherwise non-empty targets still end with MATCH,DIRECT.
+            var selectiveTargets = BuildTargets();
+            var targets = FullTunnel ? Array.Empty<RouteTarget>() : selectiveTargets;
+            AppendLog(FullTunnel
+                ? "Connecting full tunnel (MATCH,VPN; include list ignored while Full tunnel is on)."
+                : selectiveTargets.Length == 0
+                    ? "Connecting selective (empty include → MATCH,DIRECT)."
+                    : $"Connecting selective ({selectiveTargets.Length} include → VPN, rest DIRECT).");
+
             var request = new MihomoStartRequest(
                 ConfigPath,
                 targets,
@@ -314,9 +322,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             {
                 StatusText = FullTunnel
                     ? "Connected (full tunnel)"
-                    : targets.Length == 0
+                    : selectiveTargets.Length == 0
                         ? "Connected (selective, empty → DIRECT)"
-                        : $"Connected (selective, {targets.Length} via VPN)";
+                        : $"Connected (selective, {selectiveTargets.Length} via VPN)";
                 StatusKind = "connected";
                 Persist();
                 _ = RefreshIpAsync();

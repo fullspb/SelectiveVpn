@@ -258,6 +258,8 @@ public static class MihomoProfileWriter
         builder.AppendLine("rules:");
         if (targets.Count == 0)
         {
+            // Windows default fullTunnelWhenEmpty=true → MATCH,VPN.
+            // Linux Avalonia selective passes false → MATCH,DIRECT until domains are listed.
             builder.AppendLine(fullTunnelWhenEmpty ? "  - MATCH,VPN" : "  - MATCH,DIRECT");
             return;
         }
