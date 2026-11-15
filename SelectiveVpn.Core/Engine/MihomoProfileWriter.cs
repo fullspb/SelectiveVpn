@@ -88,7 +88,7 @@ public static class MihomoProfileWriter
             builder.AppendLine("      x-hwid:");
             builder.AppendLine("        - " + Quote(hardwareId));
             builder.AppendLine("      x-device-os:");
-            builder.AppendLine("        - " + Quote("Windows"));
+            builder.AppendLine("        - " + Quote(HostPlatform.DeviceOsName));
             builder.AppendLine("      x-ver-os:");
             builder.AppendLine("        - " + Quote(Environment.OSVersion.Version.ToString()));
             builder.AppendLine("      x-device-model:");
@@ -361,8 +361,11 @@ public static class MihomoProfileWriter
     private static string FolderRule(string path, string policy)
     {
         var folder = path.TrimEnd('\\', '/');
-        var escaped = Regex.Escape(folder + "\\");
-        return $"PROCESS-PATH-REGEX,(?i)^{escaped}.*,{policy}";
+        var separator = HostPlatform.ProcessPathSeparator;
+        var escaped = Regex.Escape(folder + separator);
+        // Windows process paths are matched case-insensitively; Unix paths stay case-sensitive.
+        var ignoreCase = OperatingSystem.IsWindows() ? "(?i)" : "";
+        return $"PROCESS-PATH-REGEX,{ignoreCase}^{escaped}.*,{policy}";
     }
 
     private static string YamlSingle(string value) => "'" + value.Replace("'", "''", StringComparison.Ordinal) + "'";

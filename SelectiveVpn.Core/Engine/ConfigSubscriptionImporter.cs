@@ -224,7 +224,7 @@ public static class ConfigSubscriptionImporter
         client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "SelectiveVpn/" + MihomoRelease.Version);
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*"));
         client.DefaultRequestHeaders.TryAddWithoutValidation("x-hwid", hwid);
-        client.DefaultRequestHeaders.TryAddWithoutValidation("x-device-os", "Windows");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("x-device-os", HostPlatform.DeviceOsName);
         client.DefaultRequestHeaders.TryAddWithoutValidation("x-ver-os", Environment.OSVersion.Version.ToString());
         client.DefaultRequestHeaders.TryAddWithoutValidation("x-device-model", "SelectiveVpn");
 

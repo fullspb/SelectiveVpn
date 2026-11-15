@@ -12,7 +12,7 @@ public sealed class MihomoEngineStartupTests
         Directory.CreateDirectory(root);
         try
         {
-            var enginePath = Path.Combine(root, "invalid-engine.exe");
+            var enginePath = Path.Combine(root, OperatingSystem.IsWindows() ? "invalid-engine.exe" : "invalid-engine");
             await File.WriteAllTextAsync(enginePath, "This is deliberately not an executable.");
             var profilePath = Path.Combine(root, "synthetic.conf");
             await File.WriteAllTextAsync(profilePath, SyntheticConfig);
@@ -39,7 +39,7 @@ public sealed class MihomoEngineStartupTests
         Directory.CreateDirectory(root);
         try
         {
-            var enginePath = Path.Combine(root, "invalid-engine.exe");
+            var enginePath = Path.Combine(root, OperatingSystem.IsWindows() ? "invalid-engine.exe" : "invalid-engine");
             await File.WriteAllTextAsync(enginePath, "This is deliberately not an executable.");
             var profilePath = Path.Combine(root, "synthetic.conf");
             await File.WriteAllTextAsync(profilePath, SyntheticConfig);

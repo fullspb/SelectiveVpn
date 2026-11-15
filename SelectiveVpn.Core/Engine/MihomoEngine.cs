@@ -36,10 +36,14 @@ public sealed class MihomoEngine : IMihomoController
     private AmneziaWgProfile? _activeWireGuardProfile;
     private SubscriptionProfile? _activeSubscriptionProfile;
     private CancellationTokenSource? _treeWatchCts;
-    private readonly HashSet<string> _knownChildPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _knownChildPaths;
     private readonly object _reloadGate = new();
+    private readonly IProcessTreeExpander _processTree;
 
-    public MihomoEngine(string? rootDirectory = null, HttpMessageHandler? downloadHandler = null)
+    public MihomoEngine(
+        string? rootDirectory = null,
+        HttpMessageHandler? downloadHandler = null,
+        IProcessTreeExpander? processTree = null)
     {
         var root = rootDirectory ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -47,6 +51,8 @@ public sealed class MihomoEngine : IMihomoController
         _engineDirectory = Path.Combine(root, "engine");
         _runtimeDirectory = Path.Combine(root, "runtime");
         _downloadHandler = downloadHandler;
+        _processTree = processTree ?? ProcessTreeExpander.CreateDefault();
+        _knownChildPaths = new HashSet<string>(HostPlatform.PathComparer);
     }
 
     public event EventHandler<string>? EngineMessage;
@@ -619,7 +625,7 @@ public sealed class MihomoEngine : IMihomoController
         StopProcessTreeWatch();
         var request = _activeRequest;
         if (request is null
-            || !OperatingSystem.IsWindows()
+            || !_processTree.IsSupported
             || !request.Targets.Any(target => target.EffectiveKind == RouteKind.File))
         {
             return;
@@ -669,9 +675,7 @@ public sealed class MihomoEngine : IMihomoController
             IReadOnlyList<string> discovered;
             try
             {
-#pragma warning disable CA1416 // Process tree expansion is Windows-only; guarded by OperatingSystem.IsWindows above.
-                discovered = ProcessTreeExpander.Expand(request.Targets);
-#pragma warning restore CA1416
+                discovered = _processTree.Expand(request.Targets);
             }
             catch (Exception)
             {
@@ -804,7 +808,7 @@ public sealed class MihomoEngine : IMihomoController
         var expanded = AddressListResolver.Expand(baseTargets).ToList();
         var seen = new HashSet<string>(
             expanded.Where(target => target.EffectiveKind == RouteKind.File).Select(target => target.Path),
-            StringComparer.OrdinalIgnoreCase);
+            HostPlatform.PathComparer);
         foreach (var path in childPaths)
         {
             if (!seen.Add(path))
@@ -858,8 +862,7 @@ public sealed class MihomoEngine : IMihomoController
     {
         if (!string.IsNullOrWhiteSpace(customEnginePath))
         {
-            if (!File.Exists(customEnginePath)
-                || !string.Equals(Path.GetExtension(customEnginePath), ".exe", StringComparison.OrdinalIgnoreCase))
+            if (!HostPlatform.LooksLikeCustomEnginePath(customEnginePath))
             {
                 return new PreparedBinary(false, "", CoreText.T("Core.Engine.CustomMissing", "Выбранное ядро не найдено. Туннель не запускался."));
             }
@@ -868,7 +871,7 @@ public sealed class MihomoEngine : IMihomoController
             return new PreparedBinary(true, Path.GetFullPath(customEnginePath), "");
         }
 
-        var bundled = Path.Combine(AppContext.BaseDirectory, "mihomo.exe");
+        var bundled = Path.Combine(AppContext.BaseDirectory, MihomoRelease.ExecutableFileName);
         if (File.Exists(bundled))
         {
             Publish(CoreText.T("Core.Engine.UsingBundled", "Используется Mihomo из комплекта приложения."));
@@ -876,10 +879,10 @@ public sealed class MihomoEngine : IMihomoController
         }
 
         if (!MihomoRelease.TryGetAsset(System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture, out var asset))
-            return new PreparedBinary(false, "", CoreText.T("Core.Engine.Need64", "Нужна 64-разрядная Windows. Туннель не запускался."));
+            return new PreparedBinary(false, "", CoreText.T("Core.Engine.Need64", "Нужна 64-разрядная ОС (amd64 или arm64). Туннель не запускался."));
 
         Directory.CreateDirectory(_engineDirectory);
-        var exePath = Path.Combine(_engineDirectory, "mihomo.exe");
+        var exePath = Path.Combine(_engineDirectory, MihomoRelease.ExecutableFileName);
         var versionPath = Path.Combine(_engineDirectory, "version.txt");
         if (File.Exists(exePath)
             && File.Exists(versionPath)
@@ -889,7 +892,7 @@ public sealed class MihomoEngine : IMihomoController
         }
 
         Publish(CoreText.F("Core.Engine.Downloading", "Скачиваю Mihomo {0}.", MihomoRelease.Version));
-        var zipPath = Path.Combine(_engineDirectory, asset.FileName);
+        var archivePath = Path.Combine(_engineDirectory, asset.FileName);
         using var client = new HttpClient(_downloadHandler ?? new SocketsHttpHandler(), disposeHandler: _downloadHandler is null)
         {
             Timeout = TimeSpan.FromMinutes(3)
@@ -901,26 +904,33 @@ public sealed class MihomoEngine : IMihomoController
             return new PreparedBinary(false, "", CoreText.T("Core.Engine.DownloadFail", "Не удалось скачать Mihomo. Туннель не запускался."));
 
         await using (var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
-        await using (var destination = File.Create(zipPath))
+        await using (var destination = File.Create(archivePath))
             await source.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
 
-        var actual = await Sha256OfFileAsync(zipPath, cancellationToken).ConfigureAwait(false);
+        var actual = await Sha256OfFileAsync(archivePath, cancellationToken).ConfigureAwait(false);
         if (!string.Equals(actual, asset.Sha256, StringComparison.OrdinalIgnoreCase))
         {
-            File.Delete(zipPath);
+            File.Delete(archivePath);
             return new PreparedBinary(false, "", CoreText.T("Core.Engine.ChecksumBad", "Контрольная сумма Mihomo не совпала. Архив удалён, туннель не запускался."));
         }
 
         Publish(CoreText.T("Core.Engine.ChecksumOk", "Контрольная сумма Mihomo совпала."));
-        ExtractEngine(zipPath, exePath);
+        ExtractEngine(archivePath, exePath);
         await File.WriteAllTextAsync(versionPath, MihomoRelease.Version, cancellationToken).ConfigureAwait(false);
-        File.Delete(zipPath);
+        File.Delete(archivePath);
         return new PreparedBinary(true, exePath, "");
     }
 
-    private static void ExtractEngine(string zipPath, string exePath)
+    private static void ExtractEngine(string archivePath, string exePath)
     {
-        using var archive = ZipFile.OpenRead(zipPath);
+        if (archivePath.EndsWith(".gz", StringComparison.OrdinalIgnoreCase)
+            && !archivePath.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase))
+        {
+            ExtractGzipBinary(archivePath, exePath);
+            return;
+        }
+
+        using var archive = ZipFile.OpenRead(archivePath);
         var entries = new List<ZipArchiveEntry>();
         foreach (var entry in archive.Entries)
         {
@@ -936,16 +946,46 @@ public sealed class MihomoEngine : IMihomoController
 
         var executable = entries.FirstOrDefault(entry =>
                 entry.Name.Contains("mihomo", StringComparison.OrdinalIgnoreCase)
-                && entry.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            ?? entries.FirstOrDefault(entry => entry.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
+                && HostPlatform.IsEngineExecutableName(entry.Name))
+            ?? entries.FirstOrDefault(entry => HostPlatform.IsEngineExecutableName(entry.Name));
 
         if (executable is null)
             throw new InvalidDataException(CoreText.T("Core.Engine.ArchiveNoExe", "В архиве Mihomo нет исполняемого файла."));
 
         executable.ExtractToFile(exePath, overwrite: true);
+        TryMakeExecutable(exePath);
         var directory = Path.GetDirectoryName(exePath)!;
         foreach (var library in entries.Where(entry => entry.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)))
             library.ExtractToFile(Path.Combine(directory, library.Name), overwrite: true);
+    }
+
+    private static void ExtractGzipBinary(string gzipPath, string exePath)
+    {
+        using var input = File.OpenRead(gzipPath);
+        using var gzip = new GZipStream(input, CompressionMode.Decompress);
+        using var output = File.Create(exePath);
+        gzip.CopyTo(output);
+        TryMakeExecutable(exePath);
+    }
+
+    private static void TryMakeExecutable(string path)
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+
+        try
+        {
+            var mode = File.GetUnixFileMode(path);
+            File.SetUnixFileMode(
+                path,
+                mode
+                | UnixFileMode.UserExecute
+                | UnixFileMode.GroupExecute
+                | UnixFileMode.OtherExecute);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+        }
     }
 
     private async Task<OperationResult> WaitForApiAsync(

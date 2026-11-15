@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using SelectiveVpn.Engine;
 using SelectiveVpn.Models;
 
@@ -5,6 +6,14 @@ namespace SelectiveVpn.Tests;
 
 public class AmneziaWgProfileTests
 {
+    private static string ExpectedFolderRegex(string path, string policy)
+    {
+        var folder = path.TrimEnd('\\', '/');
+        var escaped = Regex.Escape(folder + HostPlatform.ProcessPathSeparator);
+        var ignoreCase = OperatingSystem.IsWindows() ? "(?i)" : "";
+        return $"PROCESS-PATH-REGEX,{ignoreCase}^{escaped}.*,{policy}";
+    }
+
     private const string PrivateKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     private const string PublicKey = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=";
     private const string HeaderKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
@@ -37,11 +46,17 @@ public class AmneziaWgProfileTests
     public void Writes_process_rules_and_v31_options()
     {
         var profile = AmneziaWgConfigReader.Read(V31Config()).Profile!;
+        var demoPath = OperatingSystem.IsWindows()
+            ? @"C:\Apps\Example App\demo.exe"
+            : "/opt/apps/example-app/demo";
+        var steamPath = OperatingSystem.IsWindows()
+            ? @"C:\Games\Steam"
+            : "/opt/games/Steam";
         var yaml = MihomoProfileWriter.Build(
             profile,
             [
-                new RouteTarget(@"C:\Apps\Example App\demo.exe", false),
-                new RouteTarget(@"C:\Games\Steam", true)
+                new RouteTarget(demoPath, false),
+                new RouteTarget(steamPath, true)
             ],
             17990,
             "controllersecretvalue",
@@ -53,9 +68,9 @@ public class AmneziaWgProfileTests
         Assert.Contains("header-protection-key:", yaml);
         Assert.Contains("respect-rules: true", yaml);
         Assert.Contains("stack: mixed", yaml);
-        Assert.Contains(@"'PROCESS-PATH,C:\Apps\Example App\demo.exe,VPN'", yaml);
-        Assert.Contains(@"PROCESS-PATH-REGEX,(?i)^C:\\Apps\\Example\ App\\.*", yaml);
-        Assert.Contains(@"PROCESS-PATH-REGEX,(?i)^C:\\Games\\Steam\\.*", yaml);
+        Assert.Contains($"'PROCESS-PATH,{demoPath},VPN'", yaml);
+        Assert.Contains(ExpectedFolderRegex(Path.GetDirectoryName(demoPath)!, "VPN"), yaml);
+        Assert.Contains(ExpectedFolderRegex(steamPath, "VPN"), yaml);
         Assert.Contains("vpn-ip-check", yaml);
         Assert.Contains("MATCH,DIRECT", yaml);
         var fullTunnel = MihomoProfileWriter.Build(profile, [], 17990, "controllersecretvalue");
@@ -65,15 +80,15 @@ public class AmneziaWgProfileTests
         var exceptListed = MihomoProfileWriter.Build(
             profile,
             [
-                new RouteTarget(@"C:\Apps\Example App\demo.exe", false),
-                new RouteTarget(@"C:\Games\Steam", true)
+                new RouteTarget(demoPath, false),
+                new RouteTarget(steamPath, true)
             ],
             17990,
             "controllersecretvalue",
             exceptListed: true);
-        Assert.Contains(@"'PROCESS-PATH,C:\Apps\Example App\demo.exe,DIRECT'", exceptListed);
-        Assert.Contains(@"PROCESS-PATH-REGEX,(?i)^C:\\Apps\\Example\ App\\.*,DIRECT", exceptListed);
-        Assert.Contains(@"PROCESS-PATH-REGEX,(?i)^C:\\Games\\Steam\\.*,DIRECT", exceptListed);
+        Assert.Contains($"'PROCESS-PATH,{demoPath},DIRECT'", exceptListed);
+        Assert.Contains(ExpectedFolderRegex(Path.GetDirectoryName(demoPath)!, "DIRECT"), exceptListed);
+        Assert.Contains(ExpectedFolderRegex(steamPath, "DIRECT"), exceptListed);
         Assert.Contains("MATCH,VPN", exceptListed);
         Assert.DoesNotContain("MATCH,DIRECT", exceptListed);
 
