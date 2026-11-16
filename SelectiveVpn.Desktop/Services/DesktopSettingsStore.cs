@@ -85,23 +85,94 @@ internal sealed class DesktopSettings
 
         foreach (var profile in Profiles)
         {
-            profile.IncludeTargets = CloneTargets(profile.IncludeTargets);
-            profile.ExcludeTargets = CloneTargets(profile.ExcludeTargets);
+            profile.IncludeTargets = CollapseFlatYouTubePreset(CloneTargets(profile.IncludeTargets));
+            profile.ExcludeTargets = CollapseFlatYouTubePreset(CloneTargets(profile.ExcludeTargets));
         }
 
-        IncludeTargets = CloneTargets(IncludeTargets);
-        ExcludeTargets = CloneTargets(ExcludeTargets);
+        IncludeTargets = CollapseFlatYouTubePreset(CloneTargets(IncludeTargets));
+        ExcludeTargets = CollapseFlatYouTubePreset(CloneTargets(ExcludeTargets));
     }
 
     public static List<SavedTarget> CloneTargets(IEnumerable<SavedTarget>? targets)
         => (targets ?? [])
             .Where(target => !string.IsNullOrWhiteSpace(target.Path))
-            .Select(target => new SavedTarget
-            {
-                Path = target.Path.Trim(),
-                Kind = string.IsNullOrWhiteSpace(target.Kind) ? "domain" : target.Kind.Trim().ToLowerInvariant()
-            })
+            .Select(CloneTarget)
             .ToList();
+
+    public static SavedTarget CloneTarget(SavedTarget target)
+        => new()
+        {
+            Path = target.Path.Trim(),
+            Kind = string.IsNullOrWhiteSpace(target.Kind) ? "domain" : target.Kind.Trim().ToLowerInvariant(),
+            Entries = [.. (target.Entries ?? []).Where(entry => !string.IsNullOrWhiteSpace(entry)).Select(entry => entry.Trim())],
+            ResolvedIps = [.. (target.ResolvedIps ?? []).Where(ip => !string.IsNullOrWhiteSpace(ip)).Select(ip => ip.Trim())],
+            SkipDomainResolve = target.SkipDomainResolve
+        };
+
+    /// <summary>
+    /// Earlier Avalonia YouTube quick-add dumped DomainListPresets.YouTubeGoogle as flat DOMAIN rows.
+    /// Collapse that exact set into one address-list (WPF parity) so Sergey can delete it as a group.
+    /// </summary>
+    public static List<SavedTarget> CollapseFlatYouTubePreset(IEnumerable<SavedTarget>? targets)
+    {
+        var list = CloneTargets(targets);
+        var preset = DomainListPresets.YouTubeGoogle;
+        var presetSet = new HashSet<string>(preset, StringComparer.OrdinalIgnoreCase);
+
+        var flatMatches = list
+            .Where(target =>
+                string.Equals(target.Kind, "domain", StringComparison.OrdinalIgnoreCase)
+                && presetSet.Contains(target.Path))
+            .ToList();
+
+        if (flatMatches.Count == 0)
+            return list;
+
+        // Only collapse when the flat domain rows cover the whole preset (the bad dump case).
+        var matchedPaths = new HashSet<string>(flatMatches.Select(t => t.Path), StringComparer.OrdinalIgnoreCase);
+        if (!presetSet.IsSubsetOf(matchedPaths))
+            return list;
+
+        var alreadyHasYouTubeList = list.Any(target =>
+            string.Equals(target.Kind, "address-list", StringComparison.OrdinalIgnoreCase)
+            && EntriesCoverPreset(target.Entries, presetSet));
+
+        var rebuilt = new List<SavedTarget>();
+        var removedFlat = false;
+        foreach (var target in list)
+        {
+            if (string.Equals(target.Kind, "domain", StringComparison.OrdinalIgnoreCase)
+                && presetSet.Contains(target.Path))
+            {
+                removedFlat = true;
+                continue;
+            }
+
+            rebuilt.Add(target);
+        }
+
+        if (removedFlat && !alreadyHasYouTubeList)
+        {
+            rebuilt.Insert(0, new SavedTarget
+            {
+                Path = "YouTube",
+                Kind = "address-list",
+                Entries = [.. preset],
+                ResolvedIps = [],
+                SkipDomainResolve = true
+            });
+        }
+
+        return rebuilt;
+    }
+
+    private static bool EntriesCoverPreset(IEnumerable<string>? entries, HashSet<string> presetSet)
+    {
+        var set = new HashSet<string>(
+            (entries ?? []).Where(entry => !string.IsNullOrWhiteSpace(entry)),
+            StringComparer.OrdinalIgnoreCase);
+        return presetSet.IsSubsetOf(set);
+    }
 
     public static DesktopSettings CreateDefault() => new()
     {
@@ -130,10 +201,16 @@ internal sealed class SavedTarget
     public string Path { get; set; } = "";
 
     public string Kind { get; set; } = "domain";
+
+    public List<string> Entries { get; set; } = [];
+
+    public List<string> ResolvedIps { get; set; } = [];
+
+    public bool SkipDomainResolve { get; set; }
 }
 
 /// <summary>
-/// Accepts legacy Avalonia string entries ("example.com") and typed objects ({ path, kind }).
+/// Accepts legacy Avalonia string entries ("example.com") and typed objects ({ path, kind, entries? }).
 /// </summary>
 internal sealed class SavedTargetJsonConverter : JsonConverter<SavedTarget>
 {
@@ -156,14 +233,25 @@ internal sealed class SavedTargetJsonConverter : JsonConverter<SavedTarget>
         var kindValue = root.TryGetProperty("Kind", out var k) ? k.GetString()
             : root.TryGetProperty("kind", out var k2) ? k2.GetString()
             : null;
+        var entries = ReadStringArray(root, "Entries", "entries");
+        var resolved = ReadStringArray(root, "ResolvedIps", "resolvedIps");
+        var skip = root.TryGetProperty("SkipDomainResolve", out var s) ? s.GetBoolean()
+            : root.TryGetProperty("skipDomainResolve", out var s2) && s2.GetBoolean();
 
-        if (string.IsNullOrWhiteSpace(kindValue) && !string.IsNullOrWhiteSpace(pathValue))
+        if (string.IsNullOrWhiteSpace(kindValue) && !string.IsNullOrWhiteSpace(pathValue) && entries.Count == 0)
             return FromLegacyString(pathValue);
+
+        var kind = string.IsNullOrWhiteSpace(kindValue) ? "domain" : kindValue.Trim().ToLowerInvariant();
+        if (kind is "addresslist" or "list")
+            kind = "address-list";
 
         return new SavedTarget
         {
             Path = pathValue?.Trim() ?? "",
-            Kind = string.IsNullOrWhiteSpace(kindValue) ? "domain" : kindValue.Trim().ToLowerInvariant()
+            Kind = kind,
+            Entries = entries,
+            ResolvedIps = resolved,
+            SkipDomainResolve = skip
         };
     }
 
@@ -172,7 +260,43 @@ internal sealed class SavedTargetJsonConverter : JsonConverter<SavedTarget>
         writer.WriteStartObject();
         writer.WriteString("Path", value.Path);
         writer.WriteString("Kind", value.Kind);
+        if (string.Equals(value.Kind, "address-list", StringComparison.OrdinalIgnoreCase)
+            || value.Entries.Count > 0
+            || value.ResolvedIps.Count > 0
+            || value.SkipDomainResolve)
+        {
+            writer.WritePropertyName("Entries");
+            writer.WriteStartArray();
+            foreach (var entry in value.Entries)
+                writer.WriteStringValue(entry);
+            writer.WriteEndArray();
+
+            writer.WritePropertyName("ResolvedIps");
+            writer.WriteStartArray();
+            foreach (var ip in value.ResolvedIps)
+                writer.WriteStringValue(ip);
+            writer.WriteEndArray();
+
+            writer.WriteBoolean("SkipDomainResolve", value.SkipDomainResolve);
+        }
+
         writer.WriteEndObject();
+    }
+
+    private static List<string> ReadStringArray(JsonElement root, string pascal, string camel)
+    {
+        JsonElement array;
+        if (root.TryGetProperty(pascal, out array) || root.TryGetProperty(camel, out array))
+        {
+            if (array.ValueKind != JsonValueKind.Array)
+                return [];
+            return array.EnumerateArray()
+                .Select(item => item.GetString()?.Trim() ?? "")
+                .Where(item => item.Length > 0)
+                .ToList();
+        }
+
+        return [];
     }
 
     private static SavedTarget FromLegacyString(string path)

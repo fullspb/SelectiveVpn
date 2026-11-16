@@ -538,7 +538,7 @@
                   <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="models:RouteRuleItem">
                       <Border CornerRadius="12" Padding="10,8" Background="Transparent">
-                        <Grid ColumnDefinitions="Auto,*">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                           <Border Width="32" Height="32" CornerRadius="10"
                                   Background="{DynamicResource AccentWash}"
                                   BorderBrush="{DynamicResource AccentLine}" BorderThickness="1">
@@ -548,16 +548,29 @@
                                   Data="{Binding IconData}"
                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
                           </Border>
-                          <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
+                          <StackPanel Grid.Column="1" Margin="12,0,6,0" VerticalAlignment="Center" Spacing="2">
                             <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="13.5"
                                        TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Classes="hint" FontSize="11.5"
-                                       Text="{Binding KindLabel}" TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Text="{Binding Detail}" Classes="hint" FontSize="10.5"
-                                       FontFamily="{DynamicResource ThemeMonoFontFamily}"
-                                       TextTrimming="CharacterEllipsis"
-                                       IsVisible="{Binding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                            <TextBlock Classes="hint" FontSize="11.5" TextTrimming="CharacterEllipsis">
+                              <TextBlock.Text>
+                                <MultiBinding StringFormat="{}{0} · {1}">
+                                  <Binding Path="KindLabel"/>
+                                  <Binding Path="Detail"/>
+                                </MultiBinding>
+                              </TextBlock.Text>
+                            </TextBlock>
                           </StackPanel>
+                          <Button Grid.Column="2" Classes="icon" Content="✎" FontSize="13"
+                                  Width="34" Height="34" Margin="0,0,2,0"
+                                  Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).EditAddressListCommand}"
+                                  CommandParameter="{Binding}"
+                                  ToolTip.Tip="{Binding $parent[Window].((vm:MainViewModel)DataContext).EditRuleTip}"
+                                  IsVisible="{Binding IsAddressList}"/>
+                          <Button Grid.Column="3" Classes="icon" Content="×" FontSize="17"
+                                  Width="34" Height="34"
+                                  Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RemoveTargetCommand}"
+                                  CommandParameter="{Binding}"
+                                  ToolTip.Tip="{Binding $parent[Window].((vm:MainViewModel)DataContext).RemoveRuleTip}"/>
                         </Grid>
                       </Border>
                     </DataTemplate>

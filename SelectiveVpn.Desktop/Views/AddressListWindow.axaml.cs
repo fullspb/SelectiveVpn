@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using SelectiveVpn.Desktop.Models;
 using SelectiveVpn.Desktop.Services;
 using SelectiveVpn.Engine;
 
@@ -8,20 +9,42 @@ namespace SelectiveVpn.Desktop.Views;
 public partial class AddressListWindow : Window
 {
     public AddressListWindow()
+        : this(null)
+    {
+    }
+
+    public AddressListWindow(RouteRuleItem? existing)
     {
         InitializeComponent();
         ApplyLabels();
+        if (existing is { IsAddressList: true })
+        {
+            Title = UiLoc.T("Ui.Edit") + " — " + UiLoc.T("AddressList.Title");
+            TitleText.Text = UiLoc.T("AddressList.Heading");
+            NameBox.Text = existing.Path;
+            AddressBox.Text = string.Join(Environment.NewLine, existing.Entries);
+            AddButton.Content = UiLoc.T("Ui.Save");
+        }
+
         UpdateLineCount();
         AddressBox.TextChanged += (_, _) => UpdateLineCount();
     }
 
+    public string ListName { get; private set; } = "";
+
     public string AddressText => AddressBox.Text ?? "";
+
+    public IReadOnlyList<string> Entries { get; private set; } = [];
+
+    public bool SkipDomainResolve { get; private set; } = true;
 
     private void ApplyLabels()
     {
         Title = UiLoc.T("AddressList.Title");
         TitleText.Text = UiLoc.T("AddressList.Heading");
         HintText.Text = UiLoc.T("AddressList.Hint");
+        NameLabel.Text = UiLoc.T("AddressList.Name");
+        NameBox.Text = UiLoc.T("AddressList.DefaultName");
         AddressesLabel.Text = UiLoc.T("AddressList.Addresses");
         AddressBox.Watermark = UiLoc.T("Ui.AddressWatermark");
         YouTubePresetButton.Content = UiLoc.T("AddressList.PresetYouTube");
@@ -48,6 +71,14 @@ public partial class AddressListWindow : Window
         }
 
         AddressBox.Text = string.Join(Environment.NewLine, merged);
+        if (string.IsNullOrWhiteSpace(NameBox.Text)
+            || string.Equals(NameBox.Text.Trim(), UiLoc.T("AddressList.DefaultName"), StringComparison.OrdinalIgnoreCase))
+        {
+            NameBox.Text = UiLoc.T("AddressList.PresetYouTubeName");
+        }
+
+        // Domain-suffix + sniffer is enough; resolving CDN IPs is noisy/stale (same as WPF).
+        SkipDomainResolve = true;
         StatusText.Text = UiLoc.Tf(
             "AddressList.PresetApplied",
             UiLoc.T("AddressList.PresetYouTubeName"),
@@ -75,6 +106,11 @@ public partial class AddressListWindow : Window
             return;
         }
 
+        ListName = string.IsNullOrWhiteSpace(NameBox.Text)
+            ? UiLoc.T("AddressList.DefaultName")
+            : NameBox.Text.Trim();
+        Entries = parsed.Entries;
+        SkipDomainResolve = true;
         Close(true);
     }
 
@@ -91,6 +127,6 @@ public partial class AddressListWindow : Window
 
         LineCountText.Text = count == 0
             ? ""
-            : UiLoc.Tf("AddressList.LineCount", count);
+            : RouteRuleItem.FormatDomainCount(count);
     }
 }

@@ -99,11 +99,16 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         ApplyCapabilitiesCommand = new RelayCommand(ApplyCapabilitiesAsync, () => !IsBusy);
         EmergencyTeardownCommand = new RelayCommand(EmergencyTeardownAsync, () => !IsBusy);
         AddTargetCommand = new RelayCommand(AddTarget, () => !IsBusy && !string.IsNullOrWhiteSpace(NewTargetText));
-        RemoveTargetCommand = new RelayCommand(RemoveTarget, () => !IsBusy && SelectedTarget is not null);
+        RemoveTargetCommand = new RelayCommand(
+            parameter => RemoveTarget(parameter as RouteRuleItem ?? SelectedTarget),
+            parameter => !IsBusy && (parameter is RouteRuleItem || SelectedTarget is not null));
         AddProcessCommand = new RelayCommand(() => AddFromPickerAsync(AppPickerSource.RunningProcesses), () => !IsBusy);
         AddAppCommand = new RelayCommand(() => AddFromPickerAsync(AppPickerSource.DesktopApps), () => !IsBusy);
         AddFolderCommand = new RelayCommand(AddFolderAsync, () => !IsBusy);
         AddAddressListCommand = new RelayCommand(AddAddressListAsync, () => !IsBusy);
+        EditAddressListCommand = new RelayCommand(
+            parameter => EditAddressListAsync(parameter as RouteRuleItem ?? SelectedTarget),
+            parameter => !IsBusy && (parameter as RouteRuleItem ?? SelectedTarget) is { IsAddressList: true });
         SetIncludeModeCommand = new RelayCommand(() => RoutingModeIndex = 0);
         SetExcludeModeCommand = new RelayCommand(() => RoutingModeIndex = 1);
         ReconnectCommand = new RelayCommand(ReconnectAsync, () => !IsBusy && HasConfig);
@@ -148,6 +153,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public ICommand AddAppCommand { get; }
     public ICommand AddFolderCommand { get; }
     public ICommand AddAddressListCommand { get; }
+    public ICommand EditAddressListCommand { get; }
     public ICommand SetIncludeModeCommand { get; }
     public ICommand SetExcludeModeCommand { get; }
     public ICommand ReconnectCommand { get; }
@@ -331,6 +337,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public string AddFolderTip => UiLoc.T("Ui.AddFolderTip");
     public string AddressWatermark => UiLoc.T("Ui.AddressWatermark");
     public string AddressPromptTitle => UiLoc.T("Ui.AddressPromptTitle");
+    public string EditRuleTip => UiLoc.T("Orbit.EditRule");
+    public string RemoveRuleTip => UiLoc.T("Orbit.RemoveRule");
     public string AddProfileText => UiLoc.T("Ui.AddProfile");
     public string FromFileText => UiLoc.T("Orbit.FromFile");
     public string ByLinkText => UiLoc.T("Orbit.ByLink");
@@ -351,7 +359,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public string LanguageTip => UiLoc.T("Ui.Language");
     public string TrayShowText => UiLoc.T("Ui.Show");
     public string TrayQuitText => UiLoc.T("Ui.Exit");
-    public string RemoveRuleTip => UiLoc.T("Orbit.RemoveRule");
     public string CancelText => UiLoc.T("Ui.Cancel");
 
     public string StatusText
@@ -463,7 +470,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         set
         {
             if (SetProperty(ref _selectedTarget, value))
+            {
                 (RemoveTargetCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                (EditAddressListCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            }
         }
     }
 
@@ -620,8 +630,26 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             "file" => RouteKind.File,
             "ip" => RouteKind.Ip,
             "domain" => RouteKind.Domain,
+            "address-list" or "addresslist" or "list" => RouteKind.AddressList,
             _ => GuessKind(target.Path)
         };
+
+        if (kind == RouteKind.AddressList)
+        {
+            var entries = (target.Entries ?? [])
+                .Where(entry => !string.IsNullOrWhiteSpace(entry))
+                .Select(entry => entry.Trim())
+                .ToArray();
+            if (entries.Length == 0)
+                return null;
+
+            return new RouteRuleItem(
+                target.Path.Trim(),
+                RouteKind.AddressList,
+                entries,
+                target.ResolvedIps,
+                target.SkipDomainResolve);
+        }
 
         return new RouteRuleItem(target.Path, kind);
     }
@@ -642,7 +670,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         var snapshot = RouteTargets.Select(item => new SavedTarget
         {
             Path = item.Path,
-            Kind = item.StoredKind
+            Kind = item.StoredKind,
+            Entries = item.IsAddressList ? [.. item.Entries] : [],
+            ResolvedIps = item.IsAddressList ? [.. item.ResolvedIps] : [],
+            SkipDomainResolve = item.SkipDomainResolve
         }).ToList();
 
         var profile = FindSaved(ConfigPath);
@@ -732,6 +763,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(AddAppText));
         OnPropertyChanged(nameof(AddFolderText));
         OnPropertyChanged(nameof(AddListText));
+        OnPropertyChanged(nameof(EditRuleTip));
+        OnPropertyChanged(nameof(RemoveRuleTip));
         OnPropertyChanged(nameof(AddTargetsText));
         OnPropertyChanged(nameof(AddProcessTip));
         OnPropertyChanged(nameof(AddAppTip));
@@ -815,18 +848,20 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _ = ApplyLiveRoutingAsync();
     }
 
-    private void RemoveTarget()
+    private void RemoveTarget(RouteRuleItem? item)
     {
-        if (SelectedTarget is null)
+        if (item is null)
             return;
 
-        var removed = SelectedTarget;
-        RouteTargets.Remove(removed);
-        SelectedTarget = null;
+        RouteTargets.Remove(item);
+        if (ReferenceEquals(SelectedTarget, item))
+            SelectedTarget = null;
         PersistActiveList();
         Persist();
         RefreshOrbitLabels();
-        AppendLog($"Removed: {removed.Path}");
+        AppendLog(item.IsAddressList
+            ? UiLoc.Tf("Log.RemovedAddressList", item.Path, item.Entries.Count)
+            : $"Removed: {item.Path}");
         _ = ApplyLiveRoutingAsync();
     }
 
@@ -850,36 +885,75 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         var dialog = new AddressListWindow();
         var ok = await dialog.ShowDialog<bool>(_window).ConfigureAwait(true);
-        if (!ok || string.IsNullOrWhiteSpace(dialog.AddressText))
+        if (!ok || dialog.Entries.Count == 0)
             return;
 
-        var added = 0;
-        foreach (var raw in dialog.AddressText.Split(['\r', '\n', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            if (!RouteAddress.TryParse(raw, out var normalized, out var kind, out var error))
-            {
-                AppendLog($"Bad target: {error}");
-                continue;
-            }
-
-            if (RouteTargets.Any(existing =>
-                    existing.Kind == kind
-                    && string.Equals(existing.Path, normalized, StringComparison.OrdinalIgnoreCase)))
-                continue;
-
-            RouteTargets.Add(new RouteRuleItem(normalized, kind));
-            added++;
-        }
-
-        if (added == 0)
-            return;
-
+        var title = AllocateUniqueAddressListTitle(dialog.ListName);
+        RouteTargets.Add(new RouteRuleItem(
+            title,
+            RouteKind.AddressList,
+            dialog.Entries,
+            skipDomainResolve: dialog.SkipDomainResolve));
         PersistActiveList();
         Persist();
         RefreshOrbitLabels();
-        AppendLog($"Added addresses: {added}");
+        AppendLog(UiLoc.Tf("Log.AddedAddressList", title, dialog.Entries.Count));
         _ = ApplyLiveRoutingAsync();
     }
+
+    private async Task EditAddressListAsync(RouteRuleItem? item)
+    {
+        if (_window is null || item is not { IsAddressList: true })
+            return;
+
+        var dialog = new AddressListWindow(item);
+        var ok = await dialog.ShowDialog<bool>(_window).ConfigureAwait(true);
+        if (!ok || dialog.Entries.Count == 0)
+            return;
+
+        var index = RouteTargets.IndexOf(item);
+        if (index < 0)
+            return;
+
+        var title = string.Equals(dialog.ListName, item.Path, StringComparison.OrdinalIgnoreCase)
+            ? item.Path
+            : AllocateUniqueAddressListTitle(dialog.ListName, ignore: item);
+        RouteTargets[index] = new RouteRuleItem(
+            title,
+            RouteKind.AddressList,
+            dialog.Entries,
+            skipDomainResolve: dialog.SkipDomainResolve);
+        SelectedTarget = RouteTargets[index];
+        PersistActiveList();
+        Persist();
+        RefreshOrbitLabels();
+        AppendLog(UiLoc.Tf("Log.UpdatedAddressList", title, dialog.Entries.Count));
+        _ = ApplyLiveRoutingAsync();
+    }
+
+    private string AllocateUniqueAddressListTitle(string desired, RouteRuleItem? ignore = null)
+    {
+        desired = string.IsNullOrWhiteSpace(desired)
+            ? UiLoc.T("AddressList.DefaultName")
+            : desired.Trim();
+        if (!AddressListTitleExists(desired, ignore))
+            return desired;
+
+        for (var i = 2; i < 1000; i++)
+        {
+            var candidate = desired + " (" + i.ToString(CultureInfo.InvariantCulture) + ")";
+            if (!AddressListTitleExists(candidate, ignore))
+                return candidate;
+        }
+
+        return desired + " (" + Guid.NewGuid().ToString("N")[..6] + ")";
+    }
+
+    private bool AddressListTitleExists(string title, RouteRuleItem? ignore = null)
+        => RouteTargets.Any(item =>
+            item.IsAddressList
+            && !ReferenceEquals(item, ignore)
+            && string.Equals(item.Path, title, StringComparison.OrdinalIgnoreCase));
 
     private async Task AddFolderAsync()
     {
@@ -1674,6 +1748,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         (AddProcessCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (AddAppCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (AddFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (AddAddressListCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (EditAddressListCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ReconnectCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
