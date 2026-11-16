@@ -87,6 +87,13 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         ImportSubscriptionCommand = new RelayCommand(ImportSubscriptionAsync, () => !IsBusy);
         ManageServersCommand = new RelayCommand(ManageServersAsync, () => !IsBusy && IsSubscriptionProfile);
         RemoveProfileCommand = new RelayCommand(RemoveSelectedProfile, () => !IsBusy && SelectedProfile is not null);
+        SelectProfileCommand = new RelayCommand(
+            parameter =>
+            {
+                if (parameter is VpnProfileOption profile)
+                    SelectedProfile = profile;
+            },
+            _ => !IsBusy);
         RefreshIpCommand = new RelayCommand(RefreshIpAsync, () => IsConnected && !IsBusy);
         ApplyCapabilitiesCommand = new RelayCommand(ApplyCapabilitiesAsync, () => !IsBusy);
         EmergencyTeardownCommand = new RelayCommand(EmergencyTeardownAsync, () => !IsBusy);
@@ -130,6 +137,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public ICommand ImportSubscriptionCommand { get; }
     public ICommand ManageServersCommand { get; }
     public ICommand RemoveProfileCommand { get; }
+    public ICommand SelectProfileCommand { get; }
     public ICommand RefreshIpCommand { get; }
     public ICommand ApplyCapabilitiesCommand { get; }
     public ICommand EmergencyTeardownCommand { get; }
@@ -1583,6 +1591,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         (ImportSubscriptionCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ManageServersCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (RemoveProfileCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (SelectProfileCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (RefreshIpCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ApplyCapabilitiesCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (EmergencyTeardownCommand as RelayCommand)?.RaiseCanExecuteChanged();

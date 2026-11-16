@@ -62,19 +62,17 @@
       <Setter Property="HorizontalAlignment" Value="Center"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
-    <!-- Kill Fluent sharp-corner selection chrome; only the rounded card shows selection. -->
+    <!-- Profiles use ItemsControl (no ListBox selection chrome). Rules ListBox stays transparent. -->
     <Style Selector="ListBox.busy ListBoxItem">
       <Setter Property="Padding" Value="0"/>
       <Setter Property="Margin" Value="0"/>
       <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="BorderBrush" Value="Transparent"/>
       <Setter Property="Template">
         <ControlTemplate>
           <ContentPresenter Name="PART_ContentPresenter"
                             Background="Transparent"
-                            BorderThickness="0"
                             Content="{TemplateBinding Content}"
                             ContentTemplate="{TemplateBinding ContentTemplate}"
                             Padding="{TemplateBinding Padding}"
@@ -83,31 +81,61 @@
         </ControlTemplate>
       </Setter>
     </Style>
-    <Style Selector="ListBox.busy ListBoxItem:pointerover">
+    <Style Selector="ListBox.busy ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent"/>
     </Style>
-    <Style Selector="ListBox.busy ListBoxItem:pressed">
+    <Style Selector="ListBox.busy ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent"/>
     </Style>
-    <Style Selector="ListBox.busy ListBoxItem:selected">
+    <Style Selector="ListBox.busy ListBoxItem:selected:focus /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent"/>
     </Style>
-    <Style Selector="ListBox.busy ListBoxItem:selected:focus">
+    <Style Selector="ListBox.busy ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent"/>
     </Style>
-    <Style Selector="ListBox.busy ListBoxItem:selected:pointerover">
+    <Style Selector="Button.profile-hit">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Margin" Value="0"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <!-- Fluent focus adorner is a sharp blue rect; kill it. -->
+      <Setter Property="FocusAdorner" Value="{x:Null}"/>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <ContentPresenter Name="PART_ContentPresenter"
+                            Content="{TemplateBinding Content}"
+                            Background="Transparent"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"/>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Button.profile-hit:focus /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent"/>
     </Style>
-    <Style Selector="ListBox.busy ListBoxItem:selected:pressed">
+    <Style Selector="Button.profile-hit:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent"/>
     </Style>
+    <Style Selector="Button.profile-hit:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Button.profile-hit:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <!-- Soft black shadow only (colored BoxShadow draws a sharp rect behind CornerRadius). -->
     <Style Selector="Border.profile-card">
       <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="ClipToBounds" Value="True"/>
       <Setter Property="Padding" Value="12,10"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="BorderBrush" Value="#28FFFFFF"/>
       <Setter Property="Margin" Value="0,0,0,10"/>
-      <Setter Property="BoxShadow" Value="0 14 28 0 #A6000000, 0 1 0 0 #33FFFFFF"/>
+      <Setter Property="BoxShadow" Value="0 12 26 0 #A6000000"/>
       <Setter Property="Background">
         <LinearGradientBrush StartPoint="0,0" EndPoint="0.9,1">
           <GradientStop Color="#2AFFFFFF" Offset="0"/>
@@ -116,14 +144,15 @@
         </LinearGradientBrush>
       </Setter>
     </Style>
-    <Style Selector="ListBoxItem:pointerover Border.profile-card">
+    <Style Selector="Button.profile-hit:pointerover Border.profile-card">
       <Setter Property="BorderBrush" Value="#40FFFFFF"/>
-      <Setter Property="BoxShadow" Value="0 16 32 0 #C0000000, 0 2 0 0 #40FFFFFF"/>
+      <Setter Property="BoxShadow" Value="0 14 30 0 #C0000000"/>
     </Style>
-    <Style Selector="ListBoxItem:selected Border.profile-card">
+    <Style Selector="Border.profile-card.selected">
       <Setter Property="BorderBrush" Value="{DynamicResource AccentLineBright}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
       <Setter Property="Background" Value="{DynamicResource ProfileSelectedBackground}"/>
-      <Setter Property="BoxShadow" Value="0 12 30 0 #997FE3FF, 0 6 16 0 #88000000"/>
+      <Setter Property="BoxShadow" Value="0 14 28 0 #CC000000"/>
     </Style>
     <Style Selector="Border.profile-avatar">
       <Setter Property="Width" Value="34"/>
@@ -285,33 +314,36 @@
                            IsVisible="{Binding !HasProfile}"/>
               </StackPanel>
 
-              <ListBox Classes="busy"
-                       ItemsSource="{Binding Profiles}"
-                       SelectedItem="{Binding SelectedProfile}"
-                       IsEnabled="{Binding !IsBusy}">
-                <ListBox.ItemTemplate>
-                  <DataTemplate x:DataType="vm:VpnProfileOption">
-                    <Border Classes="profile-card">
-                      <Grid ColumnDefinitions="34,*,Auto">
-                        <Border Classes="profile-avatar" Background="{DynamicResource Accent}">
-                          <TextBlock Text="{Binding Initial}" FontWeight="ExtraBold" FontSize="13"
-                                     Foreground="{DynamicResource PrimaryForeground}"
-                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Profiles}" IsEnabled="{Binding !IsBusy}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:VpnProfileOption">
+                      <Button Classes="profile-hit"
+                              Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectProfileCommand}"
+                              CommandParameter="{Binding}">
+                        <Border Classes="profile-card" Classes.selected="{Binding IsActive}">
+                          <Grid ColumnDefinitions="34,*,Auto">
+                            <Border Classes="profile-avatar" Background="{DynamicResource Accent}">
+                              <TextBlock Text="{Binding Initial}" FontWeight="ExtraBold" FontSize="13"
+                                         Foreground="{DynamicResource PrimaryForeground}"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
+                              <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis"/>
+                              <TextBlock Text="{Binding KindLabel}" FontSize="11.5" Foreground="{DynamicResource MutedForeground}"
+                                         Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <Border Grid.Column="2" Width="8" Height="8" CornerRadius="4"
+                                    VerticalAlignment="Center" Background="{DynamicResource Accent}"
+                                    IsVisible="{Binding IsRunning}"
+                                    BoxShadow="0 0 10 0 #E67FE3FF"/>
+                          </Grid>
                         </Border>
-                        <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
-                          <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis"/>
-                          <TextBlock Text="{Binding KindLabel}" FontSize="11.5" Foreground="{DynamicResource MutedForeground}"
-                                     Margin="0,2,0,0"/>
-                        </StackPanel>
-                        <Border Grid.Column="2" Width="8" Height="8" CornerRadius="4"
-                                VerticalAlignment="Center" Background="{DynamicResource Accent}"
-                                IsVisible="{Binding IsRunning}"
-                                BoxShadow="0 0 10 0 #E67FE3FF"/>
-                      </Grid>
-                    </Border>
-                  </DataTemplate>
-                </ListBox.ItemTemplate>
-              </ListBox>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
             </DockPanel>
           </Border>
         </Panel>
