@@ -1,22 +1,25 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Net.Http;
 using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using SelectiveVpn.Abstractions;
 using SelectiveVpn.Desktop.Abstractions;
+using SelectiveVpn.Desktop.Models;
 using SelectiveVpn.Desktop.Services;
+using SelectiveVpn.Desktop.Views;
 using SelectiveVpn.Engine;
 using SelectiveVpn.Models;
 
 namespace SelectiveVpn.Desktop.ViewModels;
 
 /// <summary>
-/// Avalonia Orbit-shaped ViewModel: mirrors WPF MainViewModel surface for layout/bindings
-/// (profiles, include/except, status chrome, connect) while keeping Linux tunnel semantics
-/// (auto-redirect, dns-mode disabled, MATCH,VPN for full/exclude-empty, no resolvectl flush).
-/// Full WPF MainViewModel stays Windows-only (process rules, subscription UI, elevation).
+/// Avalonia Orbit ViewModel: profiles, include/except (DOMAIN/IP + PROCESS-PATH),
+/// subscription import/server picker, Linux tunnel semantics (auto-redirect, dns-mode disabled,
+/// MATCH,VPN for full/exclude-empty, MATCH,DIRECT for include-empty, no resolvectl flush).
+/// ConnectOnLaunch stays off.
 /// </summary>
 public sealed class MainViewModel : ViewModelBase, IDisposable
 {
@@ -24,6 +27,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private readonly IUiDispatcher _dispatcher;
     private readonly DesktopSettings _settings;
     private readonly Stopwatch _connectedFor = new();
+    private readonly Dictionary<string, Dictionary<string, int>> _nodeDelayCache = new(StringComparer.OrdinalIgnoreCase);
     private Window? _window;
     private bool _disposed;
     private bool _isBusy;
@@ -46,7 +50,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private string _connectionDuration = "00:00:00";
     private string _incomingTraffic = "—";
     private string _outgoingTraffic = "—";
-    private string? _selectedTarget;
+    private RouteRuleItem? _selectedTarget;
     private VpnProfileOption? _selectedProfile;
     private CancellationTokenSource? _connectCts;
     private readonly System.Timers.Timer _durationTimer;
@@ -73,12 +77,17 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         DisconnectCommand = new RelayCommand(DisconnectAsync, () => !IsBusy && (IsConnected || _mihomo.IsRunning));
         ImportConfigCommand = new RelayCommand(ImportConfigAsync, () => !IsBusy);
         BrowseConfigCommand = ImportConfigCommand;
+        ImportSubscriptionCommand = new RelayCommand(ImportSubscriptionAsync, () => !IsBusy);
+        ManageServersCommand = new RelayCommand(ManageServersAsync, () => !IsBusy && IsSubscriptionProfile);
         RemoveProfileCommand = new RelayCommand(RemoveSelectedProfile, () => !IsBusy && SelectedProfile is not null);
         RefreshIpCommand = new RelayCommand(RefreshIpAsync, () => IsConnected && !IsBusy);
         ApplyCapabilitiesCommand = new RelayCommand(ApplyCapabilitiesAsync, () => !IsBusy);
         EmergencyTeardownCommand = new RelayCommand(EmergencyTeardownAsync, () => !IsBusy);
         AddTargetCommand = new RelayCommand(AddTarget, () => !IsBusy && !string.IsNullOrWhiteSpace(NewTargetText));
         RemoveTargetCommand = new RelayCommand(RemoveTarget, () => !IsBusy && SelectedTarget is not null);
+        AddProcessCommand = new RelayCommand(() => AddFromPickerAsync(AppPickerSource.RunningProcesses), () => !IsBusy);
+        AddAppCommand = new RelayCommand(() => AddFromPickerAsync(AppPickerSource.DesktopApps), () => !IsBusy);
+        AddFolderCommand = new RelayCommand(AddFolderAsync, () => !IsBusy);
         ReconnectCommand = new RelayCommand(ReconnectAsync, () => !IsBusy && HasConfig);
         ToggleLogCommand = new RelayCommand(() => IsLogVisible = !IsLogVisible);
         ShowWindowCommand = new RelayCommand(ShowWindow);
@@ -92,7 +101,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         AppendLog("Orbit Avalonia UI ready. ConnectOnLaunch is off.");
         AppendLog($"Settings: {AppPaths.SettingsPath}");
         AppendLog(_exceptListed
-            ? "Mode: all traffic via VPN except listed DOMAIN/IP (exclude)."
+            ? "Mode: all traffic via VPN except listed DOMAIN/IP/PROCESS (exclude)."
             : "Mode: selective include — empty list → MATCH,DIRECT (Linux browsing fix).");
         AppendLog(LinuxElevation.PrivilegeHint);
         RefreshOrbitLabels();
@@ -100,7 +109,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     public ObservableCollection<string> LogEntries { get; } = [];
 
-    public ObservableCollection<string> RouteTargets { get; } = [];
+    public ObservableCollection<RouteRuleItem> RouteTargets { get; } = [];
 
     public ObservableCollection<VpnProfileOption> Profiles { get; } = [];
 
@@ -109,12 +118,17 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public ICommand DisconnectCommand { get; }
     public ICommand ImportConfigCommand { get; }
     public ICommand BrowseConfigCommand { get; }
+    public ICommand ImportSubscriptionCommand { get; }
+    public ICommand ManageServersCommand { get; }
     public ICommand RemoveProfileCommand { get; }
     public ICommand RefreshIpCommand { get; }
     public ICommand ApplyCapabilitiesCommand { get; }
     public ICommand EmergencyTeardownCommand { get; }
     public ICommand AddTargetCommand { get; }
     public ICommand RemoveTargetCommand { get; }
+    public ICommand AddProcessCommand { get; }
+    public ICommand AddAppCommand { get; }
+    public ICommand AddFolderCommand { get; }
     public ICommand ReconnectCommand { get; }
     public ICommand ToggleLogCommand { get; }
     public ICommand ShowWindowCommand { get; }
@@ -126,6 +140,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public bool HasConfig => !string.IsNullOrWhiteSpace(ConfigPath) && File.Exists(ConfigPath);
 
     public bool HasProfile => Profiles.Count > 0;
+
+    public bool IsSubscriptionProfile => SubscriptionProfile.IsSubscriptionPath(ConfigPath);
 
     public bool IsBusy
     {
@@ -175,8 +191,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             RefreshOrbitLabels();
             Persist();
             AppendLog(except
-                ? "Exclude mode: listed DOMAIN/IP stay direct; rest MATCH,VPN."
-                : "Include mode: listed DOMAIN/IP via VPN; rest DIRECT (empty → DIRECT on Linux).");
+                ? "Exclude mode: listed DOMAIN/IP/PROCESS stay direct; rest MATCH,VPN."
+                : "Include mode: listed DOMAIN/IP/PROCESS via VPN; rest DIRECT (empty → DIRECT on Linux).");
         }
     }
 
@@ -199,13 +215,13 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         ? "Choose a profile"
         : ProfileName;
 
-    public string ConnectionProtocol => "AmneziaWG";
+    public string ConnectionProtocol => IsSubscriptionProfile ? "Subscription" : "AmneziaWG";
 
     public string ConnectionSubtitle => $"{ConnectionProfileName} · {ConnectionProtocol}";
 
     public string RoutingHint => _exceptListed
-        ? "Exclude: listed DOMAIN/IP → DIRECT; everything else via VPN. Empty list = full tunnel (MATCH,VPN)."
-        : "Include: listed DOMAIN/IP → VPN; rest DIRECT. Empty list stays MATCH,DIRECT (Linux browsing fix).";
+        ? "Exclude: listed DOMAIN/IP/PROCESS → DIRECT; everything else via VPN. Empty list = full tunnel (MATCH,VPN)."
+        : "Include: listed DOMAIN/IP/PROCESS → VPN; rest DIRECT. Empty list stays MATCH,DIRECT (Linux browsing fix).";
 
     public string ListedRouteLabel => _exceptListed ? "Bypass VPN" : "Through VPN";
 
@@ -214,10 +230,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public string RoutingSummary => _exceptListed
         ? (RouteTargets.Count == 0
             ? "All traffic goes through VPN."
-            : "Listed addresses go direct. Other traffic goes through VPN.")
+            : "Listed addresses/apps go direct. Other traffic goes through VPN.")
         : (RouteTargets.Count == 0
-            ? "List empty — traffic stays direct until you add domains/IPs."
-            : "Listed addresses go through VPN. Other traffic goes direct.");
+            ? "List empty — traffic stays direct until you add domains/IPs/processes."
+            : "Listed addresses/apps go through VPN. Other traffic goes direct.");
 
     public string RulesProfileLabel => HasProfile
         ? $"Rules for profile {ProfileName}"
@@ -278,6 +294,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             if (SetProperty(ref _configPath, value))
             {
                 OnPropertyChanged(nameof(HasConfig));
+                OnPropertyChanged(nameof(IsSubscriptionProfile));
+                OnPropertyChanged(nameof(ConnectionProtocol));
+                OnPropertyChanged(nameof(ConnectionSubtitle));
                 RaiseCommands();
             }
         }
@@ -323,7 +342,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-    public string? SelectedTarget
+    public RouteRuleItem? SelectedTarget
     {
         get => _selectedTarget;
         set
@@ -356,6 +375,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 ConfigPath = "";
                 ProfileName = "(no profile)";
                 RouteTargets.Clear();
+                ConnectedServer = "";
                 RefreshOrbitLabels();
                 Persist();
                 return;
@@ -365,6 +385,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             ProfileName = value.Name;
             LoadActiveList();
             RefreshActiveFlags();
+            RefreshConnectedServerLabel();
             RefreshOrbitLabels();
             Persist();
             RaiseCommands();
@@ -411,7 +432,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             Profiles.Add(new VpnProfileOption(saved.ConfigPath));
         }
 
-        // Legacy single ConfigPath / IncludeTargets.
         if (Profiles.Count == 0 && !string.IsNullOrWhiteSpace(_settings.ConfigPath) && File.Exists(_settings.ConfigPath))
             Profiles.Add(new VpnProfileOption(_settings.ConfigPath));
 
@@ -429,17 +449,22 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             ProfileName = match.Name;
             LoadActiveList();
             RefreshActiveFlags();
+            RefreshConnectedServerLabel();
         }
         else if (!string.IsNullOrWhiteSpace(_settings.ConfigPath) && File.Exists(_settings.ConfigPath))
         {
             ConfigPath = _settings.ConfigPath;
             ProfileName = Path.GetFileNameWithoutExtension(_settings.ConfigPath);
             foreach (var t in ActiveTargetSource())
-                RouteTargets.Add(t);
+            {
+                var item = ToRuleItem(t);
+                if (item is not null)
+                    RouteTargets.Add(item);
+            }
         }
     }
 
-    private IEnumerable<string> ActiveTargetSource()
+    private IEnumerable<SavedTarget> ActiveTargetSource()
     {
         var profile = FindSaved(ConfigPath);
         if (profile is not null)
@@ -452,15 +477,49 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         RouteTargets.Clear();
         foreach (var target in ActiveTargetSource())
         {
-            if (!string.IsNullOrWhiteSpace(target))
-                RouteTargets.Add(target);
+            var item = ToRuleItem(target);
+            if (item is not null)
+                RouteTargets.Add(item);
         }
         SelectedTarget = null;
     }
 
+    private static RouteRuleItem? ToRuleItem(SavedTarget target)
+    {
+        if (string.IsNullOrWhiteSpace(target.Path))
+            return null;
+
+        var kind = target.Kind?.Trim().ToLowerInvariant() switch
+        {
+            "folder" => RouteKind.Folder,
+            "file" => RouteKind.File,
+            "ip" => RouteKind.Ip,
+            "domain" => RouteKind.Domain,
+            _ => GuessKind(target.Path)
+        };
+
+        return new RouteRuleItem(target.Path, kind);
+    }
+
+    private static RouteKind GuessKind(string path)
+    {
+        if (Directory.Exists(path))
+            return RouteKind.Folder;
+        if (File.Exists(path) || path.StartsWith('/'))
+            return RouteKind.File;
+        if (RouteAddress.TryParse(path, out _, out var kind, out _))
+            return kind;
+        return RouteKind.Domain;
+    }
+
     private void PersistActiveList()
     {
-        var snapshot = RouteTargets.ToList();
+        var snapshot = RouteTargets.Select(item => new SavedTarget
+        {
+            Path = item.Path,
+            Kind = item.StoredKind
+        }).ToList();
+
         var profile = FindSaved(ConfigPath);
         if (profile is not null)
         {
@@ -480,9 +539,18 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         => _settings.Profiles.FirstOrDefault(p => SamePath(p.ConfigPath, path));
 
     private static bool SamePath(string? a, string? b)
-        => !string.IsNullOrWhiteSpace(a)
-           && !string.IsNullOrWhiteSpace(b)
-           && string.Equals(Path.GetFullPath(a), Path.GetFullPath(b), StringComparison.OrdinalIgnoreCase);
+    {
+        if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b))
+            return false;
+        try
+        {
+            return string.Equals(Path.GetFullPath(a), Path.GetFullPath(b), StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or IOException)
+        {
+            return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+        }
+    }
 
     private void RefreshPrivilegeStatus()
     {
@@ -500,6 +568,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(RulesProfileLabel));
         OnPropertyChanged(nameof(FullTunnel));
         OnPropertyChanged(nameof(HasProfile));
+        OnPropertyChanged(nameof(IsSubscriptionProfile));
+        OnPropertyChanged(nameof(ConnectionProtocol));
+        OnPropertyChanged(nameof(ConnectionSubtitle));
     }
 
     private void RefreshActiveFlags()
@@ -522,13 +593,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        if (RouteTargets.Any(existing => string.Equals(existing, normalized, StringComparison.OrdinalIgnoreCase)))
+        if (RouteTargets.Any(existing =>
+                existing.Kind == kind
+                && string.Equals(existing.Path, normalized, StringComparison.OrdinalIgnoreCase)))
         {
             AppendLog($"Already listed: {normalized}");
             return;
         }
 
-        RouteTargets.Add(normalized);
+        RouteTargets.Add(new RouteRuleItem(normalized, kind));
         NewTargetText = "";
         PersistActiveList();
         Persist();
@@ -547,7 +620,56 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         PersistActiveList();
         Persist();
         RefreshOrbitLabels();
-        AppendLog($"Removed: {removed}");
+        AppendLog($"Removed: {removed.Path}");
+    }
+
+    private async Task AddFromPickerAsync(AppPickerSource source)
+    {
+        if (_window is null)
+            return;
+
+        var dialog = new AppPickerWindow(source);
+        var ok = await dialog.ShowDialog<bool>(_window).ConfigureAwait(true);
+        if (!ok || string.IsNullOrWhiteSpace(dialog.SelectedExecutablePath))
+            return;
+
+        TryAddPathRule(dialog.SelectedExecutablePath, RouteKind.File, "process");
+    }
+
+    private async Task AddFolderAsync()
+    {
+        if (_window is null)
+            return;
+
+        var folders = await _window.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Add folder (PROCESS-PATH-REGEX)",
+            AllowMultiple = false
+        });
+
+        var path = folders.FirstOrDefault()?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            return;
+
+        TryAddPathRule(Path.GetFullPath(path), RouteKind.Folder, "folder");
+    }
+
+    private void TryAddPathRule(string path, RouteKind kind, string label)
+    {
+        path = Path.GetFullPath(path);
+        if (RouteTargets.Any(existing =>
+                existing.Kind == kind
+                && HostPlatform.PathsEqual(existing.Path, path)))
+        {
+            AppendLog($"Already listed: {path}");
+            return;
+        }
+
+        RouteTargets.Add(new RouteRuleItem(path, kind));
+        PersistActiveList();
+        Persist();
+        RefreshOrbitLabels();
+        AppendLog($"Added {label}: {path}");
     }
 
     private void RemoveSelectedProfile()
@@ -565,6 +687,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             ConfigPath = "";
             ProfileName = "(no profile)";
             RouteTargets.Clear();
+            ConnectedServer = "";
         }
 
         Persist();
@@ -574,17 +697,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     }
 
     private RouteTarget[] BuildTargets()
-    {
-        var list = new List<RouteTarget>();
-        foreach (var entry in RouteTargets)
-        {
-            if (!RouteAddress.TryParse(entry, out var normalized, out var kind, out _))
-                continue;
-            list.Add(new RouteTarget(normalized, Kind: kind));
-        }
-
-        return list.ToArray();
-    }
+        => RouteTargets.Select(item => item.ToRouteTarget()).ToArray();
 
     private async Task ToggleConnectionAsync()
     {
@@ -605,7 +718,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     {
         if (!HasConfig)
         {
-            AppendLog("Import an Amnezia .conf first.");
+            AppendLog("Import an Amnezia .conf or subscription first.");
             StatusDetail = "No profile selected.";
             return;
         }
@@ -628,9 +741,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         try
         {
             var selectiveTargets = BuildTargets();
-            // Exclude-empty ⇒ full tunnel (MATCH,VPN). Include-empty ⇒ MATCH,DIRECT (Linux fix).
             var fullTunnelWhenEmpty = _exceptListed;
-            var targets = selectiveTargets;
             AppendLog(_exceptListed
                 ? selectiveTargets.Length == 0
                     ? "Connecting exclude/full tunnel (MATCH,VPN)."
@@ -641,7 +752,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
             var request = new MihomoStartRequest(
                 ConfigPath,
-                targets,
+                selectiveTargets,
                 string.IsNullOrWhiteSpace(_settings.EnginePath) ? null : _settings.EnginePath,
                 ExceptListed: _exceptListed,
                 FullTunnelWhenEmpty: fullTunnelWhenEmpty);
@@ -652,7 +763,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             if (IsConnected)
             {
                 _connectedFor.Restart();
-                TryReadEndpoint();
+                await RefreshConnectedServerAfterConnectAsync();
                 StatusText = ConnectionStatusTitle;
                 StatusKind = "connected";
                 StatusDetail = "";
@@ -693,8 +804,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private void TryReadEndpoint()
+    private void RefreshConnectedServerLabel()
     {
+        if (SubscriptionProfile.IsSubscriptionPath(ConfigPath)
+            && SubscriptionProfile.TryRead(ConfigPath, out var subscription, out _))
+        {
+            ConnectedServer = SubscriptionProfile.DisplayNodeName(subscription.EffectiveSelectedNode);
+            return;
+        }
+
         try
         {
             var read = AmneziaWgConfigReader.ReadFile(ConfigPath);
@@ -706,6 +824,26 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             ConnectedServer = "";
         }
+    }
+
+    private async Task RefreshConnectedServerAfterConnectAsync()
+    {
+        if (IsSubscriptionProfile)
+        {
+            try
+            {
+                var node = await _mihomo.GetActiveVpnNodeAsync();
+                ConnectedServer = SubscriptionProfile.DisplayNodeName(node);
+            }
+            catch
+            {
+                RefreshConnectedServerLabel();
+            }
+
+            return;
+        }
+
+        RefreshConnectedServerLabel();
     }
 
     private async Task DisconnectAsync()
@@ -726,7 +864,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             LinuxTunnelCleanup.TryCleanup();
             IsConnected = false;
             ExternalIp = "—";
-            ConnectedServer = "";
             IncomingTraffic = "—";
             OutgoingTraffic = "—";
             _connectedFor.Reset();
@@ -734,6 +871,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             StatusText = "Disconnected";
             StatusKind = "disconnected";
             StatusDetail = "";
+            RefreshConnectedServerLabel();
         }
         catch (Exception ex)
         {
@@ -792,7 +930,29 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var fullPath = Path.GetFullPath(path);
+        RegisterProfileFromPath(Path.GetFullPath(path), $"Imported AmneziaWG profile «{{0}}» (endpoint {read.Profile.EndpointHost}).");
+        ConnectedServer = read.Profile.EndpointHost;
+    }
+
+    private async Task ImportSubscriptionAsync()
+    {
+        if (_window is null)
+            return;
+
+        var dialog = new SubscriptionImportWindow();
+        var ok = await dialog.ShowDialog<bool>(_window).ConfigureAwait(true);
+        if (!ok || string.IsNullOrWhiteSpace(dialog.SavedPath))
+            return;
+
+        var detail = string.IsNullOrWhiteSpace(dialog.ResultMessage)
+            ? "Imported subscription «{0}»."
+            : dialog.ResultMessage + " Profile «{0}».";
+        RegisterProfileFromPath(dialog.SavedPath, detail);
+    }
+
+    private void RegisterProfileFromPath(string fullPath, string createdMessageFormat)
+    {
+        PersistActiveList();
         var existing = Profiles.FirstOrDefault(p => SamePath(p.ConfigPath, fullPath));
         if (existing is not null)
         {
@@ -801,19 +961,165 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        PersistActiveList();
         _settings.Profiles.Add(new SavedProfile { ConfigPath = fullPath, IncludeTargets = [], ExcludeTargets = [] });
         var option = new VpnProfileOption(fullPath);
         Profiles.Add(option);
         SelectedProfile = option;
-        ConnectedServer = read.Profile.EndpointHost;
         Persist();
         RefreshOrbitLabels();
-        AppendLog($"Imported AmneziaWG profile «{option.Name}» (endpoint {read.Profile.EndpointHost}).");
+        AppendLog(string.Format(System.Globalization.CultureInfo.InvariantCulture, createdMessageFormat, option.Name));
         StatusText = "Profile ready";
         StatusKind = "disconnected";
         StatusDetail = "";
         RaiseCommands();
+    }
+
+    private async Task ManageServersAsync()
+    {
+        if (_window is null || !IsSubscriptionProfile || string.IsNullOrWhiteSpace(ConfigPath))
+            return;
+
+        var profilePath = ConfigPath;
+        if (!SubscriptionProfile.TryRead(profilePath, out var subscription, out var error))
+        {
+            AppendLog(error);
+            return;
+        }
+
+        var nodes = WithCachedDelays(profilePath, await LoadSubscriptionNodesAsync(profilePath, subscription).ConfigureAwait(true));
+        if (!SamePath(profilePath, ConfigPath))
+            return;
+
+        var dialog = new ServerPickerWindow(
+            nodes,
+            subscription.EffectiveSelectedNode,
+            async ct => WithCachedDelays(profilePath,
+                await LoadSubscriptionNodesAsync(profilePath, subscription, forceRefresh: true, ct).ConfigureAwait(false)),
+            async (names, ct) =>
+            {
+                if (!IsConnected || !SamePath(profilePath, ConfigPath))
+                    return new Dictionary<string, int>();
+                var delays = await _mihomo.MeasureVpnNodeDelaysAsync(names, ct).ConfigureAwait(false);
+                RememberNodeDelays(profilePath, delays);
+                return delays;
+            },
+            canPing: IsConnected && SamePath(profilePath, ConfigPath));
+
+        var ok = await dialog.ShowDialog<bool>(_window).ConfigureAwait(true);
+        if (!ok)
+            return;
+
+        await ApplySelectedNodeAsync(profilePath, dialog.SelectedNodeName).ConfigureAwait(true);
+    }
+
+    private async Task ApplySelectedNodeAsync(string profilePath, string nodeName)
+    {
+        if (!SubscriptionProfile.TrySaveSelectedNode(profilePath, nodeName, out var saveError))
+        {
+            AppendLog(saveError);
+            return;
+        }
+
+        ConnectedServer = SubscriptionProfile.DisplayNodeName(nodeName);
+        if (IsConnected && SamePath(profilePath, ConfigPath))
+        {
+            var applied = await _mihomo.SelectVpnNodeAsync(nodeName).ConfigureAwait(true);
+            AppendLog(applied.Succeeded
+                ? applied.Message
+                : $"Saved offline: {applied.Message}");
+            if (applied.Succeeded)
+            {
+                await RefreshConnectedServerAfterConnectAsync();
+                _ = RefreshIpAsync();
+            }
+
+            return;
+        }
+
+        AppendLog($"Server saved: {SubscriptionProfile.DisplayNodeName(nodeName)}. Connect to use it.");
+    }
+
+    private IReadOnlyList<VpnNodeInfo> WithCachedDelays(string profilePath, IReadOnlyList<VpnNodeInfo> nodes)
+    {
+        if (!_nodeDelayCache.TryGetValue(profilePath, out var delays) || delays.Count == 0)
+            return nodes;
+        return SubscriptionNodeCatalog.ApplyDelays(nodes, delays, sortByDelay: false);
+    }
+
+    private void RememberNodeDelays(string profilePath, IReadOnlyDictionary<string, int> delays)
+    {
+        if (!_nodeDelayCache.TryGetValue(profilePath, out var cache))
+        {
+            cache = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            _nodeDelayCache[profilePath] = cache;
+        }
+
+        foreach (var pair in delays)
+            cache[pair.Key] = pair.Value;
+    }
+
+    private async Task<IReadOnlyList<VpnNodeInfo>> LoadSubscriptionNodesAsync(
+        string profilePath,
+        SubscriptionProfile subscription,
+        bool forceRefresh = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (IsConnected && SamePath(profilePath, ConfigPath))
+        {
+            try
+            {
+                var live = await _mihomo.ListVpnNodesAsync(cancellationToken).ConfigureAwait(false);
+                if (live.Count > 1)
+                    return live;
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        if (!forceRefresh
+            && SubscriptionNodeCatalog.TryListFromProviderCache(_mihomo.ProviderCachePath, out var cached, out _)
+            && cached.Count > 0)
+        {
+            return SubscriptionNodeCatalog.WithAuto(cached);
+        }
+
+        if (subscription.IsInline)
+            return SubscriptionNodeCatalog.WithAuto(SubscriptionNodeCatalog.ExtractNames(string.Join("\n", subscription.Links!)));
+
+        if (string.IsNullOrWhiteSpace(subscription.Url))
+            return SubscriptionNodeCatalog.WithAuto([]);
+
+        try
+        {
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(25) };
+            using var request = new HttpRequestMessage(HttpMethod.Get, subscription.Url);
+            request.Headers.TryAddWithoutValidation("User-Agent", "SelectiveVpn");
+            request.Headers.TryAddWithoutValidation("X-Hardware-Id", DeviceIdentity.GetHardwareId(AppPaths.RootDirectory));
+            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var names = SubscriptionNodeCatalog.ExtractNames(payload);
+            if (names.Count > 0)
+            {
+                subscription.NodeCount = names.Count;
+                try
+                {
+                    SubscriptionProfile.SaveToPath(profilePath, subscription);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                }
+
+                return SubscriptionNodeCatalog.WithAuto(names);
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+        {
+            AppendLog($"Could not refresh subscription nodes: {ex.Message}");
+        }
+
+        return SubscriptionNodeCatalog.WithAuto([]);
     }
 
     private async Task RefreshIpAsync()
@@ -860,12 +1166,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         AppendLog(result.Message);
         IsConnected = false;
         ExternalIp = "—";
-        ConnectedServer = "";
         _connectedFor.Reset();
         ConnectionDuration = "00:00:00";
         StatusText = "Disconnected";
         StatusKind = "disconnected";
         StatusDetail = "";
+        RefreshConnectedServerLabel();
         RaiseCommands();
         return Task.CompletedTask;
     }
@@ -938,7 +1244,18 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         });
     }
 
-    private void OnEngineMessage(object? sender, string message) => AppendLog(message);
+    private void OnEngineMessage(object? sender, string message)
+    {
+        const string childPrefix = "CHILD_PROCESSES_ADDED:";
+        if (message.StartsWith(childPrefix, StringComparison.Ordinal)
+            && int.TryParse(message.AsSpan(childPrefix.Length), out var count))
+        {
+            AppendLog($"Child processes added to rules: {count}.");
+            return;
+        }
+
+        AppendLog(message);
+    }
 
     private void OnEngineStopped(object? sender, EventArgs e) => Dispatch(() =>
     {
@@ -947,7 +1264,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         IsConnected = false;
         ExternalIp = "—";
-        ConnectedServer = "";
         _connectedFor.Reset();
         ConnectionDuration = "00:00:00";
         StatusText = "Engine stopped";
@@ -955,6 +1271,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         StatusDetail = "Mihomo process exited unexpectedly.";
         AppendLog("Mihomo process exited unexpectedly.");
         LinuxTunnelCleanup.TryCleanup();
+        RefreshConnectedServerLabel();
         RaiseCommands();
     });
 
@@ -964,12 +1281,17 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         (ConnectCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (DisconnectCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ImportConfigCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ImportSubscriptionCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ManageServersCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (RemoveProfileCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (RefreshIpCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ApplyCapabilitiesCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (EmergencyTeardownCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (AddTargetCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (RemoveTargetCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (AddProcessCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (AddAppCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (AddFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ReconnectCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
@@ -999,7 +1321,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         }
         catch
         {
-            LinuxTunnelCleanup.TryCleanup();
         }
+
+        LinuxTunnelCleanup.TryCleanup();
     }
 }

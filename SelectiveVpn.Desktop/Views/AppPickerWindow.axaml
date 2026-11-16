@@ -1,0 +1,78 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="using:SelectiveVpn.Desktop.Models"
+        x:Class="SelectiveVpn.Desktop.Views.AppPickerWindow"
+        Title="Add process"
+        Width="560" Height="620"
+        MinWidth="480" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource WindowForeground}"
+        FontFamily="{DynamicResource ThemeFontFamily}">
+  <Window.Styles>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="FontSize" Value="11.5"/>
+      <Setter Property="Foreground" Value="{DynamicResource MutedForeground}"/>
+    </Style>
+    <Style Selector="Button.ghost">
+      <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
+      <Setter Property="Background" Value="#0FFFFFFF"/>
+      <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="MinHeight" Value="40"/>
+      <Setter Property="Padding" Value="14,0"/>
+      <Setter Property="CornerRadius" Value="12"/>
+    </Style>
+    <Style Selector="Button.push">
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}"/>
+      <Setter Property="Background" Value="{DynamicResource PushBackground}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="FontWeight" Value="ExtraBold"/>
+      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="Padding" Value="18,0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource PushButtonCornerRadius}"/>
+    </Style>
+  </Window.Styles>
+  <DockPanel Margin="20">
+    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+      <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" Content="Refresh"
+              Name="RefreshButton" Click="RefreshClick" IsVisible="False"/>
+      <StackPanel Spacing="4">
+        <TextBlock Name="HeadingText" Text="Choose a running process" FontSize="20" FontWeight="ExtraBold"/>
+        <TextBlock Name="HintText" Classes="hint" TextWrapping="Wrap"
+                   Text="The rule binds to the executable path and stays after restart."/>
+      </StackPanel>
+    </DockPanel>
+
+    <StackPanel DockPanel.Dock="Bottom" Spacing="10" Margin="0,12,0,0">
+      <TextBlock Name="StatusText" Classes="hint" TextWrapping="Wrap"/>
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Classes="ghost" MinWidth="100" Content="Cancel" Click="CancelClick" Margin="8,0,0,0"/>
+        <Button DockPanel.Dock="Right" Classes="push" MinWidth="120" Content="Add"
+                Name="AddButton" Click="AddClick"/>
+        <Button Classes="ghost" Content="Browse…" Click="BrowseClick"/>
+      </DockPanel>
+    </StackPanel>
+
+    <TextBox Name="SearchBox" DockPanel.Dock="Top" Watermark="Search name or path…"
+             Margin="0,0,0,10" TextChanged="SearchBox_OnTextChanged"/>
+
+    <Panel>
+      <ListBox Name="AppList" Classes="busy" DoubleTapped="AppList_OnDoubleTapped">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="models:ProcessAppInfo">
+            <StackPanel Spacing="2" Margin="4,6">
+              <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="13.5" TextTrimming="CharacterEllipsis"/>
+              <TextBlock Text="{Binding DetailText}" Classes="hint" FontSize="11"
+                         FontFamily="{DynamicResource ThemeMonoFontFamily}" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <TextBlock Name="EmptyText" Classes="hint" HorizontalAlignment="Center" VerticalAlignment="Center"
+                 Text="Loading…"/>
+    </Panel>
+  </DockPanel>
+</Window>

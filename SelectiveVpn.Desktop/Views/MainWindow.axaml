@@ -149,8 +149,19 @@
                 <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding ImportConfigCommand}">
                   <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBlock Text="＋"/>
-                    <TextBlock Text="Add profile"/>
+                    <TextBlock Text="Add AmneziaWG"/>
                   </StackPanel>
+                </Button>
+                <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding ImportSubscriptionCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="＋"/>
+                    <TextBlock Text="By link / file"/>
+                  </StackPanel>
+                </Button>
+                <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding ManageServersCommand}"
+                        IsVisible="{Binding IsSubscriptionProfile}"
+                        ToolTip.Tip="Pick subscription node">
+                  <TextBlock Text="Choose server"/>
                 </Button>
                 <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding ApplyCapabilitiesCommand}"
                         ToolTip.Tip="pkexec setcap on mihomo">
@@ -240,7 +251,13 @@
                 <Border Grid.Row="1" Grid.ColumnSpan="3" Background="#17FFFFFF"/>
 
                 <StackPanel Margin="0,0,18,16" Spacing="6">
-                  <TextBlock Text="Server" Classes="hint"/>
+                  <DockPanel>
+                    <Button DockPanel.Dock="Right" Classes="icon" Content="⋯" FontSize="14"
+                            Command="{Binding ManageServersCommand}"
+                            IsVisible="{Binding IsSubscriptionProfile}"
+                            ToolTip.Tip="Choose server"/>
+                    <TextBlock Text="Server" Classes="hint" VerticalAlignment="Center"/>
+                  </DockPanel>
                   <TextBlock Text="{Binding ConnectedServer}" FontWeight="Bold" FontSize="15"
                              TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
@@ -277,10 +294,13 @@
             </Border>
           </Panel>
 
-          <Button Classes="ghost" HorizontalAlignment="Center" Margin="0,12,0,0"
-                  Command="{Binding ImportConfigCommand}"
-                  IsVisible="{Binding !HasProfile}"
-                  Content="Add profile"/>
+          <StackPanel HorizontalAlignment="Center" Margin="0,12,0,0" Spacing="8"
+                      IsVisible="{Binding !HasProfile}">
+            <Button Classes="ghost" HorizontalAlignment="Stretch"
+                    Command="{Binding ImportConfigCommand}" Content="Add AmneziaWG"/>
+            <Button Classes="ghost" HorizontalAlignment="Stretch"
+                    Command="{Binding ImportSubscriptionCommand}" Content="Import by link / file"/>
+          </StackPanel>
         </StackPanel>
 
         <!-- Routing -->
@@ -326,6 +346,17 @@
                   <Button Grid.Column="2" Classes="ghost" MinWidth="72" MinHeight="40"
                           Content="Remove" Command="{Binding RemoveTargetCommand}"/>
                 </Grid>
+                <UniformGrid Columns="3" Margin="0,2,0,0">
+                  <Button Classes="ghost" MinHeight="36" Margin="0,0,4,0"
+                          Content="Process" Command="{Binding AddProcessCommand}"
+                          ToolTip.Tip="Add running process (/proc) as PROCESS-PATH"/>
+                  <Button Classes="ghost" MinHeight="36" Margin="2,0"
+                          Content="App" Command="{Binding AddAppCommand}"
+                          ToolTip.Tip="Add desktop application (.desktop → binary)"/>
+                  <Button Classes="ghost" MinHeight="36" Margin="4,0,0,0"
+                          Content="Folder" Command="{Binding AddFolderCommand}"
+                          ToolTip.Tip="Add folder as PROCESS-PATH-REGEX"/>
+                </UniformGrid>
                 <Border BorderBrush="#17FFFFFF" BorderThickness="0,1,0,0" Padding="0,12,0,0">
                   <StackPanel Spacing="10">
                     <DockPanel>
@@ -347,7 +378,6 @@
                        ItemsSource="{Binding RouteTargets}"
                        SelectedItem="{Binding SelectedTarget}"
                        IsEnabled="{Binding !IsBusy}"
-                       FontFamily="{DynamicResource ThemeMonoFontFamily}"
                        FontSize="13">
                 <ListBox.ItemTemplate>
                   <DataTemplate>
@@ -356,12 +386,17 @@
                         <Border Width="32" Height="32" CornerRadius="10"
                                 Background="{DynamicResource AccentWash}"
                                 BorderBrush="{DynamicResource AccentLine}" BorderThickness="1">
-                          <TextBlock Text="#" FontWeight="Bold" Foreground="{DynamicResource Accent}"
+                          <TextBlock Text="{Binding Glyph}" FontWeight="Bold" Foreground="{DynamicResource Accent}"
                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
-                        <TextBlock Grid.Column="1" Margin="12,0,0,0" Text="{Binding}"
-                                   FontWeight="Bold" FontSize="13.5" VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis"/>
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
+                          <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="13.5"
+                                     TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Text="{Binding Detail}" Classes="hint" FontSize="10.5"
+                                     FontFamily="{DynamicResource ThemeMonoFontFamily}"
+                                     TextTrimming="CharacterEllipsis"
+                                     IsVisible="{Binding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        </StackPanel>
                       </Grid>
                     </Border>
                   </DataTemplate>
