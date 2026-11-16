@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:SelectiveVpn.Desktop.ViewModels"
         xmlns:models="using:SelectiveVpn.Desktop.Models"
+        xmlns:controls="using:SelectiveVpn.Desktop.Controls"
         x:Class="SelectiveVpn.Desktop.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="SelectiveVPN"
@@ -24,6 +25,11 @@
       <Setter Property="FontSize" Value="11.5"/>
       <Setter Property="Foreground" Value="{DynamicResource MutedForeground}"/>
       <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+    <Style Selector="TextBlock.empty-hint">
+      <Setter Property="FontSize" Value="11.5"/>
+      <Setter Property="Foreground" Value="{DynamicResource MutedForeground}"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
     <Style Selector="Border.orbit-glass">
       <Setter Property="Background" Value="{DynamicResource OrbitGlassFill}"/>
@@ -76,6 +82,43 @@
     <Style Selector="Button.icon:pointerover /template/ ContentPresenter">
       <Setter Property="Background" Value="#18FFFFFF"/>
     </Style>
+    <Style Selector="Button.mode-card">
+      <Setter Property="Foreground" Value="{DynamicResource MutedForeground}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="FontSize" Value="12.5"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="MinHeight" Value="52"/>
+      <Setter Property="Margin" Value="2"/>
+      <Setter Property="Padding" Value="10,8"/>
+      <Setter Property="CornerRadius" Value="11"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.mode-card:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#14FFFFFF"/>
+    </Style>
+    <Style Selector="Button.mode-card.selected">
+      <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
+      <Setter Property="Background" Value="{DynamicResource OrbitAccentSoftBackground}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+    </Style>
+    <Style Selector="Button.linkish">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Foreground" Value="{DynamicResource Accent}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Padding" Value="8,4"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="ListBox.busy">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="0,4,0,0"/>
+      <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
+    </Style>
     <Style Selector="Path.icon-stroke">
       <Setter Property="Stroke" Value="{Binding $parent[Button].Foreground}"/>
       <Setter Property="StrokeThickness" Value="1.8"/>
@@ -86,36 +129,9 @@
       <Setter Property="Height" Value="16"/>
       <Setter Property="Stretch" Value="Uniform"/>
     </Style>
-    <Style Selector="ListBox.busy">
-      <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Padding" Value="0"/>
-      <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
-    </Style>
-    <Style Selector="ListBox.busy:disabled">
-      <Setter Property="Opacity" Value="0.6"/>
-    </Style>
-    <Style Selector="TabControl.segment">
-      <Setter Property="Background" Value="#40000000"/>
-      <Setter Property="Padding" Value="3"/>
-      <Setter Property="CornerRadius" Value="14"/>
-    </Style>
-    <Style Selector="TabItem.segment">
-      <Setter Property="FontSize" Value="12.5"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Foreground" Value="{DynamicResource MutedForeground}"/>
-      <Setter Property="MinHeight" Value="44"/>
-      <Setter Property="Padding" Value="10,6"/>
-      <Setter Property="Margin" Value="2"/>
-    </Style>
-    <Style Selector="TabItem.segment:selected">
-      <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
-      <Setter Property="Background" Value="{DynamicResource OrbitAccentSoftBackground}"/>
-    </Style>
   </Window.Styles>
 
   <Grid>
-    <!-- Soft glow backdrop (no WPF AnimatedBackground / BlurEffect). -->
     <Grid IsHitTestVisible="False">
       <Ellipse Width="520" Height="520" Margin="-120,-180,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
                Opacity="0.22" Fill="{DynamicResource Accent}" />
@@ -124,7 +140,7 @@
     </Grid>
 
     <Grid Margin="20,0,20,20" RowDefinitions="52,*">
-      <!-- Title bar -->
+      <!-- Title bar (WPF: brand + version + Log) -->
       <DockPanel VerticalAlignment="Center">
         <Viewbox Width="22" Height="22" Margin="0,0,10,0">
           <Path Data="M12,3 L20,6 L20,12 C20,16.5 16.6,20.2 12,21 C7.4,20.2 4,16.5 4,12 L4,6 Z M9,12 L11,14 L15,10"
@@ -144,59 +160,54 @@
         <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" Margin="0,0,10,0"
                 Command="{Binding ToggleLogCommand}" ToolTip.Tip="{Binding ShowLogTip}">
           <StackPanel Orientation="Horizontal" Spacing="8">
-            <Path Classes="icon-stroke" Data="{StaticResource Icon.Log}"
-                  Stroke="{DynamicResource WindowForeground}" Width="14" Height="14"/>
+            <TextBlock Text="›_" FontFamily="{DynamicResource ThemeMonoFontFamily}"/>
             <TextBlock Text="{Binding LogLabel}"/>
           </StackPanel>
         </Button>
       </DockPanel>
 
-      <Grid Grid.Row="1" ColumnDefinitions="240,*,360" ColumnSpacing="0">
-        <!-- Profiles -->
+      <Grid Grid.Row="1" ColumnDefinitions="240,*,360">
+        <!-- Profiles (empty state matches WPF: header + list + single Add profile) -->
         <Panel>
           <Border Classes="orbit-plate"/>
           <Border Classes="orbit-glass" Padding="14,18">
             <DockPanel>
               <DockPanel DockPanel.Dock="Top" Margin="6,0,0,10">
                 <Button DockPanel.Dock="Right" Classes="icon" Content="⋯" FontSize="18"
-                        Command="{Binding RemoveProfileCommand}"
-                        ToolTip.Tip="{Binding RemoveProfileTip}"/>
+                        ToolTip.Tip="{Binding ProfileMenuTip}">
+                  <Button.Flyout>
+                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                      <MenuItem Header="{Binding ChooseServerText}" Command="{Binding ManageServersCommand}"
+                                IsVisible="{Binding IsSubscriptionProfile}"/>
+                      <MenuItem Header="{Binding LinuxToolsText}">
+                        <MenuItem Header="{Binding ApplyCapsText}" Command="{Binding ApplyCapabilitiesCommand}"
+                                  ToolTip.Tip="{Binding ApplyCapsTip}"/>
+                        <MenuItem Header="{Binding TeardownText}" Command="{Binding EmergencyTeardownCommand}"
+                                  ToolTip.Tip="{Binding TeardownTip}"/>
+                      </MenuItem>
+                      <Separator/>
+                      <MenuItem Header="{Binding RemoveProfileTip}" Command="{Binding RemoveProfileCommand}"/>
+                    </MenuFlyout>
+                  </Button.Flyout>
+                </Button>
                 <TextBlock Text="{Binding ProfilesEyebrow}" Classes="eyebrow" VerticalAlignment="Center"/>
               </DockPanel>
 
               <StackPanel DockPanel.Dock="Bottom" Spacing="8">
-                <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding ImportConfigCommand}">
+                <Button Classes="ghost" HorizontalAlignment="Stretch" ToolTip.Tip="{Binding AddProfileText}">
+                  <Button.Flyout>
+                    <MenuFlyout Placement="Top">
+                      <MenuItem Header="{Binding FromFileText}" Command="{Binding ImportConfigCommand}"/>
+                      <MenuItem Header="{Binding ByLinkText}" Command="{Binding ImportSubscriptionCommand}"/>
+                    </MenuFlyout>
+                  </Button.Flyout>
                   <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Path Classes="icon-stroke" Data="{StaticResource Icon.Plus}"
-                          Stroke="{DynamicResource WindowForeground}" Width="14" Height="14"/>
-                    <TextBlock Text="{Binding AddAmneziaText}"/>
+                    <TextBlock Text="＋"/>
+                    <TextBlock Text="{Binding AddProfileText}"/>
                   </StackPanel>
                 </Button>
-                <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding ImportSubscriptionCommand}">
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Path Classes="icon-stroke" Data="{StaticResource Icon.Plus}"
-                          Stroke="{DynamicResource WindowForeground}" Width="14" Height="14"/>
-                    <TextBlock Text="{Binding AddByLinkText}"/>
-                  </StackPanel>
-                </Button>
-                <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding ManageServersCommand}"
-                        IsVisible="{Binding IsSubscriptionProfile}"
-                        ToolTip.Tip="{Binding ChooseServerText}">
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Path Classes="icon-stroke" Data="{StaticResource Icon.Chevron}"
-                          Stroke="{DynamicResource Accent}" Width="12" Height="12"/>
-                    <TextBlock Text="{Binding ChooseServerText}"/>
-                  </StackPanel>
-                </Button>
-                <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding ApplyCapabilitiesCommand}"
-                        ToolTip.Tip="{Binding ApplyCapsTip}">
-                  <TextBlock Text="{Binding ApplyCapsText}"/>
-                </Button>
-                <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding EmergencyTeardownCommand}"
-                        ToolTip.Tip="{Binding TeardownTip}">
-                  <TextBlock Text="{Binding TeardownText}"/>
-                </Button>
-                <TextBlock Text="{Binding PrivilegeStatus}" Classes="hint" TextWrapping="Wrap" Margin="4,4,4,0"/>
+                <TextBlock Text="{Binding PrivilegeStatus}" Classes="hint" TextWrapping="Wrap" Margin="4,0,4,0"
+                           IsVisible="{Binding !HasProfile}"/>
               </StackPanel>
 
               <ListBox Classes="busy"
@@ -234,38 +245,23 @@
           </Border>
         </Panel>
 
-        <!-- Connection hero -->
-        <StackPanel Grid.Column="1" Margin="18,0" Spacing="0">
+        <!-- Connection: eyebrow + status + globe + Connect -->
+        <StackPanel Grid.Column="1" Margin="18,0">
           <TextBlock Text="{Binding ConnectionEyebrow}" Classes="eyebrow" HorizontalAlignment="Center" Margin="0,4,0,0"/>
           <TextBlock Text="{Binding ConnectionStatusTitle}" FontSize="30" FontWeight="ExtraBold"
                      HorizontalAlignment="Center" Margin="0,6,0,0"/>
           <TextBlock Text="{Binding ConnectionSubtitle}" FontSize="13" Foreground="{DynamicResource MutedForeground}"
-                     HorizontalAlignment="Center" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" MaxWidth="440"/>
+                     HorizontalAlignment="Center" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" MaxWidth="440"
+                     IsVisible="{Binding HasProfile}"/>
           <TextBlock Text="{Binding StatusDetail}" Foreground="{DynamicResource DangerForeground}" FontSize="12"
                      TextAlignment="Center" TextWrapping="Wrap" MaxWidth="420" Margin="0,6,0,0"
                      IsVisible="{Binding StatusDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
 
-          <!-- Simplified hero (no WPF ThemeHero 3D / Effects). -->
           <Button Background="Transparent" BorderThickness="0" HorizontalAlignment="Center"
-                  Width="360" Height="300" Margin="0,4,0,4"
+                  Width="360" Height="320" Margin="0,0,0,0" Padding="0"
                   Command="{Binding ConnectionActionCommand}"
                   ToolTip.Tip="{Binding ConnectionActionText}">
-            <Panel Width="280" Height="280">
-              <Ellipse Width="220" Height="220" Stroke="{DynamicResource AccentLineStrong}" StrokeThickness="2"
-                       HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.55"/>
-              <Ellipse Width="160" Height="160" Stroke="{DynamicResource Accent}" StrokeThickness="3"
-                       HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.85"/>
-              <Ellipse Width="96" Height="96" HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Fill="{DynamicResource PushBackground}"/>
-              <Path Data="{StaticResource Icon.Power}"
-                    Width="28" Height="28" Stretch="Uniform"
-                    Stroke="{DynamicResource PrimaryForeground}" StrokeThickness="2.4"
-                    StrokeLineCap="Round" Fill="Transparent"
-                    HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-18,0,0"/>
-              <TextBlock Text="{Binding ConnectionActionText}" FontWeight="ExtraBold" FontSize="14"
-                         Foreground="{DynamicResource PrimaryForeground}"
-                         HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,28,0,0"/>
-            </Panel>
+            <controls:OrbitGlobeHero Width="360" Height="320" StatusKind="{Binding StatusKind}"/>
           </Button>
 
           <Button Classes="push" HorizontalAlignment="Center"
@@ -288,6 +284,7 @@
                 <Border Grid.Row="1" Grid.ColumnSpan="3" Background="#17FFFFFF"/>
 
                 <StackPanel Margin="0,0,18,16" Spacing="6">
+                  <TextBlock Text="{Binding ServerLabel}" Classes="hint"/>
                   <DockPanel>
                     <Button DockPanel.Dock="Right" Classes="icon"
                             Command="{Binding ManageServersCommand}"
@@ -296,10 +293,9 @@
                       <Path Classes="icon-stroke" Data="{StaticResource Icon.Chevron}"
                             Stroke="{DynamicResource Accent}" Width="12" Height="12"/>
                     </Button>
-                    <TextBlock Text="{Binding ServerLabel}" Classes="hint" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding ConnectedServer}" FontWeight="Bold" FontSize="15"
+                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                   </DockPanel>
-                  <TextBlock Text="{Binding ConnectedServer}" FontWeight="Bold" FontSize="15"
-                             TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2" Margin="18,0,0,16" Spacing="6">
                   <TextBlock Text="{Binding ExternalIpLabel}" Classes="hint"/>
@@ -338,40 +334,38 @@
             </Border>
           </Panel>
 
-          <StackPanel HorizontalAlignment="Center" Margin="0,12,0,0" Spacing="8"
-                      IsVisible="{Binding !HasProfile}">
-            <Button Classes="ghost" HorizontalAlignment="Stretch"
-                    Command="{Binding ImportConfigCommand}" Content="{Binding AddAmneziaText}"/>
-            <Button Classes="ghost" HorizontalAlignment="Stretch"
-                    Command="{Binding ImportSubscriptionCommand}" Content="{Binding ImportLinkText}"/>
-          </StackPanel>
+          <Button Classes="linkish" HorizontalAlignment="Center" Margin="0,8,0,0"
+                  IsVisible="{Binding !HasProfile}" Content="{Binding AddProfileText}">
+            <Button.Flyout>
+              <MenuFlyout Placement="Bottom">
+                <MenuItem Header="{Binding FromFileText}" Command="{Binding ImportConfigCommand}"/>
+                <MenuItem Header="{Binding ByLinkText}" Command="{Binding ImportSubscriptionCommand}"/>
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
         </StackPanel>
 
-        <!-- Routing -->
+        <!-- Routing: Two routes + mode cards + list + AddTargets -->
         <Panel Grid.Column="2">
           <Border Classes="orbit-plate"/>
           <Border Classes="orbit-glass" Padding="18">
             <DockPanel>
-              <StackPanel DockPanel.Dock="Top" Spacing="0">
+              <StackPanel DockPanel.Dock="Top">
                 <TextBlock Text="{Binding RoutingEyebrow}" Classes="eyebrow"/>
                 <TextBlock Text="{Binding RoutingTitle}" FontSize="22" FontWeight="ExtraBold" Margin="0,4,0,0"/>
                 <TextBlock Text="{Binding RulesProfileLabel}" Classes="hint" Margin="0,2,0,10"/>
 
-                <TabControl Classes="segment" SelectedIndex="{Binding RoutingModeIndex}">
-                  <TabItem Classes="segment" Header="{Binding ModeIncludeLabel}"/>
-                  <TabItem Classes="segment" Header="{Binding ModeExcludeLabel}"/>
-                </TabControl>
-                <TextBlock Text="{Binding SeparateListsHint}" Classes="hint" Margin="4,6,4,0" TextWrapping="Wrap"/>
-
-                <Border Background="{DynamicResource InfoBackground}" CornerRadius="12" Padding="12,8" Margin="0,10,0,0">
-                  <DockPanel>
-                    <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="32" Padding="10,0"
-                            Command="{Binding ReconnectCommand}" Content="{Binding ReconnectText}"
-                            IsVisible="{Binding IsConnected}"/>
-                    <TextBlock Text="{Binding RoutingHint}" TextWrapping="Wrap"
-                               Foreground="{DynamicResource InfoForeground}" FontSize="11.5"
-                               VerticalAlignment="Center"/>
-                  </DockPanel>
+                <Border Background="#40000000" CornerRadius="14" Padding="3">
+                  <UniformGrid Columns="2">
+                    <Button Classes="mode-card" Classes.selected="{Binding IsIncludeMode}"
+                            Command="{Binding SetIncludeModeCommand}">
+                      <TextBlock Text="{Binding ModeIncludeLabel}" TextWrapping="Wrap" TextAlignment="Center"/>
+                    </Button>
+                    <Button Classes="mode-card" Classes.selected="{Binding IsExcludeMode}"
+                            Command="{Binding SetExcludeModeCommand}">
+                      <TextBlock Text="{Binding ModeExcludeLabel}" TextWrapping="Wrap" TextAlignment="Center"/>
+                    </Button>
+                  </UniformGrid>
                 </Border>
 
                 <DockPanel Margin="4,12,4,4">
@@ -381,56 +375,24 @@
                 </DockPanel>
               </StackPanel>
 
-              <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,8,0,0">
-                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                  <TextBox Watermark="{Binding AddressWatermark}"
-                           Text="{Binding NewTargetText}"
-                           IsEnabled="{Binding !IsBusy}"
-                           MinHeight="40"/>
-                  <Button Grid.Column="1" Classes="ghost" MinWidth="88" MinHeight="40"
-                          Command="{Binding AddTargetCommand}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                      <Path Classes="icon-stroke" Data="{StaticResource Icon.Plus}"
-                            Stroke="{DynamicResource WindowForeground}" Width="12" Height="12"/>
-                      <TextBlock Text="{Binding AddText}"/>
-                    </StackPanel>
-                  </Button>
-                  <Button Grid.Column="2" Classes="ghost" MinWidth="88" MinHeight="40"
-                          Content="{Binding RemoveText}" Command="{Binding RemoveTargetCommand}"/>
-                </Grid>
-                <UniformGrid Columns="3" Margin="0,2,0,0">
-                  <Button Classes="ghost" MinHeight="40" Margin="0,0,4,0"
-                          Command="{Binding AddProcessCommand}"
-                          ToolTip.Tip="{Binding AddProcessTip}"
-                          BorderBrush="{DynamicResource AccentLine}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                      <Path Classes="icon-stroke" Data="{StaticResource Icon.Process}"
-                            Stroke="{DynamicResource Accent}" Width="14" Height="14"/>
-                      <TextBlock Text="{Binding AddProcessText}"/>
-                    </StackPanel>
-                  </Button>
-                  <Button Classes="ghost" MinHeight="40" Margin="2,0"
-                          Command="{Binding AddAppCommand}"
-                          ToolTip.Tip="{Binding AddAppTip}"
-                          BorderBrush="{DynamicResource AccentLine}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                      <Path Classes="icon-stroke" Data="{StaticResource Icon.App}"
-                            Stroke="{DynamicResource Accent}" Width="14" Height="14"/>
-                      <TextBlock Text="{Binding AddAppText}"/>
-                    </StackPanel>
-                  </Button>
-                  <Button Classes="ghost" MinHeight="40" Margin="4,0,0,0"
-                          Command="{Binding AddFolderCommand}"
-                          ToolTip.Tip="{Binding AddFolderTip}"
-                          BorderBrush="{DynamicResource AccentLine}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                      <Path Classes="icon-stroke" Data="{StaticResource Icon.Folder}"
-                            Stroke="{DynamicResource Accent}" Width="14" Height="14"/>
-                      <TextBlock Text="{Binding AddFolderText}"/>
-                    </StackPanel>
-                  </Button>
-                </UniformGrid>
-                <Border BorderBrush="#17FFFFFF" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,6,0,0">
+              <StackPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
+                <Button Classes="ghost" HorizontalAlignment="Stretch"
+                        BorderBrush="{DynamicResource AccentLine}">
+                  <Button.Flyout>
+                    <MenuFlyout Placement="Top">
+                      <MenuItem Header="{Binding AddAppText}" Command="{Binding AddAppCommand}"/>
+                      <MenuItem Header="{Binding AddProcessText}" Command="{Binding AddProcessCommand}"/>
+                      <MenuItem Header="{Binding AddFolderText}" Command="{Binding AddFolderCommand}"/>
+                      <MenuItem Header="{Binding AddListText}" Command="{Binding AddAddressListCommand}"/>
+                    </MenuFlyout>
+                  </Button.Flyout>
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="＋"/>
+                    <TextBlock Text="{Binding AddTargetsText}"/>
+                  </StackPanel>
+                </Button>
+
+                <Border BorderBrush="#17FFFFFF" BorderThickness="0,1,0,0" Margin="0,14,0,0" Padding="0,12,0,0">
                   <StackPanel Spacing="10">
                     <DockPanel>
                       <TextBlock Text="{Binding ThroughVpnLabel}" Width="100" FontWeight="Bold" FontSize="12"
@@ -447,47 +409,50 @@
                 </Border>
               </StackPanel>
 
-              <ListBox Classes="busy" Margin="0,4,0,8"
-                       ItemsSource="{Binding RouteTargets}"
-                       SelectedItem="{Binding SelectedTarget}"
-                       IsEnabled="{Binding !IsBusy}"
-                       FontSize="13">
-                <ListBox.ItemTemplate>
-                  <DataTemplate x:DataType="models:RouteRuleItem">
-                    <Border CornerRadius="12" Padding="10,8" Background="Transparent">
-                      <Grid ColumnDefinitions="Auto,*">
-                        <Border Width="32" Height="32" CornerRadius="10"
-                                Background="{DynamicResource AccentWash}"
-                                BorderBrush="{DynamicResource AccentLine}" BorderThickness="1">
-                          <Path Width="15" Height="15" Stretch="Uniform"
-                                Stroke="{DynamicResource Accent}" StrokeThickness="1.6"
-                                StrokeLineCap="Round" StrokeJoin="Round" Fill="Transparent"
-                                Data="{Binding IconData}"
-                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
-                          <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="13.5"
-                                     TextTrimming="CharacterEllipsis"/>
-                          <TextBlock Classes="hint" FontSize="11"
-                                     Text="{Binding KindLabel}"
-                                     TextTrimming="CharacterEllipsis"/>
-                          <TextBlock Text="{Binding Detail}" Classes="hint" FontSize="10.5"
-                                     FontFamily="{DynamicResource ThemeMonoFontFamily}"
-                                     TextTrimming="CharacterEllipsis"
-                                     IsVisible="{Binding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                        </StackPanel>
-                      </Grid>
-                    </Border>
-                  </DataTemplate>
-                </ListBox.ItemTemplate>
-              </ListBox>
+              <Panel Margin="0,0,0,8">
+                <ListBox Classes="busy"
+                         ItemsSource="{Binding RouteTargets}"
+                         SelectedItem="{Binding SelectedTarget}"
+                         IsEnabled="{Binding !IsBusy}"
+                         IsVisible="{Binding HasRules}"
+                         FontSize="13">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="models:RouteRuleItem">
+                      <Border CornerRadius="12" Padding="10,8" Background="Transparent">
+                        <Grid ColumnDefinitions="Auto,*">
+                          <Border Width="32" Height="32" CornerRadius="10"
+                                  Background="{DynamicResource AccentWash}"
+                                  BorderBrush="{DynamicResource AccentLine}" BorderThickness="1">
+                            <Path Width="15" Height="15" Stretch="Uniform"
+                                  Stroke="{DynamicResource Accent}" StrokeThickness="1.6"
+                                  StrokeLineCap="Round" StrokeJoin="Round" Fill="Transparent"
+                                  Data="{Binding IconData}"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                          </Border>
+                          <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="13.5"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Classes="hint" FontSize="11.5"
+                                       Text="{Binding KindLabel}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding Detail}" Classes="hint" FontSize="10.5"
+                                       FontFamily="{DynamicResource ThemeMonoFontFamily}"
+                                       TextTrimming="CharacterEllipsis"
+                                       IsVisible="{Binding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                          </StackPanel>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock Text="{Binding EmptyRulesText}" Classes="empty-hint" Margin="4,8,4,0"
+                           VerticalAlignment="Top" IsVisible="{Binding !HasRules}"/>
+              </Panel>
             </DockPanel>
           </Border>
         </Panel>
       </Grid>
     </Grid>
 
-    <!-- Log overlay -->
     <Border VerticalAlignment="Bottom" Height="200" Margin="40,0,40,24" Padding="20,12"
             CornerRadius="{DynamicResource CardCornerRadius}"
             Background="{DynamicResource CardBackground}"
@@ -495,11 +460,8 @@
             IsVisible="{Binding IsLogVisible}" ZIndex="20">
       <DockPanel>
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
-          <Button DockPanel.Dock="Right" Classes="icon"
-                  Command="{Binding ToggleLogCommand}" ToolTip.Tip="{Binding HideLogTip}">
-            <Path Classes="icon-stroke" Data="{StaticResource Icon.Close}"
-                  Stroke="{DynamicResource WindowForeground}" Width="12" Height="12"/>
-          </Button>
+          <Button DockPanel.Dock="Right" Classes="icon" Content="×" FontSize="16"
+                  Command="{Binding ToggleLogCommand}" ToolTip.Tip="{Binding HideLogTip}"/>
           <TextBlock Text="{Binding LogLabel}" FontWeight="Bold" VerticalAlignment="Center"/>
         </DockPanel>
         <ListBox ItemsSource="{Binding LogEntries}"

@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SelectiveVpn.Desktop.Views.AddressListWindow"
+        Title="Addresses"
+        Width="480" Height="360"
+        MinWidth="420" MinHeight="300"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource WindowForeground}"
+        FontFamily="{DynamicResource ThemeFontFamily}">
+  <Window.Styles>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="FontSize" Value="11.5"/>
+      <Setter Property="Foreground" Value="{DynamicResource MutedForeground}"/>
+    </Style>
+    <Style Selector="Button.ghost">
+      <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
+      <Setter Property="Background" Value="#0FFFFFFF"/>
+      <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="MinHeight" Value="40"/>
+      <Setter Property="Padding" Value="14,0"/>
+      <Setter Property="CornerRadius" Value="12"/>
+    </Style>
+    <Style Selector="Button.push">
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}"/>
+      <Setter Property="Background" Value="{DynamicResource PushBackground}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="FontWeight" Value="ExtraBold"/>
+      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="Padding" Value="18,0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource PushButtonCornerRadius}"/>
+    </Style>
+  </Window.Styles>
+  <DockPanel Margin="22">
+    <TextBlock DockPanel.Dock="Top" Name="TitleText" FontSize="20" FontWeight="ExtraBold" Margin="0,0,0,10"/>
+    <DockPanel DockPanel.Dock="Bottom" Margin="0,14,0,0">
+      <Button DockPanel.Dock="Right" Classes="ghost" MinWidth="100" Name="CancelButton" Click="CancelClick" Margin="8,0,0,0"/>
+      <Button DockPanel.Dock="Right" Classes="push" MinWidth="120" Name="AddButton" Click="AddClick"/>
+      <TextBlock Name="ErrorText" Classes="hint" Foreground="{DynamicResource DangerForeground}"
+                 TextWrapping="Wrap" VerticalAlignment="Center"/>
+    </DockPanel>
+    <TextBox Name="AddressBox" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="200"
+             Watermark="example.com"/>
+  </DockPanel>
+</Window>

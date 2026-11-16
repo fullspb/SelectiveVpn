@@ -95,6 +95,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         AddProcessCommand = new RelayCommand(() => AddFromPickerAsync(AppPickerSource.RunningProcesses), () => !IsBusy);
         AddAppCommand = new RelayCommand(() => AddFromPickerAsync(AppPickerSource.DesktopApps), () => !IsBusy);
         AddFolderCommand = new RelayCommand(AddFolderAsync, () => !IsBusy);
+        AddAddressListCommand = new RelayCommand(AddAddressListAsync, () => !IsBusy);
+        SetIncludeModeCommand = new RelayCommand(() => RoutingModeIndex = 0);
+        SetExcludeModeCommand = new RelayCommand(() => RoutingModeIndex = 1);
         ReconnectCommand = new RelayCommand(ReconnectAsync, () => !IsBusy && HasConfig);
         ToggleLogCommand = new RelayCommand(() => IsLogVisible = !IsLogVisible);
         ShowWindowCommand = new RelayCommand(ShowWindow);
@@ -135,6 +138,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public ICommand AddProcessCommand { get; }
     public ICommand AddAppCommand { get; }
     public ICommand AddFolderCommand { get; }
+    public ICommand AddAddressListCommand { get; }
+    public ICommand SetIncludeModeCommand { get; }
+    public ICommand SetExcludeModeCommand { get; }
     public ICommand ReconnectCommand { get; }
     public ICommand ToggleLogCommand { get; }
     public ICommand ShowWindowCommand { get; }
@@ -194,6 +200,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             PersistActiveList();
             _exceptListed = except;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(IsIncludeMode));
+            OnPropertyChanged(nameof(IsExcludeMode));
             LoadActiveList();
             RefreshOrbitLabels();
             Persist();
@@ -201,6 +209,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             _ = ApplyLiveRoutingAsync();
         }
     }
+
+    public bool IsIncludeMode => !_exceptListed;
+
+    public bool IsExcludeMode => _exceptListed;
+
+    public bool HasRules => RouteTargets.Count > 0;
 
     public bool FullTunnel => _exceptListed && RouteTargets.Count == 0;
 
@@ -229,17 +243,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         ? UiLoc.T("Hint.ExceptListed")
         : UiLoc.T("Hint.IncludeListed");
 
-    public string ListedRouteLabel => _exceptListed ? UiLoc.T("Orbit.BypassVpn") : UiLoc.T("Orbit.ThroughVpn");
+    public string ListedRouteLabel => _exceptListed ? UiLoc.T("Orbit.Direct") : UiLoc.T("Orbit.ThroughVpn");
 
     public string TargetCount => UiLoc.Tf("Orbit.TargetCount", RouteTargets.Count);
 
-    public string RoutingSummary => _exceptListed
-        ? (RouteTargets.Count == 0
-            ? UiLoc.T("Orbit.AllTraffic")
-            : UiLoc.T("Orbit.RemainingVpn"))
-        : (RouteTargets.Count == 0
-            ? UiLoc.T("Orbit.IncludeEmpty")
-            : UiLoc.T("Orbit.RemainingDirect"));
+    public string RoutingSummary => RouteTargets.Count == 0
+        ? (_exceptListed ? UiLoc.T("Orbit.AllTraffic") : UiLoc.T("Orbit.IncludeEmpty"))
+        : (_exceptListed ? UiLoc.T("Orbit.RemainingVpn") : UiLoc.T("Orbit.RemainingDirect"));
+
+    public string EmptyRulesText => UiLoc.T("Orbit.EmptyRules");
 
     public string RulesProfileLabel => HasProfile
         ? UiLoc.Tf("Orbit.RulesFor", ProfileName)
@@ -270,10 +282,16 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public string AddProcessText => UiLoc.T("Ui.AddProcess");
     public string AddAppText => UiLoc.T("Ui.AddApp");
     public string AddFolderText => UiLoc.T("Ui.AddFolder");
+    public string AddListText => UiLoc.T("Ui.AddList");
+    public string AddTargetsText => UiLoc.T("Orbit.AddTargets");
     public string AddProcessTip => UiLoc.T("Ui.AddProcessTip");
     public string AddAppTip => UiLoc.T("Ui.AddAppTip");
     public string AddFolderTip => UiLoc.T("Ui.AddFolderTip");
     public string AddressWatermark => UiLoc.T("Ui.AddressWatermark");
+    public string AddressPromptTitle => UiLoc.T("Ui.AddressPromptTitle");
+    public string AddProfileText => UiLoc.T("Ui.AddProfile");
+    public string FromFileText => UiLoc.T("Orbit.FromFile");
+    public string ByLinkText => UiLoc.T("Orbit.ByLink");
     public string AddAmneziaText => UiLoc.T("Ui.AddProfile");
     public string AddByLinkText => UiLoc.T("Ui.AddByLink");
     public string ImportLinkText => UiLoc.T("Ui.ImportLink");
@@ -282,7 +300,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public string ApplyCapsTip => UiLoc.T("Ui.ApplyCapsTip");
     public string TeardownText => UiLoc.T("Ui.Teardown");
     public string TeardownTip => UiLoc.T("Ui.TeardownTip");
+    public string LinuxToolsText => UiLoc.T("Ui.LinuxTools");
     public string RemoveProfileTip => UiLoc.T("Ui.RemoveProfile");
+    public string ProfileMenuTip => UiLoc.T("Orbit.ProfileMenu");
     public string RefreshTip => UiLoc.T("Ui.Refresh");
     public string CycleThemeTip => UiLoc.T("Ui.CycleTheme");
     public string LanguageDisplayName => UiLoc.CurrentCode == UiLoc.Russian ? "RU" : "EN";
@@ -290,6 +310,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public string TrayShowText => UiLoc.T("Ui.Show");
     public string TrayQuitText => UiLoc.T("Ui.Exit");
     public string RemoveRuleTip => UiLoc.T("Orbit.RemoveRule");
+    public string CancelText => UiLoc.T("Ui.Cancel");
 
     public string StatusText
     {
@@ -620,6 +641,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(RulesProfileLabel));
         OnPropertyChanged(nameof(FullTunnel));
         OnPropertyChanged(nameof(HasProfile));
+        OnPropertyChanged(nameof(HasRules));
+        OnPropertyChanged(nameof(IsIncludeMode));
+        OnPropertyChanged(nameof(IsExcludeMode));
         OnPropertyChanged(nameof(IsSubscriptionProfile));
         OnPropertyChanged(nameof(ConnectionProtocol));
         OnPropertyChanged(nameof(ConnectionSubtitle));
@@ -636,6 +660,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(SeparateListsHint));
         OnPropertyChanged(nameof(ThroughVpnLabel));
         OnPropertyChanged(nameof(DirectLabel));
+        OnPropertyChanged(nameof(EmptyRulesText));
         OnPropertyChanged(nameof(ServerLabel));
         OnPropertyChanged(nameof(ExternalIpLabel));
         OnPropertyChanged(nameof(DurationLabel));
@@ -651,10 +676,16 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(AddProcessText));
         OnPropertyChanged(nameof(AddAppText));
         OnPropertyChanged(nameof(AddFolderText));
+        OnPropertyChanged(nameof(AddListText));
+        OnPropertyChanged(nameof(AddTargetsText));
         OnPropertyChanged(nameof(AddProcessTip));
         OnPropertyChanged(nameof(AddAppTip));
         OnPropertyChanged(nameof(AddFolderTip));
         OnPropertyChanged(nameof(AddressWatermark));
+        OnPropertyChanged(nameof(AddressPromptTitle));
+        OnPropertyChanged(nameof(AddProfileText));
+        OnPropertyChanged(nameof(FromFileText));
+        OnPropertyChanged(nameof(ByLinkText));
         OnPropertyChanged(nameof(AddAmneziaText));
         OnPropertyChanged(nameof(AddByLinkText));
         OnPropertyChanged(nameof(ImportLinkText));
@@ -663,7 +694,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(ApplyCapsTip));
         OnPropertyChanged(nameof(TeardownText));
         OnPropertyChanged(nameof(TeardownTip));
+        OnPropertyChanged(nameof(LinuxToolsText));
         OnPropertyChanged(nameof(RemoveProfileTip));
+        OnPropertyChanged(nameof(ProfileMenuTip));
         OnPropertyChanged(nameof(RefreshTip));
         OnPropertyChanged(nameof(CycleThemeTip));
         OnPropertyChanged(nameof(LanguageDisplayName));
@@ -671,6 +704,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(TrayShowText));
         OnPropertyChanged(nameof(TrayQuitText));
         OnPropertyChanged(nameof(RemoveRuleTip));
+        OnPropertyChanged(nameof(CancelText));
         RefreshPrivilegeStatus();
     }
 
@@ -752,6 +786,44 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             return;
 
         TryAddPathRule(dialog.SelectedExecutablePath, RouteKind.File, "process");
+    }
+
+    private async Task AddAddressListAsync()
+    {
+        if (_window is null)
+            return;
+
+        var dialog = new AddressListWindow();
+        var ok = await dialog.ShowDialog<bool>(_window).ConfigureAwait(true);
+        if (!ok || string.IsNullOrWhiteSpace(dialog.AddressText))
+            return;
+
+        var added = 0;
+        foreach (var raw in dialog.AddressText.Split(['\r', '\n', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!RouteAddress.TryParse(raw, out var normalized, out var kind, out var error))
+            {
+                AppendLog($"Bad target: {error}");
+                continue;
+            }
+
+            if (RouteTargets.Any(existing =>
+                    existing.Kind == kind
+                    && string.Equals(existing.Path, normalized, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            RouteTargets.Add(new RouteRuleItem(normalized, kind));
+            added++;
+        }
+
+        if (added == 0)
+            return;
+
+        PersistActiveList();
+        Persist();
+        RefreshOrbitLabels();
+        AppendLog($"Added addresses: {added}");
+        _ = ApplyLiveRoutingAsync();
     }
 
     private async Task AddFolderAsync()
