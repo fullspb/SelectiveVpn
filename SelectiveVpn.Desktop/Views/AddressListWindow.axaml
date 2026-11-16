@@ -2,8 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="SelectiveVpn.Desktop.Views.AddressListWindow"
         Title="Address list"
-        Width="520" Height="460"
-        MinWidth="440" MinHeight="360"
+        Width="520" Height="480"
+        MinWidth="440" MinHeight="380"
         WindowStartupLocation="CenterOwner"
         CanResize="True"
         Background="{DynamicResource WindowBackground}"
@@ -43,43 +43,59 @@
       <Setter Property="BorderBrush" Value="{DynamicResource AccentLine}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="MinHeight" Value="34"/>
-      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="MinHeight" Value="32"/>
+      <Setter Property="Padding" Value="12,6"/>
       <Setter Property="CornerRadius" Value="10"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
   </Window.Styles>
-  <DockPanel Margin="22">
-    <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,10">
+
+  <!-- Grid rows keep preset + line count outside the addresses field (WPF parity). -->
+  <Grid Margin="22" RowDefinitions="Auto,*,Auto" RowSpacing="14">
+    <StackPanel Grid.Row="0" Spacing="6">
       <TextBlock Name="TitleText" FontSize="20" FontWeight="ExtraBold"/>
       <TextBlock Name="HintText" Classes="hint" TextWrapping="Wrap"/>
     </StackPanel>
 
-    <DockPanel DockPanel.Dock="Bottom" Margin="0,14,0,0">
-      <Button DockPanel.Dock="Right" Classes="ghost" MinWidth="100" Name="CancelButton" Click="CancelClick" Margin="8,0,0,0"/>
-      <Button DockPanel.Dock="Right" Classes="push" MinWidth="120" Name="AddButton" Click="AddClick"/>
-      <StackPanel VerticalAlignment="Center" Spacing="2">
-        <TextBlock Name="StatusText" Classes="hint" TextWrapping="Wrap"/>
-        <TextBlock Name="ErrorText" Classes="hint" Foreground="{DynamicResource DangerForeground}" TextWrapping="Wrap"/>
-      </StackPanel>
-    </DockPanel>
-
-    <DockPanel>
-      <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="8">
+      <StackPanel Grid.Row="0" Spacing="4">
         <TextBlock Name="NameLabel" Classes="hint"/>
         <TextBox Name="NameBox" MinHeight="36"/>
       </StackPanel>
 
-      <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+      <!-- Preset sits fully above the TextBox, same row as «Адреса» label. -->
+      <DockPanel Grid.Row="1" LastChildFill="True">
         <Button DockPanel.Dock="Right" Classes="preset" Name="YouTubePresetButton"
-                Click="YouTubePresetClick" Margin="8,0,0,0"/>
+                Click="YouTubePresetClick" Margin="10,0,0,0"
+                VerticalAlignment="Center"/>
         <TextBlock Name="AddressesLabel" Classes="hint" VerticalAlignment="Center"/>
       </DockPanel>
-      <TextBlock DockPanel.Dock="Bottom" Name="LineCountText" Classes="hint" Margin="0,6,0,0"
-                 HorizontalAlignment="Right"/>
-      <TextBox Name="AddressBox" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="180"
+
+      <TextBox Grid.Row="2" Name="AddressBox"
+               AcceptsReturn="True"
+               TextWrapping="Wrap"
+               MinHeight="160"
+               VerticalContentAlignment="Top"
                Watermark="example.com"/>
+
+      <!-- Count fully below the box, not clipped by its border. -->
+      <TextBlock Grid.Row="3" Name="LineCountText" Classes="hint"
+                 HorizontalAlignment="Right"
+                 VerticalAlignment="Center"
+                 Margin="0,2,0,0"/>
+    </Grid>
+
+    <DockPanel Grid.Row="2" LastChildFill="True">
+      <Button DockPanel.Dock="Right" Classes="ghost" MinWidth="100" Name="CancelButton"
+              Click="CancelClick" Margin="8,0,0,0"/>
+      <Button DockPanel.Dock="Right" Classes="push" MinWidth="120" Name="AddButton"
+              Click="AddClick" Margin="0,0,0,0"/>
+      <StackPanel VerticalAlignment="Center" Spacing="2" Margin="0,0,12,0">
+        <TextBlock Name="StatusText" Classes="hint" TextWrapping="Wrap"/>
+        <TextBlock Name="ErrorText" Classes="hint" Foreground="{DynamicResource DangerForeground}"
+                   TextWrapping="Wrap"/>
+      </StackPanel>
     </DockPanel>
-  </DockPanel>
+  </Grid>
 </Window>
