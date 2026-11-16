@@ -53,6 +53,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private string _outgoingTraffic = "—";
     private RouteRuleItem? _selectedTarget;
     private VpnProfileOption? _selectedProfile;
+    private string? _runningConfigPath;
     private CancellationTokenSource? _connectCts;
     private CancellationTokenSource? _trafficCts;
     private long _sessionGeneration;
@@ -239,13 +240,46 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _ => UiLoc.T("Orbit.Disconnected")
     };
 
-    public string ConnectionProfileName => !HasProfile || string.IsNullOrWhiteSpace(ProfileName)
-        ? UiLoc.T("Orbit.ChooseProfile")
-        : ProfileName;
+    public string RunningProfileName => Profiles.FirstOrDefault(profile => profile.IsRunning)?.Name
+        ?? (string.IsNullOrWhiteSpace(_runningConfigPath)
+            ? ProfileName
+            : Path.GetFileNameWithoutExtension(_runningConfigPath));
 
-    public string ConnectionProtocol => IsSubscriptionProfile ? UiLoc.T("Orbit.Subscription") : "AmneziaWG";
+    public string ConnectionProfileName
+    {
+        get
+        {
+            if (IsConnected)
+            {
+                return string.IsNullOrWhiteSpace(RunningProfileName)
+                    ? UiLoc.T("Orbit.ChooseProfile")
+                    : RunningProfileName;
+            }
 
-    public string ConnectionSubtitle => $"{ConnectionProfileName} · {ConnectionProtocol}";
+            return !HasProfile || string.IsNullOrWhiteSpace(ProfileName)
+                ? UiLoc.T("Orbit.ChooseProfile")
+                : ProfileName;
+        }
+    }
+
+    public string ConnectionProtocol
+    {
+        get
+        {
+            var path = IsConnected ? _runningConfigPath : ConfigPath;
+            return SubscriptionProfile.IsSubscriptionPath(path)
+                ? UiLoc.T("Orbit.Subscription")
+                : "AmneziaWG";
+        }
+    }
+
+    public bool IsSelectedProfileRunning => IsConnected && SamePath(ConfigPath, _runningConfigPath);
+
+    public bool IsOtherProfileRunning => IsConnected && !IsSelectedProfileRunning;
+
+    public string ConnectionSubtitle => IsOtherProfileRunning
+        ? UiLoc.Tf("Orbit.OtherProfileRunning", RunningProfileName)
+        : $"{ConnectionProfileName} · {ConnectionProtocol}";
 
     public string RoutingHint => _exceptListed
         ? UiLoc.T("Hint.ExceptListed")
@@ -466,9 +500,19 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             ProfileName = value.Name;
             LoadActiveList();
             RefreshActiveFlags();
+            RefreshRunningFlags();
             RefreshConnectedServerLabel();
             RefreshOrbitLabels();
             Persist();
+            if (IsConnected && !IsSelectedProfileRunning)
+            {
+                AppendLog(UiLoc.Tf("Log.OtherProfileSelected", RunningProfileName, value.Name));
+            }
+            else
+            {
+                AppendLog($"Profile “{value.Name}” selected.");
+            }
+
             RaiseCommands();
         }
     }
@@ -658,6 +702,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(ConnectionActionText));
         OnPropertyChanged(nameof(ConnectionStatusTitle));
         OnPropertyChanged(nameof(ConnectionProfileName));
+        OnPropertyChanged(nameof(RunningProfileName));
+        OnPropertyChanged(nameof(IsSelectedProfileRunning));
+        OnPropertyChanged(nameof(IsOtherProfileRunning));
         OnPropertyChanged(nameof(ThemeDisplayName));
         OnPropertyChanged(nameof(ProfilesEyebrow));
         OnPropertyChanged(nameof(ConnectionEyebrow));
@@ -740,7 +787,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private void RefreshRunningFlags()
     {
         foreach (var profile in Profiles)
-            profile.IsRunning = IsConnected && SamePath(profile.ConfigPath, ConfigPath);
+            profile.IsRunning = IsConnected && SamePath(profile.ConfigPath, _runningConfigPath);
     }
 
     private void AddTarget()
@@ -878,6 +925,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         var removing = SelectedProfile.ConfigPath;
         var name = SelectedProfile.Name;
+        if (IsConnected && SamePath(removing, _runningConfigPath))
+        {
+            AppendLog(UiLoc.Tf("Log.CannotRemoveRunningProfile", name));
+            return;
+        }
+
         _settings.Profiles.RemoveAll(p => SamePath(p.ConfigPath, removing));
         Profiles.Remove(SelectedProfile);
         SelectedProfile = Profiles.FirstOrDefault();
@@ -941,6 +994,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         var generation = ++_sessionGeneration;
         try
         {
+            // Full tunnel is exclude-mode + empty list (MATCH,VPN). Include-empty stays MATCH,DIRECT
+            // on Linux so browsing works before rules are added. Never pass leftover include targets
+            // with FullTunnelWhenEmpty=true — Core would still emit selective MATCH,DIRECT.
             var selectiveTargets = BuildTargets();
             var fullTunnelWhenEmpty = _exceptListed;
             AppendLog(_exceptListed
@@ -961,6 +1017,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             var result = await _mihomo.StartAsync(request, _connectCts.Token);
             AppendLog(result.Message);
             IsConnected = result.Succeeded && _mihomo.IsRunning;
+            _runningConfigPath = IsConnected ? ConfigPath : null;
+            RefreshRunningFlags();
             if (IsConnected)
             {
                 _connectedFor.Restart();
@@ -1070,6 +1128,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
             LinuxTunnelCleanup.TryCleanup();
             IsConnected = false;
+            _runningConfigPath = null;
+            RefreshRunningFlags();
             ExternalIp = "—";
             IncomingTraffic = "—";
             OutgoingTraffic = "—";
@@ -1079,6 +1139,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             StatusKind = "disconnected";
             StatusDetail = "";
             RefreshConnectedServerLabel();
+            RefreshOrbitLabels();
         }
         catch (Exception ex)
         {
@@ -1361,10 +1422,17 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         if (!IsConnected || !_mihomo.IsRunning || _disconnecting)
             return;
 
+        if (!IsSelectedProfileRunning)
+        {
+            AppendLog(UiLoc.Tf("Log.LiveReloadNeedsRunningProfile", RunningProfileName));
+            return;
+        }
+
         try
         {
+            var targets = BuildTargets();
             var result = await _mihomo.ReloadRoutingAsync(
-                BuildTargets(),
+                targets,
                 _exceptListed,
                 fullTunnelWhenEmpty: _exceptListed).ConfigureAwait(true);
             AppendLog(result.Succeeded
@@ -1465,6 +1533,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _sessionGeneration++;
         StopTrafficPolling();
         IsConnected = false;
+        _runningConfigPath = null;
+        RefreshRunningFlags();
         ExternalIp = "—";
         IncomingTraffic = "—";
         OutgoingTraffic = "—";
@@ -1474,6 +1544,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         StatusKind = "disconnected";
         StatusDetail = "";
         RefreshConnectedServerLabel();
+        RefreshOrbitLabels();
         RaiseCommands();
         return Task.CompletedTask;
     }
@@ -1568,6 +1639,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _sessionGeneration++;
         StopTrafficPolling();
         IsConnected = false;
+        _runningConfigPath = null;
+        RefreshRunningFlags();
         ExternalIp = "—";
         IncomingTraffic = "—";
         OutgoingTraffic = "—";
@@ -1579,6 +1652,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         AppendLog("Mihomo process exited unexpectedly.");
         LinuxTunnelCleanup.TryCleanup();
         RefreshConnectedServerLabel();
+        RefreshOrbitLabels();
         RaiseCommands();
     });
 

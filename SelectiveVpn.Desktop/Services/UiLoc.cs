@@ -183,6 +183,7 @@ internal static class UiLoc
         ["Orbit.ThemeGraphite"] = "Graphite",
         ["Orbit.Error"] = "Error",
         ["Orbit.ProfileMenu"] = "Profile actions",
+        ["Orbit.OtherProfileRunning"] = "Tunnel still uses “{0}” — reconnect to switch",
 
         ["Hint.ExceptListed"] =
             "All traffic goes through VPN except apps, folders and addresses in this list. An empty list sends everything through VPN.",
@@ -190,6 +191,12 @@ internal static class UiLoc
             "Apps, folders and addresses in this list go through VPN. Everything else goes direct. An empty list keeps traffic direct.",
         ["Log.ModeExclude"] = "Mode: all traffic via VPN except the list.",
         ["Log.ModeInclude"] = "Mode: only listed traffic via VPN; empty list stays direct.",
+        ["Log.OtherProfileSelected"] =
+            "Selected “{1}”, but the tunnel is still “{0}”. Press Reconnect to switch profiles.",
+        ["Log.LiveReloadNeedsRunningProfile"] =
+            "Rule changes for this profile apply after Reconnect (tunnel is still “{0}”).",
+        ["Log.CannotRemoveRunningProfile"] =
+            "Disconnect before removing the running profile “{0}”.",
         ["Kind.Domain"] = "Domain",
         ["Kind.Ip"] = "IP",
         ["Kind.Process"] = "Process",
@@ -309,6 +316,7 @@ internal static class UiLoc
         ["Orbit.ThemeGraphite"] = "Графит",
         ["Orbit.Error"] = "Ошибка",
         ["Orbit.ProfileMenu"] = "Действия с профилем",
+        ["Orbit.OtherProfileRunning"] = "Туннель всё ещё «{0}» — переподключитесь, чтобы сменить",
 
         ["Hint.ExceptListed"] =
             "Через VPN идёт весь трафик, кроме приложений, папок и адресов из этого списка. Пустой список отправляет через VPN всё.",
@@ -316,6 +324,12 @@ internal static class UiLoc
             "Приложения, папки и адреса из списка идут через VPN. Остальной трафик — напрямую. Пока список пуст, трафик остаётся напрямую.",
         ["Log.ModeExclude"] = "Режим: весь трафик через VPN, кроме списка.",
         ["Log.ModeInclude"] = "Режим: через VPN только список; пустой список остаётся напрямую.",
+        ["Log.OtherProfileSelected"] =
+            "Выбран «{1}», но туннель всё ещё «{0}». Нажмите «Переподключить», чтобы сменить профиль.",
+        ["Log.LiveReloadNeedsRunningProfile"] =
+            "Изменения правил этого профиля применятся после переподключения (туннель всё ещё «{0}»).",
+        ["Log.CannotRemoveRunningProfile"] =
+            "Сначала отключитесь, чтобы убрать активный профиль «{0}».",
         ["Kind.Domain"] = "Домен",
         ["Kind.Ip"] = "IP",
         ["Kind.Process"] = "Процесс",
