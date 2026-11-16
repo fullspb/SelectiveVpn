@@ -57,6 +57,9 @@ internal sealed class DesktopSettings
 
     public string Theme { get; set; } = OrbitTheme.Orbit;
 
+    /// <summary>"auto", "ru", or "en". Auto follows CurrentUICulture.</summary>
+    public string Language { get; set; } = "auto";
+
     public List<SavedTarget> IncludeTargets { get; set; } = [];
 
     public List<SavedTarget> ExcludeTargets { get; set; } = [];
@@ -67,6 +70,8 @@ internal sealed class DesktopSettings
     {
         ConnectOnLaunch = false;
         Theme = OrbitTheme.Normalize(Theme);
+        if (string.IsNullOrWhiteSpace(Language))
+            Language = "auto";
 
         if (Profiles.Count == 0 && !string.IsNullOrWhiteSpace(ConfigPath) && File.Exists(ConfigPath))
         {
@@ -104,6 +109,7 @@ internal sealed class DesktopSettings
         FullTunnel = false,
         ExceptListed = false,
         Theme = OrbitTheme.Orbit,
+        Language = "auto",
         IncludeTargets = [],
         ExcludeTargets = [],
         Profiles = []

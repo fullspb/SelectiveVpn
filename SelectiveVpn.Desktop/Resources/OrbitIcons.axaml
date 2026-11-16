@@ -1,0 +1,16 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Compact Path icons (Segoe MDL2 stand-ins for Linux Avalonia). -->
+  <StreamGeometry x:Key="Icon.Plus">M12,5 L12,19 M5,12 L19,12</StreamGeometry>
+  <StreamGeometry x:Key="Icon.More">M6,12 A1.4,1.4 0 1 1 6.01,12 M12,12 A1.4,1.4 0 1 1 12.01,12 M18,12 A1.4,1.4 0 1 1 18.01,12</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Refresh">M17.5,8.5 A6.5,6.5 0 1 0 18,12 M17.5,8.5 L14.5,5.5 M17.5,8.5 L20.5,11</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Power">M12,3 L12,11 M6.2,5.4 A7.5,7.5 0 1 0 17.8,5.4</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Process">M12,4 A3.2,3.2 0 1 1 11.99,4 M5.5,19 C5.5,15.8 8.3,13.5 12,13.5 C15.7,13.5 18.5,15.8 18.5,19</StreamGeometry>
+  <StreamGeometry x:Key="Icon.App">M5,7 L19,7 L19,17 L5,17 Z M8,7 L8,17 M16,7 L16,17</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Folder">M4,7 L9,7 L11,9 L20,9 L20,18 L4,18 Z</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Domain">M12,4 A8,8 0 1 1 11.99,4 M4,12 L20,12 M12,4 C9,7.5 9,16.5 12,20 C15,16.5 15,7.5 12,4</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Ip">M7,8 L17,8 M7,12 L17,12 M7,16 L14,16</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Chevron">M8,6 L14,12 L8,18</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Close">M7,7 L17,17 M17,7 L7,17</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Log">M6,6 L18,6 M6,12 L14,12 M6,18 L16,18</StreamGeometry>
+</ResourceDictionary>

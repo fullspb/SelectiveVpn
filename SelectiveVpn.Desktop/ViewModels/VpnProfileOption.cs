@@ -1,3 +1,4 @@
+using SelectiveVpn.Desktop.Services;
 using SelectiveVpn.Engine;
 
 namespace SelectiveVpn.Desktop.ViewModels;
@@ -31,7 +32,7 @@ public sealed class VpnProfileOption : ViewModelBase
     public string Initial => string.IsNullOrWhiteSpace(Name) ? "?" : Name.Trim()[..1].ToUpperInvariant();
 
     public string KindLabel => _linkProtocols
-        ?? (SubscriptionProfile.IsSubscriptionPath(ConfigPath) ? "Subscription" : "AmneziaWG");
+        ?? (SubscriptionProfile.IsSubscriptionPath(ConfigPath) ? UiLoc.T("Orbit.Subscription") : "AmneziaWG");
 
     public bool IsSubscription => SubscriptionProfile.IsSubscriptionPath(ConfigPath);
 

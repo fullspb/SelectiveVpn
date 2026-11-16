@@ -37,10 +37,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private bool _isLogVisible;
     private bool _exceptListed;
     private bool _suppressProfileSelect;
-    private string _statusText = "Disconnected";
+    private string _statusText = UiLoc.T("Orbit.Disconnected");
     private string _statusKind = "disconnected";
     private string _statusDetail = "";
-    private string _profileName = "(no profile)";
+    private string _profileName = UiLoc.T("Ui.NoProfile");
     private string _configPath = "";
     private string _externalIp = "—";
     private string _connectedServer = "";
@@ -68,6 +68,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _settings = DesktopSettingsStore.Load(out _);
         _settings.ConnectOnLaunch = false;
         _exceptListed = _settings.ExceptListed || _settings.FullTunnel;
+        UiLoc.Apply(string.Equals(_settings.Language, "auto", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : _settings.Language);
+        UiLoc.LanguageChanged += OnLanguageChanged;
 
         LoadProfilesFromSettings();
         _engineLabel = string.IsNullOrWhiteSpace(_mihomo.EngineId)
@@ -96,6 +100,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         ShowWindowCommand = new RelayCommand(ShowWindow);
         ExitCommand = new RelayCommand(ExitAsync);
         CycleThemeCommand = new RelayCommand(CycleTheme);
+        CycleLanguageCommand = new RelayCommand(CycleLanguage);
 
         _durationTimer = new System.Timers.Timer(1000);
         _durationTimer.Elapsed += (_, _) => Dispatch(UpdateDuration);
@@ -103,9 +108,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         AppendLog("Orbit Avalonia UI ready. ConnectOnLaunch is off.");
         AppendLog($"Settings: {AppPaths.SettingsPath}");
-        AppendLog(_exceptListed
-            ? "Mode: all traffic via VPN except listed DOMAIN/IP/PROCESS (exclude)."
-            : "Mode: selective include — empty list → MATCH,DIRECT (Linux browsing fix).");
+        AppendLog(_exceptListed ? UiLoc.T("Log.ModeExclude") : UiLoc.T("Log.ModeInclude"));
         AppendLog(LinuxElevation.PrivilegeHint);
         RefreshOrbitLabels();
     }
@@ -137,6 +140,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public ICommand ShowWindowCommand { get; }
     public ICommand ExitCommand { get; }
     public ICommand CycleThemeCommand { get; }
+    public ICommand CycleLanguageCommand { get; }
 
     public string VersionLabel { get; } = "0.1.25";
 
@@ -193,55 +197,99 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             LoadActiveList();
             RefreshOrbitLabels();
             Persist();
-            AppendLog(except
-                ? "Exclude mode: listed DOMAIN/IP/PROCESS stay direct; rest MATCH,VPN."
-                : "Include mode: listed DOMAIN/IP/PROCESS via VPN; rest DIRECT (empty → DIRECT on Linux).");
+            AppendLog(except ? UiLoc.T("Log.ModeExclude") : UiLoc.T("Log.ModeInclude"));
             _ = ApplyLiveRoutingAsync();
         }
     }
 
     public bool FullTunnel => _exceptListed && RouteTargets.Count == 0;
 
-    public string ConnectionActionText => _disconnecting ? "Disconnecting…"
-        : _connectCts is not null ? "Connecting…"
-        : IsConnected ? "Disconnect"
-        : "Connect";
+    public string ConnectionActionText => _disconnecting ? UiLoc.T("Orbit.Stopping")
+        : _connectCts is not null ? UiLoc.T("Orbit.Connecting")
+        : IsConnected ? UiLoc.T("Ui.Disconnect")
+        : UiLoc.T("Ui.Connect");
 
     public string ConnectionStatusTitle => StatusKind switch
     {
-        "connected" => "Connected",
-        "connecting" => "Connecting…",
-        "error" => "Error",
-        _ => "Disconnected"
+        "connected" => UiLoc.T("Orbit.Connected"),
+        "connecting" => UiLoc.T("Orbit.Connecting"),
+        "error" => UiLoc.T("Orbit.Error"),
+        _ => UiLoc.T("Orbit.Disconnected")
     };
 
-    public string ConnectionProfileName => string.IsNullOrWhiteSpace(ProfileName) || ProfileName == "(no profile)"
-        ? "Choose a profile"
+    public string ConnectionProfileName => !HasProfile || string.IsNullOrWhiteSpace(ProfileName)
+        ? UiLoc.T("Orbit.ChooseProfile")
         : ProfileName;
 
-    public string ConnectionProtocol => IsSubscriptionProfile ? "Subscription" : "AmneziaWG";
+    public string ConnectionProtocol => IsSubscriptionProfile ? UiLoc.T("Orbit.Subscription") : "AmneziaWG";
 
     public string ConnectionSubtitle => $"{ConnectionProfileName} · {ConnectionProtocol}";
 
     public string RoutingHint => _exceptListed
-        ? "Exclude: listed DOMAIN/IP/PROCESS → DIRECT; everything else via VPN. Empty list = full tunnel (MATCH,VPN)."
-        : "Include: listed DOMAIN/IP/PROCESS → VPN; rest DIRECT. Empty list stays MATCH,DIRECT (Linux browsing fix).";
+        ? UiLoc.T("Hint.ExceptListed")
+        : UiLoc.T("Hint.IncludeListed");
 
-    public string ListedRouteLabel => _exceptListed ? "Bypass VPN" : "Through VPN";
+    public string ListedRouteLabel => _exceptListed ? UiLoc.T("Orbit.BypassVpn") : UiLoc.T("Orbit.ThroughVpn");
 
-    public string TargetCount => $"{RouteTargets.Count} in list";
+    public string TargetCount => UiLoc.Tf("Orbit.TargetCount", RouteTargets.Count);
 
     public string RoutingSummary => _exceptListed
         ? (RouteTargets.Count == 0
-            ? "All traffic goes through VPN."
-            : "Listed addresses/apps go direct. Other traffic goes through VPN.")
+            ? UiLoc.T("Orbit.AllTraffic")
+            : UiLoc.T("Orbit.RemainingVpn"))
         : (RouteTargets.Count == 0
-            ? "List empty — traffic stays direct until you add domains/IPs/processes."
-            : "Listed addresses/apps go through VPN. Other traffic goes direct.");
+            ? UiLoc.T("Orbit.IncludeEmpty")
+            : UiLoc.T("Orbit.RemainingDirect"));
 
     public string RulesProfileLabel => HasProfile
-        ? $"Rules for profile {ProfileName}"
-        : "Import a profile to edit rules.";
+        ? UiLoc.Tf("Orbit.RulesFor", ProfileName)
+        : UiLoc.T("Orbit.ChooseProfile");
+
+    // Chrome / tray labels (bound from AXAML).
+    public string ProfilesEyebrow => UiLoc.T("Ui.Profiles");
+    public string ConnectionEyebrow => UiLoc.T("Orbit.ConnectionEyebrow");
+    public string RoutingEyebrow => UiLoc.T("Orbit.RoutingEyebrow");
+    public string RoutingTitle => UiLoc.T("Orbit.RoutingTitle");
+    public string ModeIncludeLabel => UiLoc.T("Orbit.ModeInclude");
+    public string ModeExcludeLabel => UiLoc.T("Orbit.ModeExclude");
+    public string SeparateListsHint => UiLoc.T("Orbit.SeparateListsHint");
+    public string ThroughVpnLabel => UiLoc.T("Orbit.ThroughVpn");
+    public string DirectLabel => UiLoc.T("Orbit.Direct");
+    public string ServerLabel => UiLoc.T("Orbit.Server");
+    public string ExternalIpLabel => UiLoc.T("Orbit.ExternalIp");
+    public string DurationLabel => UiLoc.T("Orbit.ConnectionDuration");
+    public string TrafficLabel => UiLoc.T("Orbit.Traffic");
+    public string ReceivedLabel => UiLoc.T("Orbit.Received");
+    public string SentLabel => UiLoc.T("Orbit.Sent");
+    public string LogLabel => UiLoc.T("Orbit.Log");
+    public string ShowLogTip => UiLoc.T("Orbit.ShowLog");
+    public string HideLogTip => UiLoc.T("Orbit.HideLog");
+    public string ReconnectText => UiLoc.T("Orbit.Reconnect");
+    public string AddText => UiLoc.T("Ui.Add");
+    public string RemoveText => UiLoc.T("Ui.Remove");
+    public string AddProcessText => UiLoc.T("Ui.AddProcess");
+    public string AddAppText => UiLoc.T("Ui.AddApp");
+    public string AddFolderText => UiLoc.T("Ui.AddFolder");
+    public string AddProcessTip => UiLoc.T("Ui.AddProcessTip");
+    public string AddAppTip => UiLoc.T("Ui.AddAppTip");
+    public string AddFolderTip => UiLoc.T("Ui.AddFolderTip");
+    public string AddressWatermark => UiLoc.T("Ui.AddressWatermark");
+    public string AddAmneziaText => UiLoc.T("Ui.AddProfile");
+    public string AddByLinkText => UiLoc.T("Ui.AddByLink");
+    public string ImportLinkText => UiLoc.T("Ui.ImportLink");
+    public string ChooseServerText => UiLoc.T("Orbit.ManageServers");
+    public string ApplyCapsText => UiLoc.T("Ui.ApplyCaps");
+    public string ApplyCapsTip => UiLoc.T("Ui.ApplyCapsTip");
+    public string TeardownText => UiLoc.T("Ui.Teardown");
+    public string TeardownTip => UiLoc.T("Ui.TeardownTip");
+    public string RemoveProfileTip => UiLoc.T("Ui.RemoveProfile");
+    public string RefreshTip => UiLoc.T("Ui.Refresh");
+    public string CycleThemeTip => UiLoc.T("Ui.CycleTheme");
+    public string LanguageDisplayName => UiLoc.CurrentCode == UiLoc.Russian ? "RU" : "EN";
+    public string LanguageTip => UiLoc.T("Ui.Language");
+    public string TrayShowText => UiLoc.T("Ui.Show");
+    public string TrayQuitText => UiLoc.T("Ui.Exit");
+    public string RemoveRuleTip => UiLoc.T("Orbit.RemoveRule");
 
     public string StatusText
     {
@@ -377,7 +425,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             if (value is null)
             {
                 ConfigPath = "";
-                ProfileName = "(no profile)";
+                ProfileName = UiLoc.T("Ui.NoProfile");
                 RouteTargets.Clear();
                 ConnectedServer = "";
                 RefreshOrbitLabels();
@@ -416,12 +464,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     public string ThemeDisplayName => OrbitTheme.CurrentTheme switch
     {
-        OrbitTheme.Aurora => "Aurora",
-        OrbitTheme.Ocean => "Ocean",
-        OrbitTheme.Plum => "Plum",
-        OrbitTheme.Sunset => "Sunset",
-        OrbitTheme.Graphite => "Graphite",
-        _ => "Orbit"
+        OrbitTheme.Aurora => UiLoc.T("Orbit.ThemeAurora"),
+        OrbitTheme.Ocean => UiLoc.T("Orbit.ThemeOcean"),
+        OrbitTheme.Plum => UiLoc.T("Orbit.ThemePlum"),
+        OrbitTheme.Sunset => UiLoc.T("Orbit.ThemeSunset"),
+        OrbitTheme.Graphite => UiLoc.T("Orbit.ThemeGraphite"),
+        _ => UiLoc.T("Orbit.ThemeOrbit")
     };
 
     public void AttachWindow(Window window) => _window = window;
@@ -559,8 +607,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private void RefreshPrivilegeStatus()
     {
         PrivilegeStatus = LinuxElevation.CanConfigureTun()
-            ? "Privileges: CAP_NET_ADMIN / root available"
-            : "Privileges: need setcap on mihomo (or sudo). See Apply capabilities.";
+            ? UiLoc.T("Ui.PrivilegesOk")
+            : UiLoc.T("Ui.PrivilegesNeed");
     }
 
     private void RefreshOrbitLabels()
@@ -575,6 +623,70 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(IsSubscriptionProfile));
         OnPropertyChanged(nameof(ConnectionProtocol));
         OnPropertyChanged(nameof(ConnectionSubtitle));
+        OnPropertyChanged(nameof(ConnectionActionText));
+        OnPropertyChanged(nameof(ConnectionStatusTitle));
+        OnPropertyChanged(nameof(ConnectionProfileName));
+        OnPropertyChanged(nameof(ThemeDisplayName));
+        OnPropertyChanged(nameof(ProfilesEyebrow));
+        OnPropertyChanged(nameof(ConnectionEyebrow));
+        OnPropertyChanged(nameof(RoutingEyebrow));
+        OnPropertyChanged(nameof(RoutingTitle));
+        OnPropertyChanged(nameof(ModeIncludeLabel));
+        OnPropertyChanged(nameof(ModeExcludeLabel));
+        OnPropertyChanged(nameof(SeparateListsHint));
+        OnPropertyChanged(nameof(ThroughVpnLabel));
+        OnPropertyChanged(nameof(DirectLabel));
+        OnPropertyChanged(nameof(ServerLabel));
+        OnPropertyChanged(nameof(ExternalIpLabel));
+        OnPropertyChanged(nameof(DurationLabel));
+        OnPropertyChanged(nameof(TrafficLabel));
+        OnPropertyChanged(nameof(ReceivedLabel));
+        OnPropertyChanged(nameof(SentLabel));
+        OnPropertyChanged(nameof(LogLabel));
+        OnPropertyChanged(nameof(ShowLogTip));
+        OnPropertyChanged(nameof(HideLogTip));
+        OnPropertyChanged(nameof(ReconnectText));
+        OnPropertyChanged(nameof(AddText));
+        OnPropertyChanged(nameof(RemoveText));
+        OnPropertyChanged(nameof(AddProcessText));
+        OnPropertyChanged(nameof(AddAppText));
+        OnPropertyChanged(nameof(AddFolderText));
+        OnPropertyChanged(nameof(AddProcessTip));
+        OnPropertyChanged(nameof(AddAppTip));
+        OnPropertyChanged(nameof(AddFolderTip));
+        OnPropertyChanged(nameof(AddressWatermark));
+        OnPropertyChanged(nameof(AddAmneziaText));
+        OnPropertyChanged(nameof(AddByLinkText));
+        OnPropertyChanged(nameof(ImportLinkText));
+        OnPropertyChanged(nameof(ChooseServerText));
+        OnPropertyChanged(nameof(ApplyCapsText));
+        OnPropertyChanged(nameof(ApplyCapsTip));
+        OnPropertyChanged(nameof(TeardownText));
+        OnPropertyChanged(nameof(TeardownTip));
+        OnPropertyChanged(nameof(RemoveProfileTip));
+        OnPropertyChanged(nameof(RefreshTip));
+        OnPropertyChanged(nameof(CycleThemeTip));
+        OnPropertyChanged(nameof(LanguageDisplayName));
+        OnPropertyChanged(nameof(LanguageTip));
+        OnPropertyChanged(nameof(TrayShowText));
+        OnPropertyChanged(nameof(TrayQuitText));
+        OnPropertyChanged(nameof(RemoveRuleTip));
+        RefreshPrivilegeStatus();
+    }
+
+    private void OnLanguageChanged(object? sender, EventArgs e)
+        => Dispatch(() =>
+        {
+            RefreshOrbitLabels();
+            RaiseCommands();
+        });
+
+    private void CycleLanguage()
+    {
+        UiLoc.Cycle();
+        _settings.Language = UiLoc.CurrentCode;
+        Persist();
+        AppendLog($"{UiLoc.T("Ui.Language")}: {LanguageDisplayName}");
     }
 
     private void RefreshActiveFlags()
@@ -692,7 +804,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         if (SelectedProfile is null)
         {
             ConfigPath = "";
-            ProfileName = "(no profile)";
+            ProfileName = UiLoc.T("Ui.NoProfile");
             RouteTargets.Clear();
             ConnectedServer = "";
         }
@@ -1240,10 +1352,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         if (bytes < 0)
             bytes = 0;
 
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        string[] unitKeys = ["Unit.B", "Unit.KB", "Unit.MB", "Unit.GB", "Unit.TB"];
         double value = bytes;
         var unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
+        while (value >= 1024 && unit < unitKeys.Length - 1)
         {
             value /= 1024;
             unit++;
@@ -1252,7 +1364,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         var text = unit == 0
             ? bytes.ToString(CultureInfo.CurrentCulture)
             : value.ToString(value >= 100 ? "0" : "0.#", CultureInfo.CurrentCulture);
-        return text + " " + units[unit];
+        return text + " " + UiLoc.T(unitKeys[unit]);
     }
 
     private Task ApplyCapabilitiesAsync()
@@ -1337,6 +1449,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _settings.ExceptListed = _exceptListed;
         _settings.FullTunnel = FullTunnel;
         _settings.Theme = OrbitTheme.CurrentTheme;
+        _settings.Language = string.IsNullOrWhiteSpace(_settings.Language) ? "auto" : _settings.Language;
         if (!string.IsNullOrWhiteSpace(ConfigPath) && FindSaved(ConfigPath) is null && File.Exists(ConfigPath))
             _settings.Profiles.Add(new SavedProfile { ConfigPath = ConfigPath, IncludeTargets = [], ExcludeTargets = [] });
         DesktopSettingsStore.Save(_settings);
@@ -1428,6 +1541,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _durationTimer.Stop();
         _durationTimer.Dispose();
         _connectCts?.Cancel();
+        UiLoc.LanguageChanged -= OnLanguageChanged;
         _mihomo.EngineMessage -= OnEngineMessage;
         _mihomo.EngineStopped -= OnEngineStopped;
         try

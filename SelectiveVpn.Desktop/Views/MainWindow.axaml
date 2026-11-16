@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:SelectiveVpn.Desktop.ViewModels"
+        xmlns:models="using:SelectiveVpn.Desktop.Models"
         x:Class="SelectiveVpn.Desktop.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="SelectiveVPN"
@@ -70,6 +71,20 @@
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="BorderThickness" Value="0"/>
       <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
+      <Setter Property="CornerRadius" Value="8"/>
+    </Style>
+    <Style Selector="Button.icon:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#18FFFFFF"/>
+    </Style>
+    <Style Selector="Path.icon-stroke">
+      <Setter Property="Stroke" Value="{Binding $parent[Button].Foreground}"/>
+      <Setter Property="StrokeThickness" Value="1.8"/>
+      <Setter Property="StrokeLineCap" Value="Round"/>
+      <Setter Property="StrokeJoin" Value="Round"/>
+      <Setter Property="Fill" Value="Transparent"/>
+      <Setter Property="Width" Value="16"/>
+      <Setter Property="Height" Value="16"/>
+      <Setter Property="Stretch" Value="Uniform"/>
     </Style>
     <Style Selector="ListBox.busy">
       <Setter Property="Background" Value="Transparent"/>
@@ -120,14 +135,18 @@
         <Border BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="10" Padding="8,1" Margin="10,0,0,0" VerticalAlignment="Center">
           <TextBlock Text="{Binding VersionLabel}" FontSize="11" Foreground="{DynamicResource MutedForeground}"/>
         </Border>
-        <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" Margin="0,0,0,0"
-                Content="{Binding ThemeDisplayName}" Command="{Binding CycleThemeCommand}"
-                ToolTip.Tip="Cycle Orbit color scheme"/>
+        <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" MinWidth="52"
+                Content="{Binding LanguageDisplayName}" Command="{Binding CycleLanguageCommand}"
+                ToolTip.Tip="{Binding LanguageTip}"/>
         <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" Margin="0,0,10,0"
-                Command="{Binding ToggleLogCommand}" ToolTip.Tip="Show / hide log">
+                Content="{Binding ThemeDisplayName}" Command="{Binding CycleThemeCommand}"
+                ToolTip.Tip="{Binding CycleThemeTip}"/>
+        <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" Margin="0,0,10,0"
+                Command="{Binding ToggleLogCommand}" ToolTip.Tip="{Binding ShowLogTip}">
           <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBlock Text="›_" FontFamily="{DynamicResource ThemeMonoFontFamily}"/>
-            <TextBlock Text="Log"/>
+            <Path Classes="icon-stroke" Data="{StaticResource Icon.Log}"
+                  Stroke="{DynamicResource WindowForeground}" Width="14" Height="14"/>
+            <TextBlock Text="{Binding LogLabel}"/>
           </StackPanel>
         </Button>
       </DockPanel>
@@ -141,35 +160,41 @@
               <DockPanel DockPanel.Dock="Top" Margin="6,0,0,10">
                 <Button DockPanel.Dock="Right" Classes="icon" Content="⋯" FontSize="18"
                         Command="{Binding RemoveProfileCommand}"
-                        ToolTip.Tip="Remove selected profile"/>
-                <TextBlock Text="PROFILES" Classes="eyebrow" VerticalAlignment="Center"/>
+                        ToolTip.Tip="{Binding RemoveProfileTip}"/>
+                <TextBlock Text="{Binding ProfilesEyebrow}" Classes="eyebrow" VerticalAlignment="Center"/>
               </DockPanel>
 
               <StackPanel DockPanel.Dock="Bottom" Spacing="8">
                 <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding ImportConfigCommand}">
                   <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="＋"/>
-                    <TextBlock Text="Add AmneziaWG"/>
+                    <Path Classes="icon-stroke" Data="{StaticResource Icon.Plus}"
+                          Stroke="{DynamicResource WindowForeground}" Width="14" Height="14"/>
+                    <TextBlock Text="{Binding AddAmneziaText}"/>
                   </StackPanel>
                 </Button>
                 <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding ImportSubscriptionCommand}">
                   <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="＋"/>
-                    <TextBlock Text="By link / file"/>
+                    <Path Classes="icon-stroke" Data="{StaticResource Icon.Plus}"
+                          Stroke="{DynamicResource WindowForeground}" Width="14" Height="14"/>
+                    <TextBlock Text="{Binding AddByLinkText}"/>
                   </StackPanel>
                 </Button>
                 <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding ManageServersCommand}"
                         IsVisible="{Binding IsSubscriptionProfile}"
-                        ToolTip.Tip="Pick subscription node">
-                  <TextBlock Text="Choose server"/>
+                        ToolTip.Tip="{Binding ChooseServerText}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Path Classes="icon-stroke" Data="{StaticResource Icon.Chevron}"
+                          Stroke="{DynamicResource Accent}" Width="12" Height="12"/>
+                    <TextBlock Text="{Binding ChooseServerText}"/>
+                  </StackPanel>
                 </Button>
                 <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding ApplyCapabilitiesCommand}"
-                        ToolTip.Tip="pkexec setcap on mihomo">
-                  <TextBlock Text="Apply capabilities"/>
+                        ToolTip.Tip="{Binding ApplyCapsTip}">
+                  <TextBlock Text="{Binding ApplyCapsText}"/>
                 </Button>
                 <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding EmergencyTeardownCommand}"
-                        ToolTip.Tip="Kill leftovers + delete Meta + flush ip prefs 9000–9010">
-                  <TextBlock Text="Emergency teardown"/>
+                        ToolTip.Tip="{Binding TeardownTip}">
+                  <TextBlock Text="{Binding TeardownText}"/>
                 </Button>
                 <TextBlock Text="{Binding PrivilegeStatus}" Classes="hint" TextWrapping="Wrap" Margin="4,4,4,0"/>
               </StackPanel>
@@ -211,7 +236,7 @@
 
         <!-- Connection hero -->
         <StackPanel Grid.Column="1" Margin="18,0" Spacing="0">
-          <TextBlock Text="YOUR SECURE SPACE" Classes="eyebrow" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+          <TextBlock Text="{Binding ConnectionEyebrow}" Classes="eyebrow" HorizontalAlignment="Center" Margin="0,4,0,0"/>
           <TextBlock Text="{Binding ConnectionStatusTitle}" FontSize="30" FontWeight="ExtraBold"
                      HorizontalAlignment="Center" Margin="0,6,0,0"/>
           <TextBlock Text="{Binding ConnectionSubtitle}" FontSize="13" Foreground="{DynamicResource MutedForeground}"
@@ -222,7 +247,7 @@
 
           <!-- Simplified hero (no WPF ThemeHero 3D / Effects). -->
           <Button Background="Transparent" BorderThickness="0" HorizontalAlignment="Center"
-                  Width="360" Height="280" Margin="0,8,0,8"
+                  Width="360" Height="300" Margin="0,4,0,4"
                   Command="{Binding ConnectionActionCommand}"
                   ToolTip.Tip="{Binding ConnectionActionText}">
             <Panel Width="280" Height="280">
@@ -232,15 +257,27 @@
                        HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.85"/>
               <Ellipse Width="96" Height="96" HorizontalAlignment="Center" VerticalAlignment="Center"
                        Fill="{DynamicResource PushBackground}"/>
-              <TextBlock Text="{Binding ConnectionActionText}" FontWeight="ExtraBold" FontSize="16"
+              <Path Data="{StaticResource Icon.Power}"
+                    Width="28" Height="28" Stretch="Uniform"
+                    Stroke="{DynamicResource PrimaryForeground}" StrokeThickness="2.4"
+                    StrokeLineCap="Round" Fill="Transparent"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-18,0,0"/>
+              <TextBlock Text="{Binding ConnectionActionText}" FontWeight="ExtraBold" FontSize="14"
                          Foreground="{DynamicResource PrimaryForeground}"
-                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                         HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,28,0,0"/>
             </Panel>
           </Button>
 
           <Button Classes="push" HorizontalAlignment="Center"
-                  Command="{Binding ConnectionActionCommand}"
-                  Content="{Binding ConnectionActionText}"/>
+                  Command="{Binding ConnectionActionCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Path Data="{StaticResource Icon.Power}" Width="18" Height="18" Stretch="Uniform"
+                    Stroke="{DynamicResource PrimaryForeground}" StrokeThickness="2.4"
+                    StrokeLineCap="Round" Fill="Transparent"/>
+              <TextBlock Text="{Binding ConnectionActionText}" VerticalAlignment="Center"
+                         FontWeight="ExtraBold" FontSize="17"/>
+            </StackPanel>
+          </Button>
 
           <!-- Status chrome -->
           <Panel Margin="0,24,0,0">
@@ -252,41 +289,48 @@
 
                 <StackPanel Margin="0,0,18,16" Spacing="6">
                   <DockPanel>
-                    <Button DockPanel.Dock="Right" Classes="icon" Content="⋯" FontSize="14"
+                    <Button DockPanel.Dock="Right" Classes="icon"
                             Command="{Binding ManageServersCommand}"
                             IsVisible="{Binding IsSubscriptionProfile}"
-                            ToolTip.Tip="Choose server"/>
-                    <TextBlock Text="Server" Classes="hint" VerticalAlignment="Center"/>
+                            ToolTip.Tip="{Binding ChooseServerText}">
+                      <Path Classes="icon-stroke" Data="{StaticResource Icon.Chevron}"
+                            Stroke="{DynamicResource Accent}" Width="12" Height="12"/>
+                    </Button>
+                    <TextBlock Text="{Binding ServerLabel}" Classes="hint" VerticalAlignment="Center"/>
                   </DockPanel>
                   <TextBlock Text="{Binding ConnectedServer}" FontWeight="Bold" FontSize="15"
                              TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2" Margin="18,0,0,16" Spacing="6">
+                  <TextBlock Text="{Binding ExternalIpLabel}" Classes="hint"/>
                   <DockPanel>
-                    <Button DockPanel.Dock="Right" Classes="icon" Content="↻" FontSize="14"
-                            Command="{Binding RefreshIpCommand}" ToolTip.Tip="Refresh"/>
-                    <TextBlock Text="External IP" Classes="hint" VerticalAlignment="Center"/>
+                    <Button DockPanel.Dock="Right" Classes="icon" Margin="8,-4,0,-4"
+                            Command="{Binding RefreshIpCommand}" ToolTip.Tip="{Binding RefreshTip}">
+                      <Path Classes="icon-stroke" Data="{StaticResource Icon.Refresh}"
+                            Stroke="{DynamicResource WindowForeground}" Width="14" Height="14"/>
+                    </Button>
+                    <TextBlock Text="{Binding ExternalIp}" FontWeight="Bold" FontSize="15"
+                               FontFamily="{DynamicResource ThemeMonoFontFamily}" TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center"/>
                   </DockPanel>
-                  <TextBlock Text="{Binding ExternalIp}" FontWeight="Bold" FontSize="15"
-                             FontFamily="{DynamicResource ThemeMonoFontFamily}" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
                 <StackPanel Grid.Row="2" Margin="0,16,18,0" Spacing="4">
-                  <TextBlock Text="Connected for" Classes="hint"/>
+                  <TextBlock Text="{Binding DurationLabel}" Classes="hint"/>
                   <TextBlock Text="{Binding ConnectionDuration}" FontWeight="Bold" FontSize="20"
-                             FontFamily="{DynamicResource ThemeMonoFontFamily}"/>
+                             FontFamily="{DynamicResource ThemeMonoFontFamily}" Margin="0,4,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Row="2" Grid.Column="2" Margin="18,16,0,0" Spacing="6">
-                  <TextBlock Text="Traffic" Classes="hint"/>
-                  <Grid ColumnDefinitions="*,*">
+                  <TextBlock Text="{Binding TrafficLabel}" Classes="hint"/>
+                  <Grid ColumnDefinitions="*,*" Margin="0,6,0,0">
                     <StackPanel>
                       <TextBlock FontWeight="Bold" FontSize="15" Foreground="{DynamicResource Accent}"
                                  Text="{Binding IncomingTraffic, StringFormat=↓ {0}}"/>
-                      <TextBlock Text="Received" Classes="hint" FontSize="10.5"/>
+                      <TextBlock Text="{Binding ReceivedLabel}" Classes="hint" FontSize="10.5" Margin="0,2,0,0"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Margin="8,0,0,0">
                       <TextBlock FontWeight="Bold" FontSize="15" Foreground="{DynamicResource Accent2}"
                                  Text="{Binding OutgoingTraffic, StringFormat=↑ {0}}"/>
-                      <TextBlock Text="Sent" Classes="hint" FontSize="10.5"/>
+                      <TextBlock Text="{Binding SentLabel}" Classes="hint" FontSize="10.5" Margin="0,2,0,0"/>
                     </StackPanel>
                   </Grid>
                 </StackPanel>
@@ -297,9 +341,9 @@
           <StackPanel HorizontalAlignment="Center" Margin="0,12,0,0" Spacing="8"
                       IsVisible="{Binding !HasProfile}">
             <Button Classes="ghost" HorizontalAlignment="Stretch"
-                    Command="{Binding ImportConfigCommand}" Content="Add AmneziaWG"/>
+                    Command="{Binding ImportConfigCommand}" Content="{Binding AddAmneziaText}"/>
             <Button Classes="ghost" HorizontalAlignment="Stretch"
-                    Command="{Binding ImportSubscriptionCommand}" Content="Import by link / file"/>
+                    Command="{Binding ImportSubscriptionCommand}" Content="{Binding ImportLinkText}"/>
           </StackPanel>
         </StackPanel>
 
@@ -309,19 +353,20 @@
           <Border Classes="orbit-glass" Padding="18">
             <DockPanel>
               <StackPanel DockPanel.Dock="Top" Spacing="0">
-                <TextBlock Text="TRAFFIC BY YOUR RULES" Classes="eyebrow"/>
-                <TextBlock Text="Two routes." FontSize="22" FontWeight="ExtraBold" Margin="0,4,0,0"/>
+                <TextBlock Text="{Binding RoutingEyebrow}" Classes="eyebrow"/>
+                <TextBlock Text="{Binding RoutingTitle}" FontSize="22" FontWeight="ExtraBold" Margin="0,4,0,0"/>
                 <TextBlock Text="{Binding RulesProfileLabel}" Classes="hint" Margin="0,2,0,10"/>
 
                 <TabControl Classes="segment" SelectedIndex="{Binding RoutingModeIndex}">
-                  <TabItem Classes="segment" Header="Only selected traffic through VPN"/>
-                  <TabItem Classes="segment" Header="All traffic through VPN except selected"/>
+                  <TabItem Classes="segment" Header="{Binding ModeIncludeLabel}"/>
+                  <TabItem Classes="segment" Header="{Binding ModeExcludeLabel}"/>
                 </TabControl>
+                <TextBlock Text="{Binding SeparateListsHint}" Classes="hint" Margin="4,6,4,0" TextWrapping="Wrap"/>
 
                 <Border Background="{DynamicResource InfoBackground}" CornerRadius="12" Padding="12,8" Margin="0,10,0,0">
                   <DockPanel>
                     <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="32" Padding="10,0"
-                            Command="{Binding ReconnectCommand}" Content="Reconnect"
+                            Command="{Binding ReconnectCommand}" Content="{Binding ReconnectText}"
                             IsVisible="{Binding IsConnected}"/>
                     <TextBlock Text="{Binding RoutingHint}" TextWrapping="Wrap"
                                Foreground="{DynamicResource InfoForeground}" FontSize="11.5"
@@ -338,38 +383,66 @@
 
               <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,8,0,0">
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                  <TextBox Watermark="example.com or 1.2.3.4/32"
+                  <TextBox Watermark="{Binding AddressWatermark}"
                            Text="{Binding NewTargetText}"
-                           IsEnabled="{Binding !IsBusy}"/>
-                  <Button Grid.Column="1" Classes="ghost" MinWidth="72" MinHeight="40"
-                          Content="Add" Command="{Binding AddTargetCommand}"/>
-                  <Button Grid.Column="2" Classes="ghost" MinWidth="72" MinHeight="40"
-                          Content="Remove" Command="{Binding RemoveTargetCommand}"/>
+                           IsEnabled="{Binding !IsBusy}"
+                           MinHeight="40"/>
+                  <Button Grid.Column="1" Classes="ghost" MinWidth="88" MinHeight="40"
+                          Command="{Binding AddTargetCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Path Classes="icon-stroke" Data="{StaticResource Icon.Plus}"
+                            Stroke="{DynamicResource WindowForeground}" Width="12" Height="12"/>
+                      <TextBlock Text="{Binding AddText}"/>
+                    </StackPanel>
+                  </Button>
+                  <Button Grid.Column="2" Classes="ghost" MinWidth="88" MinHeight="40"
+                          Content="{Binding RemoveText}" Command="{Binding RemoveTargetCommand}"/>
                 </Grid>
                 <UniformGrid Columns="3" Margin="0,2,0,0">
-                  <Button Classes="ghost" MinHeight="36" Margin="0,0,4,0"
-                          Content="Process" Command="{Binding AddProcessCommand}"
-                          ToolTip.Tip="Add running process (/proc) as PROCESS-PATH"/>
-                  <Button Classes="ghost" MinHeight="36" Margin="2,0"
-                          Content="App" Command="{Binding AddAppCommand}"
-                          ToolTip.Tip="Add desktop application (.desktop → binary)"/>
-                  <Button Classes="ghost" MinHeight="36" Margin="4,0,0,0"
-                          Content="Folder" Command="{Binding AddFolderCommand}"
-                          ToolTip.Tip="Add folder as PROCESS-PATH-REGEX"/>
+                  <Button Classes="ghost" MinHeight="40" Margin="0,0,4,0"
+                          Command="{Binding AddProcessCommand}"
+                          ToolTip.Tip="{Binding AddProcessTip}"
+                          BorderBrush="{DynamicResource AccentLine}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Path Classes="icon-stroke" Data="{StaticResource Icon.Process}"
+                            Stroke="{DynamicResource Accent}" Width="14" Height="14"/>
+                      <TextBlock Text="{Binding AddProcessText}"/>
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="ghost" MinHeight="40" Margin="2,0"
+                          Command="{Binding AddAppCommand}"
+                          ToolTip.Tip="{Binding AddAppTip}"
+                          BorderBrush="{DynamicResource AccentLine}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Path Classes="icon-stroke" Data="{StaticResource Icon.App}"
+                            Stroke="{DynamicResource Accent}" Width="14" Height="14"/>
+                      <TextBlock Text="{Binding AddAppText}"/>
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="ghost" MinHeight="40" Margin="4,0,0,0"
+                          Command="{Binding AddFolderCommand}"
+                          ToolTip.Tip="{Binding AddFolderTip}"
+                          BorderBrush="{DynamicResource AccentLine}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Path Classes="icon-stroke" Data="{StaticResource Icon.Folder}"
+                            Stroke="{DynamicResource Accent}" Width="14" Height="14"/>
+                      <TextBlock Text="{Binding AddFolderText}"/>
+                    </StackPanel>
+                  </Button>
                 </UniformGrid>
-                <Border BorderBrush="#17FFFFFF" BorderThickness="0,1,0,0" Padding="0,12,0,0">
+                <Border BorderBrush="#17FFFFFF" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,6,0,0">
                   <StackPanel Spacing="10">
                     <DockPanel>
-                      <TextBlock Text="Through VPN" Width="90" FontWeight="Bold" FontSize="12"
+                      <TextBlock Text="{Binding ThroughVpnLabel}" Width="100" FontWeight="Bold" FontSize="12"
                                  Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
                       <Border Height="6" CornerRadius="3" Background="{DynamicResource AccentWashStrong}"/>
                     </DockPanel>
                     <DockPanel>
-                      <TextBlock Text="Direct" Width="90" FontWeight="Bold" FontSize="12"
+                      <TextBlock Text="{Binding DirectLabel}" Width="100" FontWeight="Bold" FontSize="12"
                                  Foreground="{DynamicResource MutedForeground}" VerticalAlignment="Center"/>
                       <Border Height="6" CornerRadius="3" Background="#12FFFFFF"/>
                     </DockPanel>
-                    <TextBlock Text="{Binding RoutingSummary}" Classes="hint" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding RoutingSummary}" Classes="hint" TextWrapping="Wrap" Margin="0,2,0,0"/>
                   </StackPanel>
                 </Border>
               </StackPanel>
@@ -380,17 +453,23 @@
                        IsEnabled="{Binding !IsBusy}"
                        FontSize="13">
                 <ListBox.ItemTemplate>
-                  <DataTemplate>
+                  <DataTemplate x:DataType="models:RouteRuleItem">
                     <Border CornerRadius="12" Padding="10,8" Background="Transparent">
                       <Grid ColumnDefinitions="Auto,*">
                         <Border Width="32" Height="32" CornerRadius="10"
                                 Background="{DynamicResource AccentWash}"
                                 BorderBrush="{DynamicResource AccentLine}" BorderThickness="1">
-                          <TextBlock Text="{Binding Glyph}" FontWeight="Bold" Foreground="{DynamicResource Accent}"
-                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                          <Path Width="15" Height="15" Stretch="Uniform"
+                                Stroke="{DynamicResource Accent}" StrokeThickness="1.6"
+                                StrokeLineCap="Round" StrokeJoin="Round" Fill="Transparent"
+                                Data="{Binding IconData}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
                           <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="13.5"
+                                     TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Classes="hint" FontSize="11"
+                                     Text="{Binding KindLabel}"
                                      TextTrimming="CharacterEllipsis"/>
                           <TextBlock Text="{Binding Detail}" Classes="hint" FontSize="10.5"
                                      FontFamily="{DynamicResource ThemeMonoFontFamily}"
@@ -416,9 +495,12 @@
             IsVisible="{Binding IsLogVisible}" ZIndex="20">
       <DockPanel>
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
-          <Button DockPanel.Dock="Right" Classes="icon" Content="×" FontSize="16"
-                  Command="{Binding ToggleLogCommand}" ToolTip.Tip="Hide log"/>
-          <TextBlock Text="Log" FontWeight="Bold" VerticalAlignment="Center"/>
+          <Button DockPanel.Dock="Right" Classes="icon"
+                  Command="{Binding ToggleLogCommand}" ToolTip.Tip="{Binding HideLogTip}">
+            <Path Classes="icon-stroke" Data="{StaticResource Icon.Close}"
+                  Stroke="{DynamicResource WindowForeground}" Width="12" Height="12"/>
+          </Button>
+          <TextBlock Text="{Binding LogLabel}" FontWeight="Bold" VerticalAlignment="Center"/>
         </DockPanel>
         <ListBox ItemsSource="{Binding LogEntries}"
                  Background="Transparent" BorderThickness="0"

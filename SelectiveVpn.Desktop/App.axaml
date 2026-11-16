@@ -8,6 +8,7 @@
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <ResourceInclude Source="avares://SelectiveVpn.Desktop/Resources/OrbitTheme.axaml"/>
+        <ResourceInclude Source="avares://SelectiveVpn.Desktop/Resources/OrbitIcons.axaml"/>
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Application.Resources>
@@ -38,13 +39,13 @@
                 Command="{Binding ShowWindowCommand}">
         <TrayIcon.Menu>
           <NativeMenu>
-            <NativeMenuItem Header="Show" Command="{Binding ShowWindowCommand}" />
+            <NativeMenuItem Header="{Binding TrayShowText}" Command="{Binding ShowWindowCommand}" />
             <NativeMenuItem Header="{Binding ConnectionActionText}" Command="{Binding ConnectionActionCommand}" />
             <NativeMenuItemSeparator />
-            <NativeMenuItem Header="Apply capabilities" Command="{Binding ApplyCapabilitiesCommand}" />
-            <NativeMenuItem Header="Emergency teardown" Command="{Binding EmergencyTeardownCommand}" />
+            <NativeMenuItem Header="{Binding ApplyCapsText}" Command="{Binding ApplyCapabilitiesCommand}" />
+            <NativeMenuItem Header="{Binding TeardownText}" Command="{Binding EmergencyTeardownCommand}" />
             <NativeMenuItemSeparator />
-            <NativeMenuItem Header="Quit" Command="{Binding ExitCommand}" />
+            <NativeMenuItem Header="{Binding TrayQuitText}" Command="{Binding ExitCommand}" />
           </NativeMenu>
         </TrayIcon.Menu>
       </TrayIcon>

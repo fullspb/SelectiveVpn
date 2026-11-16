@@ -1,3 +1,4 @@
+using SelectiveVpn.Desktop.Services;
 using SelectiveVpn.Models;
 
 namespace SelectiveVpn.Desktop.Models;
@@ -33,21 +34,22 @@ public sealed class RouteRuleItem
 
     public string Detail => Kind is RouteKind.File or RouteKind.Folder ? Path : "";
 
-    public string Glyph => Kind switch
+    /// <summary>StreamGeometry path data for the rule kind icon.</summary>
+    public string IconData => Kind switch
     {
-        RouteKind.Folder => "[]",
-        RouteKind.File => "P",
-        RouteKind.Ip => "#",
-        _ => "@"
+        RouteKind.Folder => "M4,7 L9,7 L11,9 L20,9 L20,18 L4,18 Z",
+        RouteKind.File => "M12,4 A3.2,3.2 0 1 1 11.99,4 M5.5,19 C5.5,15.8 8.3,13.5 12,13.5 C15.7,13.5 18.5,15.8 18.5,19",
+        RouteKind.Ip => "M7,8 L17,8 M7,12 L17,12 M7,16 L14,16",
+        _ => "M12,4 A8,8 0 1 1 11.99,4 M4,12 L20,12 M12,4 C9,7.5 9,16.5 12,20 C15,16.5 15,7.5 12,4"
     };
 
     public string KindLabel => Kind switch
     {
-        RouteKind.Folder => "Folder",
-        RouteKind.File => "Process",
-        RouteKind.Ip => "IP",
-        RouteKind.Domain => "Domain",
-        _ => "Rule"
+        RouteKind.Folder => UiLoc.T("Kind.Folder"),
+        RouteKind.File => UiLoc.T("Kind.Process"),
+        RouteKind.Ip => UiLoc.T("Kind.Ip"),
+        RouteKind.Domain => UiLoc.T("Kind.Domain"),
+        _ => UiLoc.T("Kind.Rule")
     };
 
     public RouteTarget ToRouteTarget()
