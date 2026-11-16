@@ -128,6 +128,38 @@
     <Style Selector="Button.profile-hit:pressed /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent"/>
     </Style>
+    <!-- Clickable Orbit globe: no Fluent PointerOver / focus rect (WPF HeroButton is chrome-free). -->
+    <Style Selector="Button.globe-hit">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FocusAdorner" Value="{x:Null}"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <ContentPresenter Name="PART_ContentPresenter"
+                            Content="{TemplateBinding Content}"
+                            Background="Transparent"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"/>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Button.globe-hit:focus /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Button.globe-hit:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Button.globe-hit:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Button.globe-hit:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
     <!-- Soft black shadow only (colored BoxShadow draws a sharp rect behind CornerRadius). -->
     <Style Selector="Border.profile-card">
       <Setter Property="CornerRadius" Value="16"/>
@@ -373,10 +405,11 @@
                      TextAlignment="Center" TextWrapping="Wrap" MaxWidth="420" Margin="0,6,0,0"
                      IsVisible="{Binding StatusDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
 
-          <Button Background="Transparent" BorderThickness="0" HorizontalAlignment="Center"
-                  Width="360" Height="320" Margin="0,0,0,0" Padding="0"
+          <Button Classes="globe-hit" HorizontalAlignment="Center"
+                  Width="360" Height="320" Margin="0,0,0,0"
                   Command="{Binding ConnectionActionCommand}"
-                  ToolTip.Tip="{Binding ConnectionActionText}">
+                  ToolTip.Tip="{Binding ConnectionActionText}"
+                  AutomationProperties.Name="{Binding ConnectionActionText}">
             <controls:OrbitGlobeHero Width="360" Height="320" StatusKind="{Binding StatusKind}"/>
           </Button>
 
