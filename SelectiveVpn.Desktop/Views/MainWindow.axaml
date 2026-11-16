@@ -8,9 +8,10 @@
         Title="SelectiveVPN"
         Icon="/Assets/SelectiveVpn.ico"
         Width="1140" Height="830"
-        MinWidth="960" MinHeight="700"
+        MinWidth="1140" MinHeight="830"
+        MaxWidth="1140" MaxHeight="830"
         WindowStartupLocation="CenterScreen"
-        CanResize="True"
+        CanResize="False"
         Background="{DynamicResource WindowBackground}"
         Foreground="{DynamicResource WindowForeground}"
         FontFamily="{DynamicResource ThemeFontFamily}">
@@ -247,8 +248,8 @@
     </Grid>
 
     <Grid Margin="20,0,20,20" RowDefinitions="52,*">
-      <!-- Title bar: brand left; Journal flush right (before window controls), then theme/language. -->
-      <DockPanel VerticalAlignment="Center">
+      <!-- Title bar: brand + version hug left (LastChildFill=False like WPF); Journal flush right. -->
+      <DockPanel LastChildFill="False" VerticalAlignment="Center">
         <!-- First Right-docked = furthest right (WPF Log placement). -->
         <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" Margin="10,0,0,0"
                 Command="{Binding ToggleLogCommand}" ToolTip.Tip="{Binding ShowLogTip}">
@@ -264,15 +265,21 @@
         <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" Margin="0,0,10,0"
                 Content="{Binding ThemeDisplayName}" Command="{Binding CycleThemeCommand}"
                 ToolTip.Tip="{Binding CycleThemeTip}"/>
-        <Viewbox Width="22" Height="22" Margin="0,0,10,0">
-          <Path Data="M12,3 L20,6 L20,12 C20,16.5 16.6,20.2 12,21 C7.4,20.2 4,16.5 4,12 L4,6 Z M9,12 L11,14 L15,10"
-                Stroke="{DynamicResource Accent}" StrokeThickness="2" StrokeJoin="Round"
-                StrokeLineCap="Round"/>
-        </Viewbox>
-        <TextBlock Text="SelectiveVPN" FontWeight="ExtraBold" FontSize="14" VerticalAlignment="Center"/>
-        <Border BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="10" Padding="8,1" Margin="10,0,0,0" VerticalAlignment="Center">
-          <TextBlock Text="{Binding VersionLabel}" FontSize="11" Foreground="{DynamicResource MutedForeground}"/>
-        </Border>
+        <StackPanel Orientation="Horizontal" Spacing="0" VerticalAlignment="Center"
+                    HorizontalAlignment="Left">
+          <Viewbox Width="22" Height="22" Margin="0,0,10,0" VerticalAlignment="Center">
+            <Path Data="M12,3 L20,6 L20,12 C20,16.5 16.6,20.2 12,21 C7.4,20.2 4,16.5 4,12 L4,6 Z M9,12 L11,14 L15,10"
+                  Stroke="{DynamicResource Accent}" StrokeThickness="2" StrokeJoin="Round"
+                  StrokeLineCap="Round"/>
+          </Viewbox>
+          <TextBlock Text="SelectiveVPN" FontWeight="ExtraBold" FontSize="14" VerticalAlignment="Center"/>
+          <Border HorizontalAlignment="Left" VerticalAlignment="Center"
+                  BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="10"
+                  Padding="8,1" Margin="10,0,0,0">
+            <TextBlock Text="{Binding VersionLabel}" FontSize="11"
+                       Foreground="{DynamicResource MutedForeground}"/>
+          </Border>
+        </StackPanel>
       </DockPanel>
 
       <Grid Grid.Row="1" ColumnDefinitions="240,*,360">
