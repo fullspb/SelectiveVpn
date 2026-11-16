@@ -53,9 +53,50 @@
       <Setter Property="Padding" Value="14,0"/>
       <Setter Property="CornerRadius" Value="12"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
     <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
       <Setter Property="Background" Value="#1FFFFFFF"/>
+    </Style>
+    <Style Selector="Button.ghost StackPanel">
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="ListBox.busy ListBoxItem">
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Margin" Value="0"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Border.profile-card">
+      <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="Padding" Value="12,10"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="BorderBrush" Value="#28FFFFFF"/>
+      <Setter Property="Margin" Value="0,0,0,10"/>
+      <Setter Property="BoxShadow" Value="0 14 28 0 #A6000000, 0 1 0 0 #33FFFFFF"/>
+      <Setter Property="Background">
+        <LinearGradientBrush StartPoint="0,0" EndPoint="0.9,1">
+          <GradientStop Color="#2AFFFFFF" Offset="0"/>
+          <GradientStop Color="#14FFFFFF" Offset="0.4"/>
+          <GradientStop Color="#08FFFFFF" Offset="1"/>
+        </LinearGradientBrush>
+      </Setter>
+    </Style>
+    <Style Selector="ListBoxItem:pointerover Border.profile-card">
+      <Setter Property="BorderBrush" Value="#40FFFFFF"/>
+      <Setter Property="BoxShadow" Value="0 16 32 0 #C0000000, 0 2 0 0 #40FFFFFF"/>
+    </Style>
+    <Style Selector="ListBoxItem:selected Border.profile-card">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentLineBright}"/>
+      <Setter Property="Background" Value="{DynamicResource ProfileSelectedBackground}"/>
+      <Setter Property="BoxShadow" Value="0 12 30 0 #997FE3FF, 0 6 16 0 #88000000"/>
+    </Style>
+    <Style Selector="Border.profile-avatar">
+      <Setter Property="Width" Value="34"/>
+      <Setter Property="Height" Value="34"/>
+      <Setter Property="CornerRadius" Value="11"/>
+      <Setter Property="BoxShadow" Value="0 6 14 0 #88000000, inset 0 1 0 0 #55FFFFFF"/>
     </Style>
     <Style Selector="Button.push">
       <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}"/>
@@ -201,9 +242,10 @@
                       <MenuItem Header="{Binding ByLinkText}" Command="{Binding ImportSubscriptionCommand}"/>
                     </MenuFlyout>
                   </Button.Flyout>
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="＋"/>
-                    <TextBlock Text="{Binding AddProfileText}"/>
+                  <StackPanel Orientation="Horizontal" Spacing="8"
+                              HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="＋" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding AddProfileText}" VerticalAlignment="Center"/>
                   </StackPanel>
                 </Button>
                 <TextBlock Text="{Binding PrivilegeStatus}" Classes="hint" TextWrapping="Wrap" Margin="4,0,4,0"
@@ -216,26 +258,22 @@
                        IsEnabled="{Binding !IsBusy}">
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="vm:VpnProfileOption">
-                    <Border CornerRadius="16" Padding="12,10" BorderThickness="1" BorderBrush="#17FFFFFF" Margin="0,0,0,10">
-                      <Border.Background>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                          <GradientStop Color="#16FFFFFF" Offset="0"/>
-                          <GradientStop Color="#06FFFFFF" Offset="1"/>
-                        </LinearGradientBrush>
-                      </Border.Background>
+                    <Border Classes="profile-card">
                       <Grid ColumnDefinitions="34,*,Auto">
-                        <Border Width="34" Height="34" CornerRadius="11" Background="{DynamicResource Accent}">
+                        <Border Classes="profile-avatar" Background="{DynamicResource Accent}">
                           <TextBlock Text="{Binding Initial}" FontWeight="ExtraBold" FontSize="13"
                                      Foreground="{DynamicResource PrimaryForeground}"
                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
                           <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis"/>
-                          <TextBlock Text="{Binding KindLabel}" FontSize="11.5" Foreground="{DynamicResource MutedForeground}"/>
+                          <TextBlock Text="{Binding KindLabel}" FontSize="11.5" Foreground="{DynamicResource MutedForeground}"
+                                     Margin="0,2,0,0"/>
                         </StackPanel>
-                        <Ellipse Grid.Column="2" Width="8" Height="8" VerticalAlignment="Center"
-                                 Fill="{DynamicResource Accent}"
-                                 IsVisible="{Binding IsRunning}"/>
+                        <Border Grid.Column="2" Width="8" Height="8" CornerRadius="4"
+                                VerticalAlignment="Center" Background="{DynamicResource Accent}"
+                                IsVisible="{Binding IsRunning}"
+                                BoxShadow="0 0 10 0 #E67FE3FF"/>
                       </Grid>
                     </Border>
                   </DataTemplate>
