@@ -323,6 +323,72 @@ public sealed class MihomoEngine : IMihomoController
         return CurrentTraffic();
     }
 
+    public async Task<OperationResult> ReloadRoutingAsync(
+        IReadOnlyList<RouteTarget> targets,
+        bool exceptListed,
+        bool fullTunnelWhenEmpty,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsRunning || _activeRequest is null)
+            return OperationResult.Fail(CoreText.T("Core.Engine.NotRunning", "Маршрутизация не запущена."));
+
+        foreach (var target in targets)
+        {
+            if (string.IsNullOrWhiteSpace(target.Path)
+                || target.Path.Contains(',')
+                || target.Path.Contains('\'')
+                || target.Path.Contains('\n')
+                || target.Path.Contains('\r'))
+            {
+                return OperationResult.Fail(CoreText.T("Core.Engine.BadPath", "Путь содержит недопустимый символ. Туннель не запускался."));
+            }
+        }
+
+        var updated = _activeRequest with
+        {
+            Targets = targets,
+            ExceptListed = exceptListed,
+            FullTunnelWhenEmpty = fullTunnelWhenEmpty
+        };
+
+        IReadOnlyList<string> discovered = Array.Empty<string>();
+        try
+        {
+            if (_processTree.IsSupported
+                && updated.Targets.Any(target => target.EffectiveKind == RouteKind.File))
+            {
+                discovered = _processTree.Expand(updated.Targets);
+            }
+        }
+        catch (Exception)
+        {
+            discovered = Array.Empty<string>();
+        }
+
+        bool reloaded;
+        try
+        {
+            reloaded = await ReloadExpandedConfigAsync(updated, discovered, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+
+        if (!reloaded)
+            return OperationResult.Fail(CoreText.T("Core.Engine.RulesReloadFail", "Не удалось обновить правила без переподключения."));
+
+        _activeRequest = updated;
+        StartProcessTreeWatch();
+        lock (_reloadGate)
+        {
+            foreach (var path in discovered)
+                _knownChildPaths.Add(path);
+        }
+
+        return OperationResult.Ok(CoreText.T("Core.Engine.RulesReloaded", "Правила маршрутизации обновлены без переподключения."));
+    }
+
     public async Task<OperationResult> SelectVpnNodeAsync(string nodeName, CancellationToken cancellationToken = default)
     {
         if (!IsRunning || _apiPort <= 0 || string.IsNullOrWhiteSpace(_apiSecret))

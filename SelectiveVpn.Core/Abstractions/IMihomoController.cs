@@ -27,6 +27,16 @@ public interface IMihomoController
 
     Task<VpnTraffic> QueryVpnTrafficAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Rewrites the running Mihomo config with new route targets and force-reloads it
+    /// without stopping the tunnel (PUT /configs?force=true).
+    /// </summary>
+    Task<OperationResult> ReloadRoutingAsync(
+        IReadOnlyList<RouteTarget> targets,
+        bool exceptListed,
+        bool fullTunnelWhenEmpty,
+        CancellationToken cancellationToken = default);
+
     Task<OperationResult> SelectVpnNodeAsync(string nodeName, CancellationToken cancellationToken = default);
 
     /// <summary>Текущий листовой узел группы VPN (с раскрытием AUTO), или null.</summary>

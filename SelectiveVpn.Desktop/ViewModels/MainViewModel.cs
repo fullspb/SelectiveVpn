@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net.Http;
 using System.Windows.Input;
 using Avalonia.Controls;
@@ -17,9 +18,9 @@ namespace SelectiveVpn.Desktop.ViewModels;
 
 /// <summary>
 /// Avalonia Orbit ViewModel: profiles, include/except (DOMAIN/IP + PROCESS-PATH),
-/// subscription import/server picker, Linux tunnel semantics (auto-redirect, dns-mode disabled,
-/// MATCH,VPN for full/exclude-empty, MATCH,DIRECT for include-empty, no resolvectl flush).
-/// ConnectOnLaunch stays off.
+/// subscription import/server picker, live Mihomo traffic counters, live rule reload,
+/// Linux tunnel semantics (auto-redirect, dns-mode disabled, MATCH,VPN for full/exclude-empty,
+/// MATCH,DIRECT for include-empty, no resolvectl flush). ConnectOnLaunch stays off.
 /// </summary>
 public sealed class MainViewModel : ViewModelBase, IDisposable
 {
@@ -53,6 +54,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private RouteRuleItem? _selectedTarget;
     private VpnProfileOption? _selectedProfile;
     private CancellationTokenSource? _connectCts;
+    private CancellationTokenSource? _trafficCts;
+    private long _sessionGeneration;
     private readonly System.Timers.Timer _durationTimer;
 
     public MainViewModel(IMihomoController mihomo, IUiDispatcher dispatcher)
@@ -193,6 +196,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             AppendLog(except
                 ? "Exclude mode: listed DOMAIN/IP/PROCESS stay direct; rest MATCH,VPN."
                 : "Include mode: listed DOMAIN/IP/PROCESS via VPN; rest DIRECT (empty → DIRECT on Linux).");
+            _ = ApplyLiveRoutingAsync();
         }
     }
 
@@ -607,6 +611,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         Persist();
         RefreshOrbitLabels();
         AppendLog($"Added {kind}: {normalized}");
+        _ = ApplyLiveRoutingAsync();
     }
 
     private void RemoveTarget()
@@ -621,6 +626,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         Persist();
         RefreshOrbitLabels();
         AppendLog($"Removed: {removed.Path}");
+        _ = ApplyLiveRoutingAsync();
     }
 
     private async Task AddFromPickerAsync(AppPickerSource source)
@@ -670,6 +676,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         Persist();
         RefreshOrbitLabels();
         AppendLog($"Added {label}: {path}");
+        _ = ApplyLiveRoutingAsync();
     }
 
     private void RemoveSelectedProfile()
@@ -734,10 +741,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         StatusKind = "connecting";
         StatusDetail = "";
         ExternalIp = "—";
+        StopTrafficPolling();
         IncomingTraffic = "—";
         OutgoingTraffic = "—";
         OnPropertyChanged(nameof(ConnectionActionText));
         _connectCts = new CancellationTokenSource();
+        var generation = ++_sessionGeneration;
         try
         {
             var selectiveTargets = BuildTargets();
@@ -768,6 +777,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 StatusKind = "connected";
                 StatusDetail = "";
                 Persist();
+                IncomingTraffic = "0 B";
+                OutgoingTraffic = "0 B";
+                if (generation == _sessionGeneration)
+                    StartTrafficPolling();
                 _ = RefreshIpAsync();
             }
             else
@@ -854,6 +867,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(ConnectionActionText));
         try
         {
+            _sessionGeneration++;
+            StopTrafficPolling();
             _connectCts?.Cancel();
             if (_mihomo.IsRunning)
             {
@@ -1149,6 +1164,97 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private async Task ApplyLiveRoutingAsync()
+    {
+        if (!IsConnected || !_mihomo.IsRunning || _disconnecting)
+            return;
+
+        try
+        {
+            var result = await _mihomo.ReloadRoutingAsync(
+                BuildTargets(),
+                _exceptListed,
+                fullTunnelWhenEmpty: _exceptListed).ConfigureAwait(true);
+            AppendLog(result.Succeeded
+                ? "Routing rules reloaded without reconnect."
+                : $"Live rule reload failed: {result.Message}");
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Live rule reload error: {ex.Message}");
+        }
+    }
+
+    private void StartTrafficPolling()
+    {
+        StopTrafficPolling();
+        _trafficCts = new CancellationTokenSource();
+        _ = PollTrafficAsync(_trafficCts.Token);
+    }
+
+    private void StopTrafficPolling()
+    {
+        if (_trafficCts is null)
+            return;
+
+        _trafficCts.Cancel();
+        _trafficCts.Dispose();
+        _trafficCts = null;
+    }
+
+    private async Task PollTrafficAsync(CancellationToken cancellationToken)
+    {
+        var generation = _sessionGeneration;
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
+                var traffic = await _mihomo.QueryVpnTrafficAsync(cancellationToken).ConfigureAwait(false);
+                Dispatch(() =>
+                {
+                    if (cancellationToken.IsCancellationRequested
+                        || generation != _sessionGeneration
+                        || !IsConnected
+                        || !_mihomo.IsRunning)
+                    {
+                        return;
+                    }
+
+                    IncomingTraffic = FormatBytes(traffic.IncomingBytes);
+                    OutgoingTraffic = FormatBytes(traffic.OutgoingBytes);
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception)
+            {
+            }
+        }
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes < 0)
+            bytes = 0;
+
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        double value = bytes;
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1)
+        {
+            value /= 1024;
+            unit++;
+        }
+
+        var text = unit == 0
+            ? bytes.ToString(CultureInfo.CurrentCulture)
+            : value.ToString(value >= 100 ? "0" : "0.#", CultureInfo.CurrentCulture);
+        return text + " " + units[unit];
+    }
+
     private Task ApplyCapabilitiesAsync()
     {
         var result = LinuxElevation.TryApplyMihomoCapabilities(
@@ -1164,8 +1270,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     {
         var result = LinuxElevation.TryEmergencyTeardown();
         AppendLog(result.Message);
+        _sessionGeneration++;
+        StopTrafficPolling();
         IsConnected = false;
         ExternalIp = "—";
+        IncomingTraffic = "—";
+        OutgoingTraffic = "—";
         _connectedFor.Reset();
         ConnectionDuration = "00:00:00";
         StatusText = "Disconnected";
@@ -1262,8 +1372,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         if (_disposed || _disconnecting)
             return;
 
+        _sessionGeneration++;
+        StopTrafficPolling();
         IsConnected = false;
         ExternalIp = "—";
+        IncomingTraffic = "—";
+        OutgoingTraffic = "—";
         _connectedFor.Reset();
         ConnectionDuration = "00:00:00";
         StatusText = "Engine stopped";
@@ -1309,6 +1423,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             return;
 
         _disposed = true;
+        _sessionGeneration++;
+        StopTrafficPolling();
         _durationTimer.Stop();
         _durationTimer.Dispose();
         _connectCts?.Cancel();

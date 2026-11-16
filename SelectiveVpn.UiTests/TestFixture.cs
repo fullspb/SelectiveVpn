@@ -208,6 +208,19 @@ internal sealed class FakeMihomoController(string cachePath) : IMihomoController
             ?? Task.FromResult(new VpnTraffic(315 * 1024 * 1024, 492 * 1024 * 1024));
     }
 
+    public List<(IReadOnlyList<RouteTarget> Targets, bool ExceptListed, bool FullTunnelWhenEmpty)> Reloads { get; } = [];
+
+    public Task<OperationResult> ReloadRoutingAsync(
+        IReadOnlyList<RouteTarget> targets,
+        bool exceptListed,
+        bool fullTunnelWhenEmpty,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Reloads.Add((targets, exceptListed, fullTunnelWhenEmpty));
+        return Task.FromResult(OperationResult.Ok("Test rules reloaded"));
+    }
+
     public async Task<OperationResult> SelectVpnNodeAsync(string nodeName, CancellationToken cancellationToken = default)
     {
         SelectedNodes.Add(nodeName);
