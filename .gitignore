@@ -6,6 +6,10 @@ installer/redist/
 msix/publish/
 msix/layout/
 msix/output/
+packaging/deb/build/
+packaging/deb/dist/
+packaging/deb/cache/
+
 *.user
 *.suo
 .vs/
