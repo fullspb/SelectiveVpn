@@ -1,0 +1,49 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Fallback Orbit palette; OrbitTheme.Apply overwrites brushes at runtime. -->
+  <SolidColorBrush x:Key="WindowBackground" Color="#0B0E1C"/>
+  <SolidColorBrush x:Key="WindowForeground" Color="#E8ECFF"/>
+  <SolidColorBrush x:Key="MutedForeground" Color="#9AA3C7"/>
+  <SolidColorBrush x:Key="CardBackground" Color="#151A31"/>
+  <SolidColorBrush x:Key="CardBorder" Color="#2A3358"/>
+  <SolidColorBrush x:Key="Accent" Color="#7FE3FF"/>
+  <SolidColorBrush x:Key="Accent2" Color="#B9A6FF"/>
+  <SolidColorBrush x:Key="PrimaryForeground" Color="#071022"/>
+  <SolidColorBrush x:Key="PrimaryEdge" Color="#2B5C8F"/>
+  <SolidColorBrush x:Key="InfoBackground" Color="#17304C"/>
+  <SolidColorBrush x:Key="InfoForeground" Color="#7FE3FF"/>
+  <SolidColorBrush x:Key="DangerForeground" Color="#F0A8B5"/>
+  <SolidColorBrush x:Key="HeroIdle" Color="#8A93B5"/>
+  <SolidColorBrush x:Key="HeroActive" Color="#7FE3FF"/>
+  <SolidColorBrush x:Key="HeroBusy" Color="#FFC46E"/>
+  <SolidColorBrush x:Key="OrbitAccentSoftBackground" Color="#17304C"/>
+  <SolidColorBrush x:Key="AccentWash" Color="#1A7FE3FF"/>
+  <SolidColorBrush x:Key="AccentWashStrong" Color="#267FE3FF"/>
+  <SolidColorBrush x:Key="AccentLine" Color="#337FE3FF"/>
+  <SolidColorBrush x:Key="AccentLineStrong" Color="#407FE3FF"/>
+  <SolidColorBrush x:Key="AccentLineBright" Color="#737FE3FF"/>
+  <SolidColorBrush x:Key="AccentBright" Color="#7FE3FF"/>
+  <SolidColorBrush x:Key="Avatar3" Color="#FFC46E"/>
+
+  <FontFamily x:Key="ThemeFontFamily">Inter, Segoe UI, Ubuntu, sans-serif</FontFamily>
+  <FontFamily x:Key="ThemeMonoFontFamily">Cascadia Code, Consolas, monospace</FontFamily>
+
+  <CornerRadius x:Key="PushButtonCornerRadius">18</CornerRadius>
+  <CornerRadius x:Key="CardCornerRadius">18</CornerRadius>
+
+  <LinearGradientBrush x:Key="PushBackground" StartPoint="0,0" EndPoint="1,1">
+    <GradientStop Color="#7FE3FF" Offset="0"/>
+    <GradientStop Color="#8C6EFF" Offset="1"/>
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="OrbitGlassFill" StartPoint="0,0" EndPoint="0.6,1">
+    <GradientStop Color="#1EFFFFFF" Offset="0"/>
+    <GradientStop Color="#08FFFFFF" Offset="1"/>
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="ProfileSelectedBackground" StartPoint="0,0" EndPoint="1,1">
+    <GradientStop Color="#2E7FE3FF" Offset="0"/>
+    <GradientStop Color="#1F8C6EFF" Offset="1"/>
+  </LinearGradientBrush>
+
+  <BoxShadows x:Key="OrbitPlateShadow">0 18 40 0 #99000000</BoxShadows>
+  <BoxShadows x:Key="PushButtonShadow">0 4 24 0 #737FE3FF</BoxShadows>
+</ResourceDictionary>

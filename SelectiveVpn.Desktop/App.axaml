@@ -4,20 +4,45 @@
              x:Class="SelectiveVpn.Desktop.App"
              x:DataType="vm:MainViewModel"
              RequestedThemeVariant="Dark">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://SelectiveVpn.Desktop/Resources/OrbitTheme.axaml"/>
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+
   <Application.Styles>
     <FluentTheme />
+    <Style Selector="Window">
+      <Setter Property="Background" Value="{DynamicResource WindowBackground}"/>
+      <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
+      <Setter Property="FontFamily" Value="{DynamicResource ThemeFontFamily}"/>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{DynamicResource FieldBackground}"/>
+      <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource FieldBorder}"/>
+      <Setter Property="CornerRadius" Value="9"/>
+    </Style>
+    <Style Selector="ListBox">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
+    </Style>
   </Application.Styles>
 
   <TrayIcon.Icons>
     <TrayIcons>
       <TrayIcon Icon="/Assets/SelectiveVpn.ico"
-                ToolTipText="Selective VPN"
+                ToolTipText="{Binding ConnectionStatusTitle}"
                 Command="{Binding ShowWindowCommand}">
         <TrayIcon.Menu>
           <NativeMenu>
             <NativeMenuItem Header="Show" Command="{Binding ShowWindowCommand}" />
-            <NativeMenuItem Header="Connect" Command="{Binding ConnectCommand}" />
-            <NativeMenuItem Header="Disconnect" Command="{Binding DisconnectCommand}" />
+            <NativeMenuItem Header="{Binding ConnectionActionText}" Command="{Binding ConnectionActionCommand}" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Apply capabilities" Command="{Binding ApplyCapabilitiesCommand}" />
+            <NativeMenuItem Header="Emergency teardown" Command="{Binding EmergencyTeardownCommand}" />
             <NativeMenuItemSeparator />
             <NativeMenuItem Header="Quit" Command="{Binding ExitCommand}" />
           </NativeMenu>

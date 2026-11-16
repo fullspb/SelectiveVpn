@@ -3,83 +3,392 @@
         xmlns:vm="using:SelectiveVpn.Desktop.ViewModels"
         x:Class="SelectiveVpn.Desktop.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="Selective VPN (Linux MVP)"
-        Width="760" Height="640"
-        MinWidth="600" MinHeight="520"
-        WindowStartupLocation="CenterScreen">
-  <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" RowSpacing="12">
-    <StackPanel Grid.Row="0" Spacing="4">
-      <TextBlock Text="Selective VPN" FontSize="26" FontWeight="SemiBold" />
-      <TextBlock Text="{Binding EngineLabel}" Opacity="0.7" />
-      <TextBlock Text="{Binding PrivilegeStatus}" Opacity="0.85" TextWrapping="Wrap" />
-    </StackPanel>
+        Title="SelectiveVPN"
+        Icon="/Assets/SelectiveVpn.ico"
+        Width="1140" Height="830"
+        MinWidth="960" MinHeight="700"
+        WindowStartupLocation="CenterScreen"
+        CanResize="True"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource WindowForeground}"
+        FontFamily="{DynamicResource ThemeFontFamily}">
 
-    <Border Grid.Row="1" Padding="14" CornerRadius="8" Background="#1AFFFFFF">
-      <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
-        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="2">
-          <TextBlock Text="{Binding StatusText}" FontSize="20" FontWeight="SemiBold" />
-          <TextBlock Text="{Binding ProfileName}" Opacity="0.8" />
-          <TextBlock Text="{Binding ConfigPath}" Opacity="0.55" TextTrimming="CharacterEllipsis" />
-        </StackPanel>
-        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-          <Button Content="{Binding ConnectionActionText}"
-                  Command="{Binding ConnectCommand}"
-                  MinWidth="110"
-                  IsVisible="{Binding !IsConnected}" />
-          <Button Content="Disconnect"
-                  Command="{Binding DisconnectCommand}"
-                  MinWidth="110"
-                  IsVisible="{Binding IsConnected}" />
+  <Window.Styles>
+    <Style Selector="TextBlock.eyebrow">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="{DynamicResource MutedForeground}"/>
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="FontSize" Value="11.5"/>
+      <Setter Property="Foreground" Value="{DynamicResource MutedForeground}"/>
+      <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+    <Style Selector="Border.orbit-glass">
+      <Setter Property="Background" Value="{DynamicResource OrbitGlassFill}"/>
+      <Setter Property="BorderBrush" Value="#17FFFFFF"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="22"/>
+    </Style>
+    <Style Selector="Border.orbit-plate">
+      <Setter Property="Background" Value="#33080B18"/>
+      <Setter Property="CornerRadius" Value="22"/>
+      <Setter Property="BoxShadow" Value="{DynamicResource OrbitPlateShadow}"/>
+    </Style>
+    <Style Selector="Button.ghost">
+      <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
+      <Setter Property="Background" Value="#0FFFFFFF"/>
+      <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="Padding" Value="14,0"/>
+      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#1FFFFFFF"/>
+    </Style>
+    <Style Selector="Button.push">
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}"/>
+      <Setter Property="FontSize" Value="17"/>
+      <Setter Property="FontWeight" Value="ExtraBold"/>
+      <Setter Property="Height" Value="64"/>
+      <Setter Property="Width" Value="260"/>
+      <Setter Property="Padding" Value="20,0"/>
+      <Setter Property="Background" Value="{DynamicResource PushBackground}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource PushButtonCornerRadius}"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.icon">
+      <Setter Property="Width" Value="30"/>
+      <Setter Property="Height" Value="30"/>
+      <Setter Property="Padding" Value="4"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
+    </Style>
+    <Style Selector="ListBox.busy">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
+    </Style>
+    <Style Selector="ListBox.busy:disabled">
+      <Setter Property="Opacity" Value="0.6"/>
+    </Style>
+    <Style Selector="TabControl.segment">
+      <Setter Property="Background" Value="#40000000"/>
+      <Setter Property="Padding" Value="3"/>
+      <Setter Property="CornerRadius" Value="14"/>
+    </Style>
+    <Style Selector="TabItem.segment">
+      <Setter Property="FontSize" Value="12.5"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource MutedForeground}"/>
+      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="Padding" Value="10,6"/>
+      <Setter Property="Margin" Value="2"/>
+    </Style>
+    <Style Selector="TabItem.segment:selected">
+      <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
+      <Setter Property="Background" Value="{DynamicResource OrbitAccentSoftBackground}"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid>
+    <!-- Soft glow backdrop (no WPF AnimatedBackground / BlurEffect). -->
+    <Grid IsHitTestVisible="False">
+      <Ellipse Width="520" Height="520" Margin="-120,-180,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+               Opacity="0.22" Fill="{DynamicResource Accent}" />
+      <Ellipse Width="480" Height="480" Margin="0,-80,-160,0" HorizontalAlignment="Right" VerticalAlignment="Top"
+               Opacity="0.14" Fill="{DynamicResource Accent2}" />
+    </Grid>
+
+    <Grid Margin="20,0,20,20" RowDefinitions="52,*">
+      <!-- Title bar -->
+      <DockPanel VerticalAlignment="Center">
+        <Viewbox Width="22" Height="22" Margin="0,0,10,0">
+          <Path Data="M12,3 L20,6 L20,12 C20,16.5 16.6,20.2 12,21 C7.4,20.2 4,16.5 4,12 L4,6 Z M9,12 L11,14 L15,10"
+                Stroke="{DynamicResource Accent}" StrokeThickness="2" StrokeJoin="Round"
+                StrokeLineCap="Round"/>
+        </Viewbox>
+        <TextBlock Text="SelectiveVPN" FontWeight="ExtraBold" FontSize="14" VerticalAlignment="Center"/>
+        <Border BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="10" Padding="8,1" Margin="10,0,0,0" VerticalAlignment="Center">
+          <TextBlock Text="{Binding VersionLabel}" FontSize="11" Foreground="{DynamicResource MutedForeground}"/>
+        </Border>
+        <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" Margin="0,0,0,0"
+                Content="{Binding ThemeDisplayName}" Command="{Binding CycleThemeCommand}"
+                ToolTip.Tip="Cycle Orbit color scheme"/>
+        <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" Margin="0,0,10,0"
+                Command="{Binding ToggleLogCommand}" ToolTip.Tip="Show / hide log">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="›_" FontFamily="{DynamicResource ThemeMonoFontFamily}"/>
+            <TextBlock Text="Log"/>
+          </StackPanel>
+        </Button>
+      </DockPanel>
+
+      <Grid Grid.Row="1" ColumnDefinitions="240,*,360" ColumnSpacing="0">
+        <!-- Profiles -->
+        <Panel>
+          <Border Classes="orbit-plate"/>
+          <Border Classes="orbit-glass" Padding="14,18">
+            <DockPanel>
+              <DockPanel DockPanel.Dock="Top" Margin="6,0,0,10">
+                <Button DockPanel.Dock="Right" Classes="icon" Content="⋯" FontSize="18"
+                        Command="{Binding RemoveProfileCommand}"
+                        ToolTip.Tip="Remove selected profile"/>
+                <TextBlock Text="PROFILES" Classes="eyebrow" VerticalAlignment="Center"/>
+              </DockPanel>
+
+              <StackPanel DockPanel.Dock="Bottom" Spacing="8">
+                <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding ImportConfigCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="＋"/>
+                    <TextBlock Text="Add profile"/>
+                  </StackPanel>
+                </Button>
+                <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding ApplyCapabilitiesCommand}"
+                        ToolTip.Tip="pkexec setcap on mihomo">
+                  <TextBlock Text="Apply capabilities"/>
+                </Button>
+                <Button Classes="ghost" HorizontalAlignment="Stretch" Command="{Binding EmergencyTeardownCommand}"
+                        ToolTip.Tip="Kill leftovers + delete Meta + flush ip prefs 9000–9010">
+                  <TextBlock Text="Emergency teardown"/>
+                </Button>
+                <TextBlock Text="{Binding PrivilegeStatus}" Classes="hint" TextWrapping="Wrap" Margin="4,4,4,0"/>
+              </StackPanel>
+
+              <ListBox Classes="busy"
+                       ItemsSource="{Binding Profiles}"
+                       SelectedItem="{Binding SelectedProfile}"
+                       IsEnabled="{Binding !IsBusy}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:VpnProfileOption">
+                    <Border CornerRadius="16" Padding="12,10" BorderThickness="1" BorderBrush="#17FFFFFF" Margin="0,0,0,10">
+                      <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                          <GradientStop Color="#16FFFFFF" Offset="0"/>
+                          <GradientStop Color="#06FFFFFF" Offset="1"/>
+                        </LinearGradientBrush>
+                      </Border.Background>
+                      <Grid ColumnDefinitions="34,*,Auto">
+                        <Border Width="34" Height="34" CornerRadius="11" Background="{DynamicResource Accent}">
+                          <TextBlock Text="{Binding Initial}" FontWeight="ExtraBold" FontSize="13"
+                                     Foreground="{DynamicResource PrimaryForeground}"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
+                          <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Text="{Binding KindLabel}" FontSize="11.5" Foreground="{DynamicResource MutedForeground}"/>
+                        </StackPanel>
+                        <Ellipse Grid.Column="2" Width="8" Height="8" VerticalAlignment="Center"
+                                 Fill="{DynamicResource Accent}"
+                                 IsVisible="{Binding IsRunning}"/>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </DockPanel>
+          </Border>
+        </Panel>
+
+        <!-- Connection hero -->
+        <StackPanel Grid.Column="1" Margin="18,0" Spacing="0">
+          <TextBlock Text="YOUR SECURE SPACE" Classes="eyebrow" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+          <TextBlock Text="{Binding ConnectionStatusTitle}" FontSize="30" FontWeight="ExtraBold"
+                     HorizontalAlignment="Center" Margin="0,6,0,0"/>
+          <TextBlock Text="{Binding ConnectionSubtitle}" FontSize="13" Foreground="{DynamicResource MutedForeground}"
+                     HorizontalAlignment="Center" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" MaxWidth="440"/>
+          <TextBlock Text="{Binding StatusDetail}" Foreground="{DynamicResource DangerForeground}" FontSize="12"
+                     TextAlignment="Center" TextWrapping="Wrap" MaxWidth="420" Margin="0,6,0,0"
+                     IsVisible="{Binding StatusDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+          <!-- Simplified hero (no WPF ThemeHero 3D / Effects). -->
+          <Button Background="Transparent" BorderThickness="0" HorizontalAlignment="Center"
+                  Width="360" Height="280" Margin="0,8,0,8"
+                  Command="{Binding ConnectionActionCommand}"
+                  ToolTip.Tip="{Binding ConnectionActionText}">
+            <Panel Width="280" Height="280">
+              <Ellipse Width="220" Height="220" Stroke="{DynamicResource AccentLineStrong}" StrokeThickness="2"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.55"/>
+              <Ellipse Width="160" Height="160" Stroke="{DynamicResource Accent}" StrokeThickness="3"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.85"/>
+              <Ellipse Width="96" Height="96" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Fill="{DynamicResource PushBackground}"/>
+              <TextBlock Text="{Binding ConnectionActionText}" FontWeight="ExtraBold" FontSize="16"
+                         Foreground="{DynamicResource PrimaryForeground}"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Panel>
+          </Button>
+
+          <Button Classes="push" HorizontalAlignment="Center"
+                  Command="{Binding ConnectionActionCommand}"
+                  Content="{Binding ConnectionActionText}"/>
+
+          <!-- Status chrome -->
+          <Panel Margin="0,24,0,0">
+            <Border Classes="orbit-plate" CornerRadius="20"/>
+            <Border Classes="orbit-glass" CornerRadius="20" Padding="22,18">
+              <Grid ColumnDefinitions="*,1,*" RowDefinitions="Auto,1,Auto">
+                <Border Grid.Column="1" Grid.RowSpan="3" Background="#17FFFFFF"/>
+                <Border Grid.Row="1" Grid.ColumnSpan="3" Background="#17FFFFFF"/>
+
+                <StackPanel Margin="0,0,18,16" Spacing="6">
+                  <TextBlock Text="Server" Classes="hint"/>
+                  <TextBlock Text="{Binding ConnectedServer}" FontWeight="Bold" FontSize="15"
+                             TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Margin="18,0,0,16" Spacing="6">
+                  <DockPanel>
+                    <Button DockPanel.Dock="Right" Classes="icon" Content="↻" FontSize="14"
+                            Command="{Binding RefreshIpCommand}" ToolTip.Tip="Refresh"/>
+                    <TextBlock Text="External IP" Classes="hint" VerticalAlignment="Center"/>
+                  </DockPanel>
+                  <TextBlock Text="{Binding ExternalIp}" FontWeight="Bold" FontSize="15"
+                             FontFamily="{DynamicResource ThemeMonoFontFamily}" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+                <StackPanel Grid.Row="2" Margin="0,16,18,0" Spacing="4">
+                  <TextBlock Text="Connected for" Classes="hint"/>
+                  <TextBlock Text="{Binding ConnectionDuration}" FontWeight="Bold" FontSize="20"
+                             FontFamily="{DynamicResource ThemeMonoFontFamily}"/>
+                </StackPanel>
+                <StackPanel Grid.Row="2" Grid.Column="2" Margin="18,16,0,0" Spacing="6">
+                  <TextBlock Text="Traffic" Classes="hint"/>
+                  <Grid ColumnDefinitions="*,*">
+                    <StackPanel>
+                      <TextBlock FontWeight="Bold" FontSize="15" Foreground="{DynamicResource Accent}"
+                                 Text="{Binding IncomingTraffic, StringFormat=↓ {0}}"/>
+                      <TextBlock Text="Received" Classes="hint" FontSize="10.5"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                      <TextBlock FontWeight="Bold" FontSize="15" Foreground="{DynamicResource Accent2}"
+                                 Text="{Binding OutgoingTraffic, StringFormat=↑ {0}}"/>
+                      <TextBlock Text="Sent" Classes="hint" FontSize="10.5"/>
+                    </StackPanel>
+                  </Grid>
+                </StackPanel>
+              </Grid>
+            </Border>
+          </Panel>
+
+          <Button Classes="ghost" HorizontalAlignment="Center" Margin="0,12,0,0"
+                  Command="{Binding ImportConfigCommand}"
+                  IsVisible="{Binding !HasProfile}"
+                  Content="Add profile"/>
         </StackPanel>
 
-        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="16">
-          <TextBlock VerticalAlignment="Center">
-            <Run Text="Exit IP:" />
-            <Run Text="{Binding ExternalIp}" FontWeight="SemiBold" />
-          </TextBlock>
-          <Button Content="Refresh IP" Command="{Binding RefreshIpCommand}" />
-        </StackPanel>
+        <!-- Routing -->
+        <Panel Grid.Column="2">
+          <Border Classes="orbit-plate"/>
+          <Border Classes="orbit-glass" Padding="18">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Top" Spacing="0">
+                <TextBlock Text="TRAFFIC BY YOUR RULES" Classes="eyebrow"/>
+                <TextBlock Text="Two routes." FontSize="22" FontWeight="ExtraBold" Margin="0,4,0,0"/>
+                <TextBlock Text="{Binding RulesProfileLabel}" Classes="hint" Margin="0,2,0,10"/>
 
-        <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
-                   Text="{Binding RoutingHint}"
-                   Opacity="0.75" TextWrapping="Wrap" FontSize="12" />
+                <TabControl Classes="segment" SelectedIndex="{Binding RoutingModeIndex}">
+                  <TabItem Classes="segment" Header="Only selected traffic through VPN"/>
+                  <TabItem Classes="segment" Header="All traffic through VPN except selected"/>
+                </TabControl>
+
+                <Border Background="{DynamicResource InfoBackground}" CornerRadius="12" Padding="12,8" Margin="0,10,0,0">
+                  <DockPanel>
+                    <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="32" Padding="10,0"
+                            Command="{Binding ReconnectCommand}" Content="Reconnect"
+                            IsVisible="{Binding IsConnected}"/>
+                    <TextBlock Text="{Binding RoutingHint}" TextWrapping="Wrap"
+                               Foreground="{DynamicResource InfoForeground}" FontSize="11.5"
+                               VerticalAlignment="Center"/>
+                  </DockPanel>
+                </Border>
+
+                <DockPanel Margin="4,12,4,4">
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding TargetCount}" Classes="hint"/>
+                  <TextBlock Text="{Binding ListedRouteLabel}" FontWeight="Bold" FontSize="12.5"
+                             Foreground="{DynamicResource Accent}"/>
+                </DockPanel>
+              </StackPanel>
+
+              <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,8,0,0">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                  <TextBox Watermark="example.com or 1.2.3.4/32"
+                           Text="{Binding NewTargetText}"
+                           IsEnabled="{Binding !IsBusy}"/>
+                  <Button Grid.Column="1" Classes="ghost" MinWidth="72" MinHeight="40"
+                          Content="Add" Command="{Binding AddTargetCommand}"/>
+                  <Button Grid.Column="2" Classes="ghost" MinWidth="72" MinHeight="40"
+                          Content="Remove" Command="{Binding RemoveTargetCommand}"/>
+                </Grid>
+                <Border BorderBrush="#17FFFFFF" BorderThickness="0,1,0,0" Padding="0,12,0,0">
+                  <StackPanel Spacing="10">
+                    <DockPanel>
+                      <TextBlock Text="Through VPN" Width="90" FontWeight="Bold" FontSize="12"
+                                 Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
+                      <Border Height="6" CornerRadius="3" Background="{DynamicResource AccentWashStrong}"/>
+                    </DockPanel>
+                    <DockPanel>
+                      <TextBlock Text="Direct" Width="90" FontWeight="Bold" FontSize="12"
+                                 Foreground="{DynamicResource MutedForeground}" VerticalAlignment="Center"/>
+                      <Border Height="6" CornerRadius="3" Background="#12FFFFFF"/>
+                    </DockPanel>
+                    <TextBlock Text="{Binding RoutingSummary}" Classes="hint" TextWrapping="Wrap"/>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+
+              <ListBox Classes="busy" Margin="0,4,0,8"
+                       ItemsSource="{Binding RouteTargets}"
+                       SelectedItem="{Binding SelectedTarget}"
+                       IsEnabled="{Binding !IsBusy}"
+                       FontFamily="{DynamicResource ThemeMonoFontFamily}"
+                       FontSize="13">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <Border CornerRadius="12" Padding="10,8" Background="Transparent">
+                      <Grid ColumnDefinitions="Auto,*">
+                        <Border Width="32" Height="32" CornerRadius="10"
+                                Background="{DynamicResource AccentWash}"
+                                BorderBrush="{DynamicResource AccentLine}" BorderThickness="1">
+                          <TextBlock Text="#" FontWeight="Bold" Foreground="{DynamicResource Accent}"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Grid.Column="1" Margin="12,0,0,0" Text="{Binding}"
+                                   FontWeight="Bold" FontSize="13.5" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"/>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </DockPanel>
+          </Border>
+        </Panel>
       </Grid>
-    </Border>
+    </Grid>
 
-    <StackPanel Grid.Row="2" Spacing="8">
-      <CheckBox Content="Full tunnel (all traffic via VPN)"
-                IsChecked="{Binding FullTunnel, Mode=TwoWay}" />
-      <TextBlock Text="Include via VPN (DOMAIN or IP/CIDR) — ignored while Full tunnel is on" Opacity="0.8" />
-      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-        <TextBox Grid.Column="0"
-                 Watermark="example.com or 1.2.3.4/32"
-                 Text="{Binding NewTargetText}" />
-        <Button Grid.Column="1" Content="Add" Command="{Binding AddTargetCommand}" MinWidth="72" />
-        <Button Grid.Column="2" Content="Remove" Command="{Binding RemoveTargetCommand}" MinWidth="72" />
-      </Grid>
-      <ListBox ItemsSource="{Binding IncludeTargets}"
-               SelectedItem="{Binding SelectedTarget}"
-               Height="88"
-               FontFamily="monospace" />
-    </StackPanel>
-
-    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8">
-      <Button Content="Import Amnezia .conf" Command="{Binding ImportConfigCommand}" />
-      <Button Content="Apply capabilities" Command="{Binding ApplyCapabilitiesCommand}"
-              ToolTip.Tip="One pkexec/sudo setcap on mihomo — preferred elevation path" />
-      <Button Content="Emergency teardown" Command="{Binding EmergencyTeardownCommand}"
-              ToolTip.Tip="Kill leftovers + delete Meta + flush ip rules 9000–9010" />
-    </StackPanel>
-
-    <Border Grid.Row="4" Padding="10" CornerRadius="8" Background="#12000000">
+    <!-- Log overlay -->
+    <Border VerticalAlignment="Bottom" Height="200" Margin="40,0,40,24" Padding="20,12"
+            CornerRadius="{DynamicResource CardCornerRadius}"
+            Background="{DynamicResource CardBackground}"
+            BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
+            IsVisible="{Binding IsLogVisible}" ZIndex="20">
       <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Text="Log" FontWeight="SemiBold" Margin="0,0,0,8" />
-        <ListBox ItemsSource="{Binding LogEntries}" FontFamily="monospace" FontSize="12" />
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+          <Button DockPanel.Dock="Right" Classes="icon" Content="×" FontSize="16"
+                  Command="{Binding ToggleLogCommand}" ToolTip.Tip="Hide log"/>
+          <TextBlock Text="Log" FontWeight="Bold" VerticalAlignment="Center"/>
+        </DockPanel>
+        <ListBox ItemsSource="{Binding LogEntries}"
+                 Background="Transparent" BorderThickness="0"
+                 FontFamily="{DynamicResource ThemeMonoFontFamily}" FontSize="11"/>
       </DockPanel>
     </Border>
-
-    <TextBlock Grid.Row="5"
-               Text="Settings: ~/.local/share/SelectiveVpn — ConnectOnLaunch disabled"
-               Opacity="0.55" FontSize="12" />
   </Grid>
 </Window>

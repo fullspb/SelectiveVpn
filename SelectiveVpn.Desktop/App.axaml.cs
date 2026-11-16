@@ -19,6 +19,10 @@ public partial class App : Application
         var root = AppPaths.RootDirectory;
         Directory.CreateDirectory(root);
 
+        var settings = DesktopSettingsStore.Load(out _);
+        settings.ConnectOnLaunch = false;
+        OrbitTheme.Apply(this, settings.Theme);
+
         var engine = new MihomoEngine(root);
         var dispatcher = new AvaloniaUiDispatcher();
         _mainViewModel = new MainViewModel(engine, dispatcher);

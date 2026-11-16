@@ -14,8 +14,10 @@ internal static class DesktopSettingsStore
 
         try
         {
-            return JsonSerializer.Deserialize<DesktopSettings>(File.ReadAllText(AppPaths.SettingsPath), Options)
-                   ?? DesktopSettings.CreateDefault();
+            var settings = JsonSerializer.Deserialize<DesktopSettings>(File.ReadAllText(AppPaths.SettingsPath), Options)
+                           ?? DesktopSettings.CreateDefault();
+            settings.MigrateLegacy();
+            return settings;
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
@@ -41,15 +43,58 @@ internal sealed class DesktopSettings
     /// <summary>Always leave false unless Sergey explicitly enables auto-connect.</summary>
     public bool ConnectOnLaunch { get; set; }
 
-    /// <summary>When false (Linux MVP default), empty include list uses MATCH,DIRECT.</summary>
+    /// <summary>Legacy Linux MVP flag; kept for migration. Prefer RoutingModeExcept + empty list.</summary>
     public bool FullTunnel { get; set; }
 
+    public bool ExceptListed { get; set; }
+
+    public string Theme { get; set; } = OrbitTheme.Orbit;
+
     public List<string> IncludeTargets { get; set; } = [];
+
+    public List<string> ExcludeTargets { get; set; } = [];
+
+    public List<SavedProfile> Profiles { get; set; } = [];
+
+    public void MigrateLegacy()
+    {
+        ConnectOnLaunch = false;
+        Theme = OrbitTheme.Normalize(Theme);
+
+        if (Profiles.Count == 0 && !string.IsNullOrWhiteSpace(ConfigPath) && File.Exists(ConfigPath))
+        {
+            Profiles.Add(new SavedProfile
+            {
+                ConfigPath = ConfigPath,
+                IncludeTargets = IncludeTargets?.ToList() ?? [],
+                ExcludeTargets = ExcludeTargets?.ToList() ?? []
+            });
+        }
+
+        foreach (var profile in Profiles)
+        {
+            profile.IncludeTargets ??= [];
+            profile.ExcludeTargets ??= [];
+        }
+    }
 
     public static DesktopSettings CreateDefault() => new()
     {
         ConnectOnLaunch = false,
         FullTunnel = false,
-        IncludeTargets = []
+        ExceptListed = false,
+        Theme = OrbitTheme.Orbit,
+        IncludeTargets = [],
+        ExcludeTargets = [],
+        Profiles = []
     };
+}
+
+internal sealed class SavedProfile
+{
+    public string ConfigPath { get; set; } = "";
+
+    public List<string> IncludeTargets { get; set; } = [];
+
+    public List<string> ExcludeTargets { get; set; } = [];
 }
