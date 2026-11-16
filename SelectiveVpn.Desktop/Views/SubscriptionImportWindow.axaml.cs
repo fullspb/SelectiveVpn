@@ -14,6 +14,12 @@ public partial class SubscriptionImportWindow : Window
     public SubscriptionImportWindow()
     {
         InitializeComponent();
+        Title = UiLoc.T("Import.Title");
+        HeadingText.Text = UiLoc.T("Import.Heading");
+        HintText.Text = UiLoc.T("Import.Hint");
+        CancelButton.Content = UiLoc.T("Ui.Cancel");
+        ImportButton.Content = UiLoc.T("Ui.Import");
+        FileButton.Content = UiLoc.T("Orbit.FromFile") + "…";
         Opened += (_, _) => UrlBox.Focus();
     }
 
@@ -48,7 +54,7 @@ public partial class SubscriptionImportWindow : Window
 
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Import subscription or config file",
+            Title = UiLoc.T("Import.Title"),
             AllowMultiple = false,
             FileTypeFilter =
             [

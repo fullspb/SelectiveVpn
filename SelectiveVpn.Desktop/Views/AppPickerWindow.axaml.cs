@@ -31,18 +31,23 @@ public partial class AppPickerWindow : Window
             ? LinuxRunningProcessCatalog.Load
             : LinuxDesktopAppCatalog.Load);
 
+        AddButton.Content = UiLoc.T("Ui.Add");
+        CancelButton.Content = UiLoc.T("Ui.Cancel");
+        BrowseButton.Content = UiLoc.T("Ui.Browse");
+        RefreshButton.Content = UiLoc.T("Ui.Refresh");
+
         if (source == AppPickerSource.RunningProcesses)
         {
-            Title = "Add process";
-            HeadingText.Text = "Choose a running process";
-            HintText.Text = "Select a program that is running now. The rule binds to its file and stays after restart.";
+            Title = UiLoc.T("ProcessPicker.Title");
+            HeadingText.Text = UiLoc.T("ProcessPicker.Heading");
+            HintText.Text = UiLoc.T("ProcessPicker.Hint");
             RefreshButton.IsVisible = true;
         }
         else
         {
-            Title = "Add application";
-            HeadingText.Text = "Choose a desktop application";
-            HintText.Text = "Applications come from .desktop entries. The rule uses the resolved binary path.";
+            Title = UiLoc.T("AppPicker.Title");
+            HeadingText.Text = UiLoc.T("AppPicker.Heading");
+            HintText.Text = UiLoc.T("AppPicker.Hint");
         }
 
         Opened += async (_, _) => await LoadAppsAsync().ConfigureAwait(true);
@@ -155,7 +160,7 @@ public partial class AppPickerWindow : Window
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Choose executable",
+            Title = UiLoc.T("Ui.ChooseExecutable"),
             AllowMultiple = false
         });
 

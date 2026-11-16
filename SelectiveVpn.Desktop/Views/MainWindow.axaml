@@ -58,7 +58,7 @@
     <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
       <Setter Property="Background" Value="#1FFFFFFF"/>
     </Style>
-    <Style Selector="Button.ghost StackPanel">
+    <Style Selector="Button.ghost StackPanel, Button.push StackPanel">
       <Setter Property="HorizontalAlignment" Value="Center"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
@@ -181,6 +181,8 @@
       <Setter Property="BorderThickness" Value="0"/>
       <Setter Property="Foreground" Value="{DynamicResource WindowForeground}"/>
       <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
     <Style Selector="Button.icon:pointerover /template/ ContentPresenter">
       <Setter Property="Background" Value="#18FFFFFF"/>
@@ -215,6 +217,8 @@
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="Padding" Value="8,4"/>
       <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
     <Style Selector="ListBox.busy">
       <Setter Property="Background" Value="Transparent"/>
@@ -243,8 +247,23 @@
     </Grid>
 
     <Grid Margin="20,0,20,20" RowDefinitions="52,*">
-      <!-- Title bar (WPF: brand + version + Log) -->
+      <!-- Title bar: brand left; Journal flush right (before window controls), then theme/language. -->
       <DockPanel VerticalAlignment="Center">
+        <!-- First Right-docked = furthest right (WPF Log placement). -->
+        <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" Margin="10,0,0,0"
+                Command="{Binding ToggleLogCommand}" ToolTip.Tip="{Binding ShowLogTip}">
+          <StackPanel Orientation="Horizontal" Spacing="8"
+                      HorizontalAlignment="Center" VerticalAlignment="Center">
+            <TextBlock Text="›_" FontFamily="{DynamicResource ThemeMonoFontFamily}" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding LogLabel}" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+        <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" MinWidth="52" Margin="0,0,10,0"
+                Content="{Binding LanguageDisplayName}" Command="{Binding CycleLanguageCommand}"
+                ToolTip.Tip="{Binding LanguageTip}"/>
+        <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" Margin="0,0,10,0"
+                Content="{Binding ThemeDisplayName}" Command="{Binding CycleThemeCommand}"
+                ToolTip.Tip="{Binding CycleThemeTip}"/>
         <Viewbox Width="22" Height="22" Margin="0,0,10,0">
           <Path Data="M12,3 L20,6 L20,12 C20,16.5 16.6,20.2 12,21 C7.4,20.2 4,16.5 4,12 L4,6 Z M9,12 L11,14 L15,10"
                 Stroke="{DynamicResource Accent}" StrokeThickness="2" StrokeJoin="Round"
@@ -254,19 +273,6 @@
         <Border BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="10" Padding="8,1" Margin="10,0,0,0" VerticalAlignment="Center">
           <TextBlock Text="{Binding VersionLabel}" FontSize="11" Foreground="{DynamicResource MutedForeground}"/>
         </Border>
-        <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" MinWidth="52"
-                Content="{Binding LanguageDisplayName}" Command="{Binding CycleLanguageCommand}"
-                ToolTip.Tip="{Binding LanguageTip}"/>
-        <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" Margin="0,0,10,0"
-                Content="{Binding ThemeDisplayName}" Command="{Binding CycleThemeCommand}"
-                ToolTip.Tip="{Binding CycleThemeTip}"/>
-        <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" Margin="0,0,10,0"
-                Command="{Binding ToggleLogCommand}" ToolTip.Tip="{Binding ShowLogTip}">
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBlock Text="›_" FontFamily="{DynamicResource ThemeMonoFontFamily}"/>
-            <TextBlock Text="{Binding LogLabel}"/>
-          </StackPanel>
-        </Button>
       </DockPanel>
 
       <Grid Grid.Row="1" ColumnDefinitions="240,*,360">
@@ -369,10 +375,12 @@
 
           <Button Classes="push" HorizontalAlignment="Center"
                   Command="{Binding ConnectionActionCommand}">
-            <StackPanel Orientation="Horizontal" Spacing="10">
+            <StackPanel Orientation="Horizontal" Spacing="10"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
               <Path Data="{StaticResource Icon.Power}" Width="18" Height="18" Stretch="Uniform"
                     Stroke="{DynamicResource PrimaryForeground}" StrokeThickness="2.4"
-                    StrokeLineCap="Round" Fill="Transparent"/>
+                    StrokeLineCap="Round" Fill="Transparent"
+                    VerticalAlignment="Center"/>
               <TextBlock Text="{Binding ConnectionActionText}" VerticalAlignment="Center"
                          FontWeight="ExtraBold" FontSize="17"/>
             </StackPanel>
@@ -489,9 +497,10 @@
                       <MenuItem Header="{Binding AddListText}" Command="{Binding AddAddressListCommand}"/>
                     </MenuFlyout>
                   </Button.Flyout>
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="＋"/>
-                    <TextBlock Text="{Binding AddTargetsText}"/>
+                  <StackPanel Orientation="Horizontal" Spacing="8"
+                              HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="＋" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding AddTargetsText}" VerticalAlignment="Center"/>
                   </StackPanel>
                 </Button>
 

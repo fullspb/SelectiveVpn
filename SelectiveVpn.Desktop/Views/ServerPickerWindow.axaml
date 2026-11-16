@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:models="using:SelectiveVpn.Models"
         x:Class="SelectiveVpn.Desktop.Views.ServerPickerWindow"
-        Title="Choose server"
+        Title="Subscription servers"
         Width="520" Height="560"
         MinWidth="420" MinHeight="400"
         WindowStartupLocation="CenterOwner"
@@ -24,6 +24,8 @@
       <Setter Property="MinHeight" Value="40"/>
       <Setter Property="Padding" Value="14,0"/>
       <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
     <Style Selector="Button.push">
       <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}"/>
@@ -33,17 +35,19 @@
       <Setter Property="MinHeight" Value="44"/>
       <Setter Property="Padding" Value="18,0"/>
       <Setter Property="CornerRadius" Value="{DynamicResource PushButtonCornerRadius}"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
   </Window.Styles>
   <DockPanel Margin="20">
     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
-        <Button Classes="ghost" MinHeight="36" Content="Refresh" Name="RefreshButton" Click="RefreshClick"/>
-        <Button Classes="ghost" MinHeight="36" Content="Ping" Name="PingButton" Click="PingClick"/>
+        <Button Classes="ghost" MinHeight="36" Name="RefreshButton" Click="RefreshClick"/>
+        <Button Classes="ghost" MinHeight="36" Name="PingButton" Click="PingClick"/>
       </StackPanel>
       <StackPanel Spacing="4">
-        <TextBlock Text="Servers" FontSize="20" FontWeight="ExtraBold"/>
-        <TextBlock Classes="hint" Text="Pick a node for this subscription profile."/>
+        <TextBlock Name="HeadingText" FontSize="20" FontWeight="ExtraBold"/>
+        <TextBlock Name="HintText" Classes="hint"/>
       </StackPanel>
     </DockPanel>
 
@@ -51,10 +55,10 @@
       <TextBlock Name="StatusText" Classes="hint" TextWrapping="Wrap"/>
       <TextBlock Name="ErrorText" Foreground="{DynamicResource DangerForeground}" TextWrapping="Wrap" IsVisible="False"/>
       <DockPanel>
-        <Button DockPanel.Dock="Right" Classes="ghost" MinWidth="100" Content="Cancel" Click="CancelClick" Margin="8,0,0,0"/>
-        <Button DockPanel.Dock="Right" Classes="push" MinWidth="120" Content="Select" Click="SelectClick"/>
-        <Button Classes="ghost" Content="Name ▾" Name="NameHeaderButton" Click="SortByNameClick"/>
-        <Button Classes="ghost" Content="Delay" Name="DelayHeaderButton" Click="SortByDelayClick" Margin="8,0,0,0"/>
+        <Button DockPanel.Dock="Right" Classes="ghost" MinWidth="100" Name="CancelButton" Click="CancelClick" Margin="8,0,0,0"/>
+        <Button DockPanel.Dock="Right" Classes="push" MinWidth="120" Name="SelectButton" Click="SelectClick"/>
+        <Button Classes="ghost" Name="NameHeaderButton" Click="SortByNameClick"/>
+        <Button Classes="ghost" Name="DelayHeaderButton" Click="SortByDelayClick" Margin="8,0,0,0"/>
       </DockPanel>
     </StackPanel>
 

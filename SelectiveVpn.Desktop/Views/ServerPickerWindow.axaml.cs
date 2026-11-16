@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using SelectiveVpn.Desktop.Services;
 using SelectiveVpn.Engine;
 using SelectiveVpn.Models;
 
@@ -39,11 +40,18 @@ public partial class ServerPickerWindow : Window
         _measureDelays = measureDelays;
         _canPing = canPing && measureDelays is not null;
         _nodes = nodes;
+        Title = UiLoc.T("Servers.Title");
+        HeadingText.Text = UiLoc.T("Servers.Heading");
+        HintText.Text = UiLoc.T("Servers.Hint");
+        RefreshButton.Content = UiLoc.T("Ui.Refresh");
+        PingButton.Content = UiLoc.T("Servers.Ping");
+        CancelButton.Content = UiLoc.T("Ui.Cancel");
+        SelectButton.Content = UiLoc.T("Ui.Select");
         RefreshButton.IsVisible = refresh is not null;
         PingButton.IsEnabled = _canPing;
         ToolTip.SetTip(PingButton, _canPing
-            ? "Measure delays for listed nodes (requires active tunnel)."
-            : "Connect this subscription first to ping nodes.");
+            ? UiLoc.T("Servers.PingTip")
+            : UiLoc.T("Servers.PingDisabledTip"));
         LoadNodes(nodes, selectedName);
     }
 
@@ -85,12 +93,14 @@ public partial class ServerPickerWindow : Window
 
     private void UpdateHeaderLabels()
     {
+        var name = UiLoc.T("Servers.Name");
+        var delay = UiLoc.T("Servers.Delay");
         NameHeaderButton.Content = _sortColumn == SortColumn.Name
-            ? (_sortAscending ? "Name ▾" : "Name ▴")
-            : "Name";
+            ? (_sortAscending ? $"{name} ▾" : $"{name} ▴")
+            : name;
         DelayHeaderButton.Content = _sortColumn == SortColumn.Delay
-            ? (_sortAscending ? "Delay ▾" : "Delay ▴")
-            : "Delay";
+            ? (_sortAscending ? $"{delay} ▾" : $"{delay} ▴")
+            : delay;
     }
 
     private void SortByNameClick(object? sender, RoutedEventArgs e)

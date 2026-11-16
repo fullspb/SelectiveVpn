@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="SelectiveVpn.Desktop.Views.SubscriptionImportWindow"
-        Title="Import subscription"
+        Title="Add by link"
         Width="560" Height="420"
         MinWidth="480" MinHeight="360"
         WindowStartupLocation="CenterOwner"
@@ -23,6 +23,8 @@
       <Setter Property="MinHeight" Value="40"/>
       <Setter Property="Padding" Value="14,0"/>
       <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
     <Style Selector="Button.push">
       <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}"/>
@@ -32,22 +34,23 @@
       <Setter Property="MinHeight" Value="44"/>
       <Setter Property="Padding" Value="18,0"/>
       <Setter Property="CornerRadius" Value="{DynamicResource PushButtonCornerRadius}"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
   </Window.Styles>
   <DockPanel Margin="22">
     <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,14">
-      <TextBlock Text="Import by link or file" FontSize="20" FontWeight="ExtraBold"/>
-      <TextBlock Classes="hint" TextWrapping="Wrap"
-                 Text="Paste an https subscription URL, vless/vmess/trojan/ss links (one per line), or load a file."/>
+      <TextBlock Name="HeadingText" FontSize="20" FontWeight="ExtraBold"/>
+      <TextBlock Name="HintText" Classes="hint" TextWrapping="Wrap"/>
     </StackPanel>
 
     <StackPanel DockPanel.Dock="Bottom" Spacing="10" Margin="0,14,0,0">
       <TextBlock Name="StatusText" Classes="hint" TextWrapping="Wrap" IsVisible="False"/>
       <TextBlock Name="ErrorText" Foreground="{DynamicResource DangerForeground}" TextWrapping="Wrap" IsVisible="False"/>
       <DockPanel>
-        <Button DockPanel.Dock="Right" Classes="ghost" MinWidth="100" Content="Cancel" Name="CancelButton" Click="CancelClick" Margin="8,0,0,0"/>
-        <Button DockPanel.Dock="Right" Classes="push" MinWidth="120" Content="Import" Name="ImportButton" Click="ImportClick"/>
-        <Button Classes="ghost" Content="From file…" Name="FileButton" Click="FileClick"/>
+        <Button DockPanel.Dock="Right" Classes="ghost" MinWidth="100" Name="CancelButton" Click="CancelClick" Margin="8,0,0,0"/>
+        <Button DockPanel.Dock="Right" Classes="push" MinWidth="120" Name="ImportButton" Click="ImportClick"/>
+        <Button Classes="ghost" Name="FileButton" Click="FileClick"/>
       </DockPanel>
     </StackPanel>
 

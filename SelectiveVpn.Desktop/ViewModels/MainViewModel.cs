@@ -841,7 +841,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         var folders = await _window.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "Add folder (PROCESS-PATH-REGEX)",
+            Title = UiLoc.T("Ui.AddFolderTitle"),
             AllowMultiple = false
         });
 
@@ -1104,7 +1104,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         var files = await _window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Import AmneziaWG config",
+            Title = UiLoc.T("Ui.ImportAmneziaTitle"),
             AllowMultiple = false,
             FileTypeFilter =
             [

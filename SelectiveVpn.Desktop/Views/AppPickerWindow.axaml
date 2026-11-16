@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:models="using:SelectiveVpn.Desktop.Models"
         x:Class="SelectiveVpn.Desktop.Views.AppPickerWindow"
-        Title="Add process"
+        Title="Add application"
         Width="560" Height="620"
         MinWidth="480" MinHeight="420"
         WindowStartupLocation="CenterOwner"
@@ -24,6 +24,8 @@
       <Setter Property="MinHeight" Value="40"/>
       <Setter Property="Padding" Value="14,0"/>
       <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
     <Style Selector="Button.push">
       <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}"/>
@@ -33,26 +35,27 @@
       <Setter Property="MinHeight" Value="44"/>
       <Setter Property="Padding" Value="18,0"/>
       <Setter Property="CornerRadius" Value="{DynamicResource PushButtonCornerRadius}"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
   </Window.Styles>
   <DockPanel Margin="20">
     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-      <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36" Content="Refresh"
+      <Button DockPanel.Dock="Right" Classes="ghost" MinHeight="36"
               Name="RefreshButton" Click="RefreshClick" IsVisible="False"/>
       <StackPanel Spacing="4">
-        <TextBlock Name="HeadingText" Text="Choose a running process" FontSize="20" FontWeight="ExtraBold"/>
-        <TextBlock Name="HintText" Classes="hint" TextWrapping="Wrap"
-                   Text="The rule binds to the executable path and stays after restart."/>
+        <TextBlock Name="HeadingText" FontSize="20" FontWeight="ExtraBold"/>
+        <TextBlock Name="HintText" Classes="hint" TextWrapping="Wrap"/>
       </StackPanel>
     </DockPanel>
 
     <StackPanel DockPanel.Dock="Bottom" Spacing="10" Margin="0,12,0,0">
       <TextBlock Name="StatusText" Classes="hint" TextWrapping="Wrap"/>
       <DockPanel>
-        <Button DockPanel.Dock="Right" Classes="ghost" MinWidth="100" Content="Cancel" Click="CancelClick" Margin="8,0,0,0"/>
-        <Button DockPanel.Dock="Right" Classes="push" MinWidth="120" Content="Add"
+        <Button DockPanel.Dock="Right" Classes="ghost" MinWidth="100" Name="CancelButton" Click="CancelClick" Margin="8,0,0,0"/>
+        <Button DockPanel.Dock="Right" Classes="push" MinWidth="120"
                 Name="AddButton" Click="AddClick"/>
-        <Button Classes="ghost" Content="Browse…" Click="BrowseClick"/>
+        <Button Classes="ghost" Name="BrowseButton" Click="BrowseClick"/>
       </DockPanel>
     </StackPanel>
 

@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="SelectiveVpn.Desktop.Views.AddressListWindow"
-        Title="Addresses"
+        Title="Address list"
         Width="480" Height="360"
         MinWidth="420" MinHeight="300"
         WindowStartupLocation="CenterOwner"
@@ -23,6 +23,8 @@
       <Setter Property="MinHeight" Value="40"/>
       <Setter Property="Padding" Value="14,0"/>
       <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
     <Style Selector="Button.push">
       <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}"/>
@@ -32,6 +34,8 @@
       <Setter Property="MinHeight" Value="44"/>
       <Setter Property="Padding" Value="18,0"/>
       <Setter Property="CornerRadius" Value="{DynamicResource PushButtonCornerRadius}"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
   </Window.Styles>
   <DockPanel Margin="22">
