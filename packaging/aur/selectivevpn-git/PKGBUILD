@@ -1,0 +1,158 @@
+# Maintainer: Sergey Ostanin <fullspb>
+#
+# Local smoke (recommended):
+#   ./makepkg-local.sh -si
+#
+# Direct makepkg from this directory clones GitHub (needs network + pushed commits).
+# Real AUR publish: see ../../../../ docs path in Project store / packaging README.
+
+pkgname=selectivevpn-git
+_pkgname=selectivevpn
+pkgver=0.1.25.r0.gunknown
+pkgrel=1
+pkgdesc="Selective VPN (Avalonia Linux) — AmneziaWG / Mihomo split tunneling"
+arch=('x86_64' 'aarch64')
+url="https://github.com/fullspb/SelectiveVpn"
+# Add a real LICENSE to the repo before AUR upload; until then keep custom:unknown.
+license=('custom:unknown')
+depends=(
+  'dotnet-runtime-10.0'
+  'libcap'
+)
+makedepends=(
+  'dotnet-sdk-10.0'
+  'git'
+  'imagemagick'
+  'gzip'
+)
+provides=("$_pkgname")
+conflicts=("$_pkgname" "${_pkgname}-bin")
+install=selectivevpn.install
+options=('!strip' '!emptydirs')
+
+source=("$_pkgname::git+https://github.com/fullspb/SelectiveVpn.git")
+
+# Mihomo Linux assets (same pins as SelectiveVpn.Core MihomoRelease).
+_mihomo_ver=1.19.33
+source_x86_64+=(
+  "mihomo-linux-amd64-compatible-v${_mihomo_ver}.gz::https://github.com/MetaCubeX/mihomo/releases/download/v${_mihomo_ver}/mihomo-linux-amd64-compatible-v${_mihomo_ver}.gz"
+)
+source_aarch64+=(
+  "mihomo-linux-arm64-v${_mihomo_ver}.gz::https://github.com/MetaCubeX/mihomo/releases/download/v${_mihomo_ver}/mihomo-linux-arm64-v${_mihomo_ver}.gz"
+)
+sha256sums=('SKIP')
+sha256sums_x86_64=(
+  '386508bfb1c72c43b6a0eda73708ecdce82546581b0ebcb16366c53757c622b6'
+)
+sha256sums_aarch64=(
+  'ba408b317080ee265c46cb923a50018c1b82cbd708551cdd46a1e3e307396187'
+)
+
+pkgver() {
+  cd "$srcdir/$_pkgname"
+  local ver
+  ver="$(git describe --tags --long 2>/dev/null || true)"
+  if [[ -n $ver ]]; then
+    ver="${ver#v}"
+    printf '%s' "${ver//-/.}"
+    return
+  fi
+  local csproj_ver
+  csproj_ver="$(grep -oP '(?<=<Version>)[^<]+' SelectiveVpn.Desktop/SelectiveVpn.Desktop.csproj | head -1)"
+  [[ -z $csproj_ver ]] && csproj_ver=0.0.0
+  printf '%s.r%s.g%s' "$csproj_ver" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+  cd "$srcdir/$_pkgname"
+  [[ -f SelectiveVpn.Desktop/Helpers/apply-mihomo-caps.sh ]]
+  [[ -f SelectiveVpn.Desktop/Helpers/teardown-tunnel.sh ]]
+}
+
+build() {
+  cd "$srcdir/$_pkgname"
+  export DOTNET_CLI_TELEMETRY_OPTOUT=1
+  export DOTNET_NOLOGO=1
+  export DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
+
+  local rid
+  case "$CARCH" in
+    x86_64) rid=linux-x64 ;;
+    aarch64) rid=linux-arm64 ;;
+    *) echo "Unsupported CARCH=$CARCH" >&2; return 1 ;;
+  esac
+
+  # Prefer user-local SDK if pacman SDK is missing (CachyOS / home install).
+  export PATH="${HOME}/.dotnet:/usr/share/dotnet:${PATH}"
+  export DOTNET_ROOT="${DOTNET_ROOT:-${HOME}/.dotnet}"
+  if [[ ! -x ${DOTNET_ROOT}/dotnet && -x /usr/bin/dotnet ]]; then
+    export DOTNET_ROOT=/usr/share/dotnet
+  fi
+  # Avoid flaky NuGet SSL revocation checks on some hosts.
+  export NUGET_CERT_REVOCATION_MODE="${NUGET_CERT_REVOCATION_MODE:-offline}"
+
+  local attempt=1
+  until dotnet restore SelectiveVpn.Desktop/SelectiveVpn.Desktop.csproj -r "$rid"; do
+    if (( attempt >= 4 )); then
+      echo "dotnet restore failed after $attempt attempts (NuGet network?)" >&2
+      return 1
+    fi
+    echo "dotnet restore failed — retry $attempt/3 in 5s…" >&2
+    sleep 5
+    ((attempt++)) || true
+  done
+
+  dotnet publish SelectiveVpn.Desktop/SelectiveVpn.Desktop.csproj \
+    -c Release \
+    -r "$rid" \
+    --self-contained false \
+    --no-restore \
+    -o "$srcdir/publish" \
+    -p:PublishSingleFile=false \
+    -p:DebugType=None \
+    -p:DebugSymbols=false
+}
+
+package() {
+  local libdir="$pkgdir/usr/lib/$_pkgname"
+  install -d "$libdir"
+  cp -a "$srcdir/publish/." "$libdir/"
+
+  local mihomo_src
+  case "$CARCH" in
+    x86_64) mihomo_src="$srcdir/mihomo-linux-amd64-compatible-v${_mihomo_ver}.gz" ;;
+    aarch64) mihomo_src="$srcdir/mihomo-linux-arm64-v${_mihomo_ver}.gz" ;;
+  esac
+  gzip -dc "$mihomo_src" > "$libdir/mihomo"
+  chmod 755 "$libdir/mihomo"
+  printf '%s\n' "$_mihomo_ver" > "$libdir/version.txt"
+
+  install -Dm755 /dev/stdin "$pkgdir/usr/bin/$_pkgname" <<EOF
+#!/bin/sh
+# Prefer distro runtime, then a user-local SDK/runtime under ~/.dotnet.
+export PATH="\${HOME}/.dotnet:/usr/share/dotnet:\${PATH}"
+if [ -z "\${DOTNET_ROOT:-}" ]; then
+  if [ -x "\${HOME}/.dotnet/dotnet" ]; then
+    export DOTNET_ROOT="\${HOME}/.dotnet"
+  elif [ -x /usr/share/dotnet/dotnet ]; then
+    export DOTNET_ROOT=/usr/share/dotnet
+  fi
+fi
+exec /usr/lib/${_pkgname}/SelectiveVpn.Desktop "\$@"
+EOF
+
+  install -Dm644 "$srcdir/$_pkgname/packaging/aur/selectivevpn.desktop" \
+    "$pkgdir/usr/share/applications/${_pkgname}.desktop"
+
+  if command -v magick >/dev/null 2>&1; then
+    magick "$srcdir/$_pkgname/SelectiveVpn.Desktop/Assets/SelectiveVpn.ico[0]" \
+      -background none -flatten PNG32:"$srcdir/selectivevpn.png"
+    install -Dm644 "$srcdir/selectivevpn.png" \
+      "$pkgdir/usr/share/icons/hicolor/256x256/apps/${_pkgname}.png"
+  fi
+
+  if [[ -f $srcdir/$_pkgname/packaging/aur/README.packaging.md ]]; then
+    install -Dm644 "$srcdir/$_pkgname/packaging/aur/README.packaging.md" \
+      "$pkgdir/usr/share/doc/$_pkgname/README.packaging.md"
+  fi
+}

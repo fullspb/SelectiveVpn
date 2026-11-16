@@ -14,6 +14,13 @@ internal static class AppPaths
 
     public static string EngineBinaryPath => Path.Combine(RootDirectory, "engine", "mihomo");
 
+    /// <summary>
+    /// Packaged / published mihomo next to the app (e.g. /usr/lib/selectivevpn/mihomo).
+    /// MihomoEngine prefers this over downloading into ~/.local/share.
+    /// </summary>
+    public static string BundledEngineBinaryPath
+        => Path.Combine(AppContext.BaseDirectory, "mihomo");
+
     public static string HelpersDirectory
     {
         get

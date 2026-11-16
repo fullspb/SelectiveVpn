@@ -44,7 +44,8 @@ internal static class LinuxElevation
         if (Environment.IsPrivilegedProcess || HasNetAdminCapability())
             return true;
 
-        if (MihomoBinaryHasNetAdmin(AppPaths.EngineBinaryPath))
+        if (MihomoBinaryHasNetAdmin(AppPaths.BundledEngineBinaryPath)
+            || MihomoBinaryHasNetAdmin(AppPaths.EngineBinaryPath))
             return true;
 
         // Root via geteuid without Mono.Unix:
@@ -111,7 +112,10 @@ internal static class LinuxElevation
         if (!File.Exists(script))
             return (false, $"Helper script missing: {script}");
 
-        var binary = mihomoPath ?? AppPaths.EngineBinaryPath;
+        var binary = mihomoPath
+            ?? (File.Exists(AppPaths.BundledEngineBinaryPath)
+                ? AppPaths.BundledEngineBinaryPath
+                : AppPaths.EngineBinaryPath);
         if (!File.Exists(binary))
             return (false, $"Mihomo binary not found yet: {binary}. Connect once to download, then apply caps.");
 

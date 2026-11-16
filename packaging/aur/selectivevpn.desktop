@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Selective VPN
+GenericName=VPN Client
+Comment=Selective VPN routing with AmneziaWG / Mihomo
+Exec=selectivevpn
+Icon=selectivevpn
+Terminal=false
+Categories=Network;Security;
+Keywords=VPN;Amnezia;WireGuard;Mihomo;
+StartupNotify=true

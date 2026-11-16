@@ -1,0 +1,40 @@
+# arg 1: new package version (post_install / post_upgrade)
+
+_apply_mihomo_caps() {
+  local mihomo=/usr/lib/selectivevpn/mihomo
+  if [[ ! -f $mihomo ]]; then
+    echo "selectivevpn: mihomo missing at $mihomo — skip setcap" >&2
+    return 0
+  fi
+  if ! command -v setcap >/dev/null 2>&1; then
+    echo "selectivevpn: setcap not found (install libcap) — TUN will need manual caps" >&2
+    return 0
+  fi
+  # Same caps as SelectiveVpn.Desktop/Helpers/apply-mihomo-caps.sh
+  setcap 'cap_net_admin,cap_net_bind_service,cap_net_raw+eip' "$mihomo" || {
+    echo "selectivevpn: setcap failed on $mihomo" >&2
+    return 1
+  }
+  if command -v getcap >/dev/null 2>&1; then
+    getcap "$mihomo" || true
+  fi
+  echo "selectivevpn: CAP_NET_ADMIN applied to $mihomo"
+}
+
+post_install() {
+  _apply_mihomo_caps
+  echo
+  echo "Selective VPN installed. Launch: selectivevpn"
+  echo "Settings stay in ~/.local/share/SelectiveVpn/"
+  echo "If you later overwrite mihomo under that tree, re-run:"
+  echo "  sudo /usr/lib/selectivevpn/Helpers/apply-mihomo-caps.sh /usr/lib/selectivevpn/mihomo"
+}
+
+post_upgrade() {
+  _apply_mihomo_caps
+}
+
+pre_remove() {
+  # Capabilities leave with the file; nothing else to clear.
+  return 0
+}
