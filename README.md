@@ -4,6 +4,8 @@ Windows client for **selective VPN routing**: send only chosen apps, folders, or
 
 Built with **.NET / WPF**, powered by **Mihomo** and **AmneziaWG** configs / subscription links.
 
+SelectiveVpn (Linux) here: https://github.com/fullspb/SelectiveVpn-Linux
+
 [![Release](https://img.shields.io/github/v/release/fullspb/SelectiveVpn?label=release)](https://github.com/fullspb/SelectiveVpn/releases/latest)
 
 <p align="center">
