@@ -122,8 +122,8 @@ public class ConfigSubscriptionImporterTests
     public void Inspects_vless_subscription()
     {
         var payload = """
-            vless://e414c8ce-20c2-4bcf-87ea-4881566e25ec@vbr.keepsecure.network:443?encryption=none&flow=xtls-rprx-vision&type=tcp&security=tls#RU
-            vless://e414c8ce-20c2-4bcf-87ea-4881566e25ec@vbr.keepsecure.network:443?encryption=none&type=tcp&security=tls#EE
+            vless://00000000-0000-4000-8000-000000000001@example.test:443?encryption=none&flow=xtls-rprx-vision&type=tcp&security=tls#RU
+            vless://00000000-0000-4000-8000-000000000001@example.test:443?encryption=none&type=tcp&security=tls#EE
             """;
 
         Assert.True(ConfigSubscriptionImporter.TryInspectShareSubscription(payload, out var inspection));
@@ -151,13 +151,13 @@ public class ConfigSubscriptionImporterTests
         try
         {
             var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes("""
-                vless://e414c8ce-20c2-4bcf-87ea-4881566e25ec@node.example.com:443?encryption=none&type=tcp&security=tls#Node
+                vless://00000000-0000-4000-8000-000000000001@node.example.com:443?encryption=none&type=tcp&security=tls#Node
                 trojan://secret@node.example.com:443?security=tls#Trojan
                 """));
 
             var result = ConfigSubscriptionImporter.ImportFromPayload(
                 encoded,
-                displayName: "Keep Secure",
+                displayName: "Demo Sub",
                 subscriptionUrl: "https://sub.example.com/sub/abc",
                 profilesDirectory: dir);
 
@@ -165,7 +165,7 @@ public class ConfigSubscriptionImporterTests
             Assert.True(SubscriptionProfile.IsSubscriptionPath(result.SavedPath));
             Assert.True(SubscriptionProfile.TryRead(result.SavedPath!, out var profile, out var error), error);
             Assert.Equal("https://sub.example.com/sub/abc", profile.Url);
-            Assert.Equal("Keep Secure", profile.Title);
+            Assert.Equal("Demo Sub", profile.Title);
             Assert.Equal(2, profile.NodeCount);
             Assert.Contains("vless", profile.Protocols);
             Assert.Contains("trojan", profile.Protocols);
