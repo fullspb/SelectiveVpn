@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Controls;
@@ -36,7 +36,7 @@ public sealed class AnimatedBackground : Grid
         SetTheme(AppTheme.CurrentTheme);
     }
 
-    internal string ThemeId { get; private set; } = AppTheme.Orbit;
+    internal string ThemeId { get; private set; } = AppTheme.Default;
     internal int LayerCount => _scene.Children.Count;
     internal bool IsAnimationRunning { get; private set; }
     internal bool HasActiveClocks => _clockStarted;

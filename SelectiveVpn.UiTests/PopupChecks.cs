@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Automation;
@@ -42,7 +42,7 @@ internal static class PopupChecks
         var namespaceMap = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var attribute in source.Root.DescendantsAndSelf().Attributes().ToArray())
         {
-            if (attribute.Name == x + "Shared" || attribute.Name.LocalName == "Click") attribute.Remove();
+            if (attribute.Name == x + "Shared" || attribute.Name.LocalName is "Click" or "ContextMenuOpening") attribute.Remove();
             else if (attribute.IsNamespaceDeclaration && attribute.Value.StartsWith("clr-namespace:SelectiveVpn", StringComparison.Ordinal)
                      && !attribute.Value.Contains(";assembly=", StringComparison.Ordinal))
             {
@@ -99,7 +99,8 @@ internal static class PopupChecks
                     BindingOperations.GetBinding(combo, Selector.SelectedValueProperty)?.Path?.Path == nameof(fixture.Model.SelectedThemeId)),
                 "Colour schemes live in settings: the main window must not offer a theme dropdown.");
             Check.Equal(AppTheme.All.Length, fixture.Model.ThemeOptions.Count, "The view model should know every colour scheme.");
-            Check.Equal(AppTheme.Orbit, fixture.Model.ThemeOptions[0].Code, "Orbit stays the first, default colour scheme.");
+            Check.Equal(AppTheme.Default, fixture.Model.ThemeOptions[0].Code, "The default colour scheme comes first.");
+            Check.Equal(AppTheme.Neon, AppTheme.Default, "Neon 3D is the default look.");
             Check.Equal(0, fixture.DialogCount, "Showing the main window must not open settings or any other dialog.");
         }
         finally

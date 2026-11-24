@@ -2,7 +2,7 @@
 
 Windows client for **selective VPN routing**: send only chosen apps, folders, or address lists through the tunnel — or everything except a deny list.
 
-Built with **.NET / WPF**, powered by **Mihomo** and **AmneziaWG** configs / subscription links.
+Built with **.NET / WPF**, powered by **Mihomo**, with **WireGuard** and **AmneziaWG** configs, subscription links, and pasted server links.
 
 SelectiveVpn (Linux) here: https://github.com/fullspb/SelectiveVpn-Linux
 
@@ -14,16 +14,18 @@ SelectiveVpn (Linux) here: https://github.com/fullspb/SelectiveVpn-Linux
 
 ## Features
 
-- **Profiles** — multiple AmneziaWG configs, subscription URLs, or pasted server links (`vless://`, `vmess://`, `trojan://`, `ss://`) side by side
+- **Profiles** — multiple WireGuard and AmneziaWG configs, subscription URLs, or pasted server links (`vless://`, `vmess://`, `trojan://`, `ss://`) side by side; each card shows its real protocol
+- **Your own profile names** — rename any profile from the `⋯` button on its card; the configuration file stays untouched
 - **Selective routing** — apps (`.exe`), running processes, folders, and address lists per profile
 - **Except-list mode** — all traffic via VPN except the listed targets
 - **Server picker** — choose a node from a subscription (with ping when available)
 - **Orbit interface** — connection control, per-profile routing, current server/IP, and a collapsible event log
-- **Color schemes** — Orbit, Northern lights, Ocean, Plum, Sunset, Graphite; chosen in Settings
+- **VPN load graph** — live download and upload speed of the tunnel over the last minute
+- **Color schemes** — Neon 3D (default), Ruby 3D and Gold 3D with raised, glossy buttons, plus Orbit, Northern lights, Ocean, Plum, Sunset, Graphite; chosen in Settings
 - **Languages** — Russian, English, Spanish, Portuguese, Chinese (+ Auto)
 - **Tray** — minimize to tray, connect / disconnect / exit; menu follows the app theme
 - **Autostart** — launch with Windows and optional connect-on-start
-- **Apply routing changes** — explicit reconnect action for the running profile
+- **Apply routing changes** — explicit reconnect action, offered only when the rules really differ from the running ones
 - **Optional recovery** — up to three attempts after an unexpected engine stop; manual disconnect cancels recovery
 - **Installer** — self-contained Windows setup with bundled Mihomo
 
@@ -36,6 +38,10 @@ SelectiveVpn (Linux) here: https://github.com/fullspb/SelectiveVpn-Linux
 ### Disconnected
 
 ![Main window, disconnected](docs/screenshots/main-disconnected.jpg)
+
+### Orbit color scheme
+
+![Main window in the Orbit color scheme](docs/screenshots/main-orbit.jpg)
 
 ### Settings
 

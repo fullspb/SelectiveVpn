@@ -1,4 +1,4 @@
-using SelectiveVpn.Engine;
+﻿using SelectiveVpn.Engine;
 using SelectiveVpn.Models;
 
 namespace SelectiveVpn.Tests;
@@ -31,6 +31,21 @@ public class AmneziaWgProfileTests
         Assert.DoesNotContain(HeaderKey, summary);
         Assert.DoesNotContain(PostUpValue, summary);
         Assert.DoesNotContain(PostUpValue, result.Message);
+    }
+
+    [Theory]
+    [InlineData("", "WireGuard")]
+    [InlineData("Jc = 4\nJmin = 40\nJmax = 70\nS1 = 15\nS2 = 30\nH1 = 1\nH2 = 2\nH3 = 3\nH4 = 4\n", "AmneziaWG")]
+    [InlineData("I1 = <b 0xf6ab3267fa>\n", "AmneziaWG")]
+    public void Names_plain_WireGuard_apart_from_AmneziaWG(string obfuscation, string expected)
+    {
+        var text = "[Interface]\nPrivateKey = " + PrivateKey + "\nAddress = 10.8.0.2/32\nDNS = 1.1.1.1\n" + obfuscation
+            + "\n[Peer]\nPublicKey = " + PublicKey + "\nEndpoint = vpn.example.com:51820\nAllowedIPs = 0.0.0.0/0\n";
+        var result = AmneziaWgConfigReader.Read(text);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal(expected, result.Profile!.ProtocolName);
+        Assert.StartsWith(expected, result.Profile.Describe());
     }
 
     [Fact]

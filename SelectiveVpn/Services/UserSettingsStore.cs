@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
 
 namespace SelectiveVpn.Services;
@@ -97,7 +97,7 @@ internal sealed class UserSettings
 
     public List<SavedProfile> Profiles { get; set; } = [];
 
-    public string Theme { get; set; } = AppTheme.Orbit;
+    public string Theme { get; set; } = AppTheme.Default;
 
     public string Language { get; set; } = AppLanguage.Auto;
 
@@ -111,7 +111,7 @@ internal sealed class UserSettings
 
     public static UserSettings CreateDefault() => new()
     {
-        Theme = AppTheme.Orbit,
+        Theme = AppTheme.Default,
         Language = AppLanguage.Auto,
         Apps = [],
         Targets = [],
@@ -122,6 +122,9 @@ internal sealed class UserSettings
 internal sealed class SavedProfile
 {
     public string ConfigPath { get; set; } = "";
+
+    /// <summary>Name the user gave the profile; null shows the file or subscription name.</summary>
+    public string? DisplayName { get; set; }
 
     public List<SavedTarget> Targets { get; set; } = [];
 

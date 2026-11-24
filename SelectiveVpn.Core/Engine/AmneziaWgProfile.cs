@@ -1,4 +1,4 @@
-namespace SelectiveVpn.Engine;
+﻿namespace SelectiveVpn.Engine;
 
 public sealed class AmneziaWgProfile
 {
@@ -120,15 +120,19 @@ public sealed class AmneziaWgProfile
         || J3 is not null
         || ITime is not null;
 
+    /// <summary>
+    /// The protocol a person would call this profile: plain WireGuard unless the file carries
+    /// AmneziaWG obfuscation settings (Jc, S1, H1, I1 and the like).
+    /// </summary>
+    public string ProtocolName => HasAmneziaOptions ? "AmneziaWG" : "WireGuard";
+
     public string Describe()
     {
         var kind = IsVersion31
             ? "AmneziaWG 3.1"
             : IsVersion3
                 ? "AmneziaWG 3.0"
-                : HasAmneziaOptions
-                    ? "AmneziaWG"
-                    : "WireGuard";
+                : ProtocolName;
 
         return CoreText.F("Core.Config.Describe", "{0}, конечная точка {1}:{2}", kind, EndpointHost, EndpointPort.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }

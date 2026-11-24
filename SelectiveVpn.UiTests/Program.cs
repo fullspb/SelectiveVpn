@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Threading;
@@ -33,7 +33,8 @@ internal static class Program
         var dispatcher = Dispatcher.CurrentDispatcher;
         SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(dispatcher));
 
-        var completion = RunChecksAsync();
+        var shots = Environment.GetEnvironmentVariable("SVPN_README_SHOTS");
+        var completion = string.IsNullOrWhiteSpace(shots) ? RunChecksAsync() : ReadmeShots.RunAsync(shots);
         if (!completion.IsCompleted)
         {
             var frame = new DispatcherFrame();
@@ -53,7 +54,7 @@ internal static class Program
         var checks = ViewModelChecks.All.Concat(RoutingModeChecks.All).Concat(ConnectionDurationChecks.All)
             .Concat(PopupChecks.All)
             .Concat(MainWindowLayoutChecks.All).Concat(AppIconChecks.All).Concat(IpCountryChecks.All)
-            .Concat(LocalizationChecks.All).Concat(ProcessPickerChecks.All).ToArray();
+            .Concat(LocalizationChecks.All).Concat(ProcessPickerChecks.All).Concat(TrafficGraphChecks.All).Concat(ProfileCardChecks.All).ToArray();
         var failed = 0;
         foreach (var (name, check) in checks)
         {

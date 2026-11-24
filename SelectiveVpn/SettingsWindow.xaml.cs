@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using SelectiveVpn.Services;
 using SelectiveVpn.ViewModels;
 
@@ -20,7 +20,7 @@ public partial class SettingsWindow : Window
             LanguageBox.SelectedIndex = 0;
 
         ThemeBox.ItemsSource = ThemeOption.CreateOptions();
-        ThemeBox.SelectedValue = AppTheme.Normalize(theme ?? AppTheme.Orbit);
+        ThemeBox.SelectedValue = AppTheme.Normalize(theme ?? AppTheme.Default);
         ThemeBox.SelectionChanged += (_, _) =>
         {
             if (ThemeBox.SelectedValue is string selected)
@@ -39,7 +39,7 @@ public partial class SettingsWindow : Window
 
     public string SelectedLanguage => LanguageBox.SelectedValue as string ?? AppLanguage.Auto;
 
-    public string SelectedTheme => ThemeBox.SelectedValue as string ?? AppTheme.Orbit;
+    public string SelectedTheme => ThemeBox.SelectedValue as string ?? AppTheme.Default;
 
     public event EventHandler<string>? ThemeSelected;
 

@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Net;
@@ -30,7 +30,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private bool _disconnecting;
     private bool _expectExit;
     private bool _isDarkTheme;
-    private string _theme = AppTheme.Orbit;
+    private string _theme = AppTheme.Default;
     private string _statusText = "";
     private string _statusKind = "disconnected";
     private string _statusDetail = "";
@@ -42,12 +42,17 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private string _ipCaption = "";
     private string _incomingTraffic = "0";
     private string _outgoingTraffic = "0";
+    private IReadOnlyList<TrafficSample> _trafficSamples = [];
+    private string _downloadRate = "";
+    private string _uploadRate = "";
+    private (double Seconds, long Incoming, long Outgoing)? _lastTraffic;
     private long? _connectionStartedTimestamp;
     private DispatcherTimer? _connectionDurationTimer;
     private bool _exceptListed;
     private bool _suppressExceptListed;
     private bool _updateAvailable;
     private readonly HashSet<string> _pendingProfilePaths = new(StringComparer.OrdinalIgnoreCase);
+    private string? _appliedRules;
     private UpdateInfo? _pendingUpdate;
     private CancellationTokenSource? _connectCts;
     private CancellationTokenSource? _trafficCts;
@@ -92,6 +97,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         BrowseConfigCommand = new RelayCommand(BrowseConfig, () => !IsBusy, LogUnexpected);
         ImportSubscriptionCommand = new RelayCommand(ImportSubscriptionAsync, () => !IsBusy, LogUnexpected);
         RemoveProfileCommand = new RelayCommand(RemoveProfile, () => !IsBusy && Profiles.Count > 0, LogUnexpected);
+        RenameProfileCommand = new RelayCommand(RenameProfile, () => SelectedProfile is not null, LogUnexpected);
         ManageServersCommand = new RelayCommand(ManageServersAsync, () => !IsBusy && IsSubscriptionProfile, LogUnexpected);
         EditConfigCommand = new RelayCommand(EditConfig, () => !IsBusy && IsWireGuardProfile, LogUnexpected);
         SelectProfileCommand = new ParameterRelayCommand(SelectProfile, () => !IsBusy, LogUnexpected);
@@ -196,8 +202,14 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     public bool IsOtherProfileRunning => IsConnected && !IsSelectedProfileRunning;
 
+    /// <summary>
+    /// True when the running profile would route differently after a reconnect: its file was
+    /// edited, or its rules no longer match the ones it was started with. Switching the mode and
+    /// back, or adding and removing the same rule, leaves nothing to apply.
+    /// </summary>
     public bool HasPendingChanges => IsSelectedProfileRunning && ConfigPath is not null
-        && _pendingProfilePaths.Contains(ConfigPath);
+        && (_pendingProfilePaths.Contains(ConfigPath)
+            || (_appliedRules is not null && !string.Equals(_appliedRules, RulesFingerprint(), StringComparison.Ordinal)));
 
     public bool ShowRoutingNotice => HasPendingChanges || IsOtherProfileRunning;
 
@@ -319,6 +331,67 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         get => _outgoingTraffic;
         private set => SetProperty(ref _outgoingTraffic, value);
     }
+
+    /// <summary>How many seconds of VPN speed the graph keeps.</summary>
+    public const int TrafficWindowSeconds = 60;
+
+    /// <summary>Recent speed of the VPN channel, oldest first. Empty while nothing is measured.</summary>
+    public IReadOnlyList<TrafficSample> TrafficSamples
+    {
+        get => _trafficSamples;
+        private set
+        {
+            if (SetProperty(ref _trafficSamples, value))
+                OnPropertyChanged(nameof(HasTrafficSamples));
+        }
+    }
+
+    public bool HasTrafficSamples => _trafficSamples.Count > 0;
+
+    public string DownloadRate
+    {
+        get => _downloadRate;
+        private set => SetProperty(ref _downloadRate, value);
+    }
+
+    public string UploadRate
+    {
+        get => _uploadRate;
+        private set => SetProperty(ref _uploadRate, value);
+    }
+
+    /// <summary>
+    /// Turns the running totals of VPN bytes into a speed sample. The first call only remembers
+    /// the totals; a total that goes down (a new session) starts over.
+    /// </summary>
+    internal void AddTrafficTotals(double seconds, long incoming, long outgoing)
+    {
+        var last = _lastTraffic;
+        _lastTraffic = (seconds, incoming, outgoing);
+        if (last is null || seconds <= last.Value.Seconds || incoming < last.Value.Incoming || outgoing < last.Value.Outgoing)
+            return;
+
+        var elapsed = seconds - last.Value.Seconds;
+        var sample = new TrafficSample(seconds,
+            (incoming - last.Value.Incoming) / elapsed,
+            (outgoing - last.Value.Outgoing) / elapsed);
+        var kept = _trafficSamples.Where(item => item.Seconds >= seconds - TrafficWindowSeconds - 2).ToList();
+        kept.Add(sample);
+        TrafficSamples = kept;
+        DownloadRate = FormatRate(sample.DownPerSecond);
+        UploadRate = FormatRate(sample.UpPerSecond);
+    }
+
+    private void ClearTrafficSamples()
+    {
+        _lastTraffic = null;
+        TrafficSamples = [];
+        DownloadRate = "";
+        UploadRate = "";
+    }
+
+    private static string FormatRate(double bytesPerSecond)
+        => FormatBytes((long)Math.Round(bytesPerSecond)) + Loc.T("Unit.PerSecond");
 
     public string ConnectionDuration
     {
@@ -475,6 +548,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public RelayCommand ImportSubscriptionCommand { get; }
 
     public RelayCommand RemoveProfileCommand { get; }
+
+    public RelayCommand RenameProfileCommand { get; }
 
     public RelayCommand ManageServersCommand { get; }
 
@@ -890,6 +965,29 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private void RenameProfile()
+    {
+        var option = SelectedProfile;
+        var saved = option is null ? null : FindProfile(option.ConfigPath);
+        if (option is null || saved is null)
+            return;
+
+        var dialog = new SelectiveVpn.RenameProfilePrompt(option.Name, option.OriginalName)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (_environment.ShowDialog(dialog) != true)
+            return;
+
+        var name = SelectiveVpn.RenameProfilePrompt.Clean(dialog.ResultName);
+        option.Name = name;
+        saved.DisplayName = option.HasCustomName ? option.Name : null;
+        UpdateProfileName();
+        RefreshOrbitProperties();
+        Persist();
+        Report(Loc.Tf("Msg.ProfileRenamed", option.Name));
+    }
+
     private void RemoveProfile()
     {
         if (IsBusy || string.IsNullOrWhiteSpace(ConfigPath))
@@ -1128,6 +1226,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         var request = restoredRequest ?? new MihomoStartRequest(
             ConfigPath!, BuildRouteTargets(),
             string.IsNullOrWhiteSpace(EnginePath) ? null : EnginePath, ExceptListed);
+        if (!isRecovery)
+            _appliedRules = RulesFingerprint();
         _connectTask = StartEngineCoreAsync(request, cancellationToken, isRecovery);
         return _connectTask;
     }
@@ -1199,6 +1299,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             IncomingTraffic = "0 " + Loc.T("Unit.B");
             OutgoingTraffic = "0 " + Loc.T("Unit.B");
+            ClearTrafficSamples();
             StartTrafficPolling();
             _ = RefreshIpSafelyAsync(waitForTunnel: true);
         }
@@ -1293,6 +1394,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                         return;
                     IncomingTraffic = FormatBytes(traffic.IncomingBytes);
                     OutgoingTraffic = FormatBytes(traffic.OutgoingBytes);
+                    AddTrafficTotals(TrafficSample.Now, traffic.IncomingBytes, traffic.OutgoingBytes);
                 });
             }
             catch (OperationCanceledException)
@@ -1473,6 +1575,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             if (!IsConnected)
             {
                 _activeRequest = null;
+                _appliedRules = null;
+                ClearTrafficSamples();
                 _pendingProfilePaths.Clear();
                 ExternalIp = "—";
                 ConnectedServer = "";
@@ -1550,7 +1654,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         var removedMissing = false;
         ApplyTheme(_settings.Theme, persist: false);
         foreach (var profile in _settings.Profiles)
-            Profiles.Add(new VpnProfileOption(profile.ConfigPath));
+            Profiles.Add(new VpnProfileOption(profile.ConfigPath, profile.DisplayName));
 
         var active = _settings.Profiles.FirstOrDefault(profile => SamePath(profile.ConfigPath, _settings.ConfigPath))
                      ?? _settings.Profiles.FirstOrDefault();
@@ -1836,6 +1940,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        if (SelectedProfile is { } option)
+        {
+            ProfileName = option.Name;
+            return;
+        }
+
         if (SubscriptionProfile.TryRead(ConfigPath, out var subscription, out _))
         {
             ProfileName = subscription.Title;
@@ -1854,11 +1964,23 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     private void NoteLiveListChange()
     {
-        if (IsConnected)
-        {
-            MarkPendingChanges();
+        var wasPending = HasPendingChanges;
+        RefreshOrbitProperties();
+        CommandManager.InvalidateRequerySuggested();
+        if (IsConnected && HasPendingChanges && !wasPending)
             Report(Loc.T("Msg.ListWillApplyLater"));
-        }
+    }
+
+    /// <summary>What a reconnect would apply: the mode and every rule as the user set it.</summary>
+    private string RulesFingerprint()
+    {
+        var rules = _rules.GetRules()
+            .Select(rule => string.Join('\u001f',
+                rule.StoredKind,
+                rule.ExecutablePath,
+                string.Join('\u001e', rule.EntryList)))
+            .Order(StringComparer.OrdinalIgnoreCase);
+        return (ExceptListed ? "except" : "only") + '\u001d' + string.Join('\u001d', rules);
     }
 
     private void MarkPendingChanges()

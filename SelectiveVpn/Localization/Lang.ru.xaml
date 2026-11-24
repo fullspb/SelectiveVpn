@@ -1,4 +1,4 @@
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=System.Runtime">
     <sys:String x:Key="Lang.Auto">Авто</sys:String>
@@ -129,6 +129,11 @@
     <sys:String x:Key="RemoveProfile.Title">Убрать профиль</sys:String>
     <sys:String x:Key="RemoveProfile.Heading">Убрать профиль?</sys:String>
     <sys:String x:Key="RemoveProfile.Hint">Профиль «{0}» будет убран из списка. Файл конфигурации на диске не удалится.</sys:String>
+    <sys:String x:Key="Ui.RenameProfile">Переименовать</sys:String>
+    <sys:String x:Key="RenameProfile.Title">Имя профиля</sys:String>
+    <sys:String x:Key="RenameProfile.Heading">Новое имя профиля</sys:String>
+    <sys:String x:Key="RenameProfile.Hint">Как профиль будет называться в списке. Оставьте поле пустым, чтобы вернуть исходное имя «{0}».</sys:String>
+    <sys:String x:Key="Msg.ProfileRenamed">Профиль переименован: {0}.</sys:String>
 
     <sys:String x:Key="Status.Stopped">Маршрутизация остановлена</sys:String>
     <sys:String x:Key="Status.StoppedDetail">Маршрутизация остановлена. Приложения ходят напрямую.</sys:String>
@@ -159,6 +164,7 @@
     <sys:String x:Key="Unit.MB">МБ</sys:String>
     <sys:String x:Key="Unit.GB">ГБ</sys:String>
     <sys:String x:Key="Unit.TB">ТБ</sys:String>
+    <sys:String x:Key="Unit.PerSecond">/с</sys:String>
     <sys:String x:Key="Unit.Ms">{0} мс</sys:String>
 
     <sys:String x:Key="Node.Auto">Авто (лучший)</sys:String>
@@ -237,6 +243,9 @@
     <sys:String x:Key="Orbit.ColorScheme">Цветовая схема</sys:String>
     <sys:String x:Key="Orbit.ThemePine">Хвоя</sys:String>
     <sys:String x:Key="Orbit.ThemeGraphite">Графит</sys:String>
+    <sys:String x:Key="Orbit.ThemeNeon">Неон 3D</sys:String>
+    <sys:String x:Key="Orbit.ThemeRuby">Рубин 3D</sys:String>
+    <sys:String x:Key="Orbit.ThemeGold">Золото 3D</sys:String>
     <sys:String x:Key="Orbit.ThemeOcean">Океан</sys:String>
     <sys:String x:Key="Orbit.ThemePlum">Слива</sys:String>
     <sys:String x:Key="Orbit.ThemeAurora">Северное сияние</sys:String>
@@ -276,6 +285,8 @@
     <sys:String x:Key="Orbit.RulesApplied">Правила применены</sys:String>
     <sys:String x:Key="Orbit.RulesReady">Правила готовы к подключению</sys:String>
     <sys:String x:Key="Orbit.RemainingDirect">Остальной трафик — напрямую</sys:String>
+    <sys:String x:Key="Orbit.TrafficTitle">Нагрузка на VPN</sys:String>
+    <sys:String x:Key="Orbit.TrafficIdle">Появится после подключения</sys:String>
     <sys:String x:Key="Orbit.RemainingVpn">Остальной трафик — через VPN</sys:String>
     <sys:String x:Key="Orbit.Connected">Подключено</sys:String>
     <sys:String x:Key="Orbit.Disconnected">Отключено</sys:String>

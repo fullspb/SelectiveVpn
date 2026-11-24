@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -89,7 +89,7 @@ internal static class ViewModelChecks
         await using var fixture = new TestFixture();
         try
         {
-            Check.Equal(AppTheme.Orbit, fixture.Model.ThemeId, "A theme saved by a release with other looks must fall back to Orbit.");
+            Check.Equal(AppTheme.Default, fixture.Model.ThemeId, "A theme saved by a release with other looks must fall back to the default.");
             var originalSaveCount = fixture.SaveCount;
             var notifications = new HashSet<string>();
             fixture.Model.PropertyChanged += (_, args) =>
@@ -114,7 +114,7 @@ internal static class ViewModelChecks
                 "Every colour scheme needs a readable localized title.");
 
             foreach (var retired in new[] { AppTheme.Dark, AppTheme.Light, AppTheme.Retro, AppTheme.Indigo, "no-such-theme" })
-                Check.Equal(AppTheme.Orbit, AppTheme.Normalize(retired), "A retired or unknown theme must fall back to Orbit: " + retired);
+                Check.Equal(AppTheme.Default, AppTheme.Normalize(retired), "A retired or unknown theme must fall back to the default: " + retired);
             Check.Equal(AppTheme.Plum, AppTheme.Normalize(" PLUM "), "Theme identifiers are matched without regard to case or spaces.");
             Check.Equal(0, fixture.Engine.Starts.Count, "Selecting a theme must not connect the VPN.");
             Check.Equal(0, fixture.StartupRequests.Count, "Selecting a theme must not modify Windows startup.");

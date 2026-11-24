@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
 
@@ -13,8 +13,15 @@ internal static class AppTheme
     public const string Plum = "plum";
     public const string Sunset = "sunset";
     public const string Graphite = "graphite";
+    // Looks with raised, glossy 3D controls.
+    public const string Neon = "neon";
+    public const string Ruby = "ruby";
+    public const string Gold = "gold";
 
-    // Identifiers saved by releases that had other looks. Normalize maps them to Orbit.
+    /// <summary>The look of a fresh install, and of any unknown or retired identifier.</summary>
+    public const string Default = Neon;
+
+    // Identifiers saved by releases that had other looks. Normalize maps them to the default.
     public const string Light = "light";
     public const string Dark = "dark";
     public const string Green = "green";
@@ -24,9 +31,14 @@ internal static class AppTheme
     public const string Depth = "depth";
     public const string Retro = "retro";
 
-    public static readonly string[] All = [Orbit, Aurora, Ocean, Plum, Sunset, Graphite];
+    public static readonly string[] All = [Neon, Ruby, Gold, Orbit, Aurora, Ocean, Plum, Sunset, Graphite];
 
-    public static string CurrentTheme { get; private set; } = Orbit;
+    /// <summary>Looks whose buttons, switches and cards are drawn raised, with an edge, a gloss and a shadow.</summary>
+    private static readonly HashSet<string> Volumetric = new(StringComparer.OrdinalIgnoreCase) { Neon, Ruby, Gold };
+
+    public static bool IsVolumetric(string? theme) => Volumetric.Contains(Normalize(theme));
+
+    public static string CurrentTheme { get; private set; } = Default;
 
     private static readonly Dictionary<string, Dictionary<string, string>> Palettes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -65,7 +77,25 @@ internal static class AppTheme
             background: "#0D0E10", panel: "#18191D", foreground: "#ECEDEF", muted: "#9EA2AB", border: "#33363D", soft: "#202227",
             accent: "#D5DCE8", onAccent: "#0D0E10", accentSoft: "#2A2E36", accent2: "#8E99AD", accent2Light: "#B8C0CF",
             edge: "#5B6475", primaryBorder: "#707A8C", glassFrom: "#CC1E2025", glassTo: "#99141518",
-            glow1: "#3A3F4B", glow2: "#2C3340", glowShadow: "#AEB8C8", idle: "#7E828B", busy: "#FFC46E", avatar3: "#FFC46E", star: "#E6E8EC")
+            glow1: "#3A3F4B", glow2: "#2C3340", glowShadow: "#AEB8C8", idle: "#7E828B", busy: "#FFC46E", avatar3: "#FFC46E", star: "#E6E8EC"),
+        // 3D: hot magenta and electric cyan on a violet night.
+        [Neon] = CreateLook(
+            background: "#08051A", panel: "#140D2E", foreground: "#F4EEFF", muted: "#A89CCB", border: "#33275E", soft: "#1D1440",
+            accent: "#FF5CDB", onAccent: "#1A0418", accentSoft: "#3D1446", accent2: "#21E6FF", accent2Light: "#6FF0FF",
+            edge: "#8E1F7C", primaryBorder: "#C23AA8", glassFrom: "#CC1E1446", glassTo: "#99100A2A",
+            glow1: "#B21FD6", glow2: "#1F8FE0", glowShadow: "#FF5CDB", idle: "#9A90BD", busy: "#FFD36E", avatar3: "#FFD36E", star: "#F0E6FF"),
+        // 3D: ruby red and coral on a deep wine background.
+        [Ruby] = CreateLook(
+            background: "#12050A", panel: "#220C14", foreground: "#FFEDF0", muted: "#C49AA4", border: "#4E1F2C", soft: "#2E111B",
+            accent: "#FF4D6D", onAccent: "#1E0208", accentSoft: "#4A1222", accent2: "#FF8A5B", accent2Light: "#FFB08F",
+            edge: "#8A1430", primaryBorder: "#B8264A", glassFrom: "#CC2E1220", glassTo: "#991C0A12",
+            glow1: "#C21F45", glow2: "#7A2BC4", glowShadow: "#FF4D6D", idle: "#B3939B", busy: "#FFD36E", avatar3: "#FFD36E", star: "#FFE6EA"),
+        // 3D: polished gold and amber on midnight blue.
+        [Gold] = CreateLook(
+            background: "#070A12", panel: "#121726", foreground: "#FFF8EA", muted: "#B4AC98", border: "#3A3A3C", soft: "#1A1F30",
+            accent: "#FFCF5C", onAccent: "#1A1203", accentSoft: "#3D3214", accent2: "#E8892E", accent2Light: "#FFB46B",
+            edge: "#9A6A12", primaryBorder: "#C9962A", glassFrom: "#CC1C2133", glassTo: "#99101422",
+            glow1: "#2B4AC4", glow2: "#C48A1F", glowShadow: "#FFCF5C", idle: "#A8A293", busy: "#9FE6FF", avatar3: "#9FE6FF", star: "#FFF3D6")
     };
 
     private static Dictionary<string, string> CreateLook(
@@ -154,11 +184,11 @@ internal static class AppTheme
         };
     }
 
-    /// <summary>Returns a supported look: the given one, or Orbit for anything unknown or retired.</summary>
+    /// <summary>Returns a supported look: the given one, or the default for anything unknown or retired.</summary>
     public static string Normalize(string? theme)
     {
         var value = theme?.Trim();
-        return All.FirstOrDefault(known => known.Equals(value, StringComparison.OrdinalIgnoreCase)) ?? Orbit;
+        return All.FirstOrDefault(known => known.Equals(value, StringComparison.OrdinalIgnoreCase)) ?? Default;
     }
 
     public static bool UsesDarkChrome(string? theme) => true;
@@ -262,6 +292,116 @@ internal static class AppTheme
         resources["ProfileSelectedBackground"] = selected;
         resources["ProfileSelectedEffect"] = Freeze(new DropShadowEffect { Color = (Color)ColorConverter.ConvertFromString(palette["SelectionGlow"]), BlurRadius = 26, ShadowDepth = 8, Direction = 270, Opacity = 0.55 });
         resources["RunDotEffect"] = Freeze(new DropShadowEffect { Color = accent, BlurRadius = 10, ShadowDepth = 0, Opacity = 0.9 });
+
+        ApplySurfaceResources(palette, Volumetric.Contains(theme));
+    }
+
+    /// <summary>
+    /// Surfaces of buttons, the mode switch and cards. Flat looks keep soft translucent fills;
+    /// volumetric looks raise each control on a coloured edge, light its top rim, add a gloss and
+    /// cast a shadow, and sink the mode switch into the panel.
+    /// </summary>
+    private static void ApplySurfaceResources(IReadOnlyDictionary<string, string> palette, bool raised)
+    {
+        var resources = Application.Current.Resources;
+        resources["IsVolumetricTheme"] = raised;
+        if (!raised)
+        {
+            resources["GhostFace"] = Tint(Colors.White, 0x0F);
+            resources["GhostFaceHover"] = Tint(Colors.White, 0x1F);
+            resources["GhostEdge"] = Brushes.Transparent;
+            resources["GhostRim"] = Brushes.Transparent;
+            resources["GhostGloss"] = Brushes.Transparent;
+            resources["GhostFaceMargin"] = new Thickness(0);
+            resources["GhostPressedMargin"] = new Thickness(0);
+            resources["GhostEffect"] = null;
+            resources["PushGloss"] = Brushes.Transparent;
+            resources["PushRim"] = Brushes.Transparent;
+            resources["SegmentTrack"] = Tint(Colors.Black, 0x40);
+            resources["SegmentTrackBorder"] = Brushes.Transparent;
+            resources["SegmentSelectedBackground"] = resources["OrbitAccentSoftBackground"];
+            resources["SegmentSelectedBorder"] = resources["Accent"];
+            resources["SegmentSelectedEffect"] = null;
+            resources["GlassFill"] = Vertical(Color.FromArgb(0x1E, 0xFF, 0xFF, 0xFF), Color.FromArgb(0x08, 0xFF, 0xFF, 0xFF), new Point(0, 0), new Point(0.6, 1));
+            resources["GlassBorder"] = Tint(Colors.White, 0x17);
+            resources["ProfileCardBackground"] = Vertical(Color.FromArgb(0x16, 0xFF, 0xFF, 0xFF), Color.FromArgb(0x06, 0xFF, 0xFF, 0xFF), new Point(0, 0), new Point(1, 1));
+            resources["ProfileCardBorder"] = Tint(Colors.White, 0x17);
+            resources["ProfileCardEffect"] = null;
+            return;
+        }
+
+        var panel = Parse(palette["CardBackground"]);
+        var accent = Parse(palette["Accent"]);
+        var accentSoft = Parse(palette["OrbitAccentSoftBackground"]);
+        var background = Parse(palette["WindowBackground"]);
+
+        resources["GhostFace"] = Vertical(Mix(panel, Colors.White, 0.13, 0xF2), Mix(panel, Colors.Black, 0.18, 0xF2));
+        resources["GhostFaceHover"] = Vertical(Mix(Mix(panel, accent, 0.16), Colors.White, 0.14, 0xF6), Mix(Mix(panel, accent, 0.10), Colors.Black, 0.12, 0xF6));
+        resources["GhostEdge"] = Vertical(Mix(accent, background, 0.62), Mix(accent, Colors.Black, 0.80));
+        resources["GhostRim"] = Rim(0x5A);
+        resources["GhostGloss"] = Gloss(0x26, 0.48);
+        resources["GhostFaceMargin"] = new Thickness(0, 0, 0, 4);
+        resources["GhostPressedMargin"] = new Thickness(0, 3, 0, 1);
+        resources["GhostEffect"] = Freeze(new DropShadowEffect { Color = Colors.Black, BlurRadius = 16, ShadowDepth = 6, Direction = 270, Opacity = 0.55 });
+
+        resources["PushGloss"] = Gloss(0x6A, 0.55);
+        resources["PushRim"] = Rim(0x9A);
+        resources["PushEffect"] = Freeze(new DropShadowEffect { Color = accent, BlurRadius = 34, ShadowDepth = 6, Direction = 270, Opacity = 0.6 });
+
+        resources["SegmentTrack"] = Vertical(Mix(background, Colors.Black, 0.55, 0xC8), Mix(panel, Colors.Black, 0.25, 0xA0));
+        resources["SegmentTrackBorder"] = Vertical(Color.FromArgb(0x70, 0, 0, 0), Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF));
+        resources["SegmentSelectedBackground"] = Vertical(Mix(accentSoft, Colors.White, 0.16), Mix(accentSoft, Colors.Black, 0.22));
+        resources["SegmentSelectedBorder"] = Vertical(Mix(accent, Colors.White, 0.35), Mix(accent, Colors.Black, 0.45));
+        resources["SegmentSelectedEffect"] = Freeze(new DropShadowEffect { Color = Colors.Black, BlurRadius = 12, ShadowDepth = 4, Direction = 270, Opacity = 0.6 });
+
+        resources["GlassFill"] = Vertical(Color.FromArgb(0x28, 0xFF, 0xFF, 0xFF), Color.FromArgb(0x06, 0xFF, 0xFF, 0xFF), new Point(0, 0), new Point(0.4, 1));
+        resources["GlassBorder"] = Bevel(0x4A, 0x40);
+        resources["ProfileCardBackground"] = Vertical(Mix(panel, Colors.White, 0.10, 0xD8), Mix(panel, Colors.Black, 0.20, 0xD8));
+        resources["ProfileCardBorder"] = Bevel(0x50, 0x55);
+        resources["ProfileCardEffect"] = Freeze(new DropShadowEffect { Color = Colors.Black, BlurRadius = 18, ShadowDepth = 7, Direction = 270, Opacity = 0.5 });
+    }
+
+    private static Color Parse(string hex) => (Color)ColorConverter.ConvertFromString(hex);
+
+    private static Color Mix(Color from, Color to, double amount, byte alpha = 0xFF) => Color.FromArgb(alpha,
+        (byte)Math.Round(from.R + (to.R - from.R) * amount),
+        (byte)Math.Round(from.G + (to.G - from.G) * amount),
+        (byte)Math.Round(from.B + (to.B - from.B) * amount));
+
+    private static LinearGradientBrush Vertical(Color top, Color bottom)
+        => Vertical(top, bottom, new Point(0, 0), new Point(0, 1));
+
+    private static LinearGradientBrush Vertical(Color top, Color bottom, Point start, Point end)
+    {
+        var brush = new LinearGradientBrush(top, bottom, start, end);
+        brush.Freeze();
+        return brush;
+    }
+
+    /// <summary>A light rim along the top edge that fades out before the middle.</summary>
+    private static LinearGradientBrush Rim(byte alpha) => Stops(
+        (Color.FromArgb(alpha, 0xFF, 0xFF, 0xFF), 0),
+        (Color.FromArgb(0, 0xFF, 0xFF, 0xFF), 0.45));
+
+    /// <summary>A soft reflection on the upper part of a raised face.</summary>
+    private static LinearGradientBrush Gloss(byte alpha, double stop) => Stops(
+        (Color.FromArgb(alpha, 0xFF, 0xFF, 0xFF), 0),
+        (Color.FromArgb((byte)(alpha / 3), 0xFF, 0xFF, 0xFF), stop * 0.8),
+        (Color.FromArgb(0, 0xFF, 0xFF, 0xFF), stop));
+
+    /// <summary>Card outline lit from above: bright top edge, darker lower edge.</summary>
+    private static LinearGradientBrush Bevel(byte light, byte shade) => Stops(
+        (Color.FromArgb(light, 0xFF, 0xFF, 0xFF), 0),
+        (Color.FromArgb(0x10, 0xFF, 0xFF, 0xFF), 0.35),
+        (Color.FromArgb(shade, 0, 0, 0), 1));
+
+    private static LinearGradientBrush Stops(params (Color Color, double Offset)[] stops)
+    {
+        var brush = new LinearGradientBrush(
+            new GradientStopCollection(stops.Select(stop => new GradientStop(stop.Color, stop.Offset))),
+            new Point(0, 0), new Point(0, 1));
+        brush.Freeze();
+        return brush;
     }
 
     private static SolidColorBrush Tint(Color color, byte alpha)

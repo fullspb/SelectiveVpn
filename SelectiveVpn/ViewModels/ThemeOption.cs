@@ -1,4 +1,4 @@
-using SelectiveVpn.Services;
+﻿using SelectiveVpn.Services;
 
 namespace SelectiveVpn.ViewModels;
 
@@ -18,6 +18,9 @@ public sealed class ThemeOption(string code, string title) : ViewModelBase
 
     internal static IReadOnlyList<ThemeOption> CreateOptions() =>
     [
+        new(AppTheme.Neon, Loc.T("Orbit.ThemeNeon")),
+        new(AppTheme.Ruby, Loc.T("Orbit.ThemeRuby")),
+        new(AppTheme.Gold, Loc.T("Orbit.ThemeGold")),
         new(AppTheme.Orbit, Loc.T("Orbit.ThemeOrbit")),
         new(AppTheme.Aurora, Loc.T("Orbit.ThemeAurora")),
         new(AppTheme.Ocean, Loc.T("Orbit.ThemeOcean")),

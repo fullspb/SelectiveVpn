@@ -248,6 +248,33 @@ public partial class MainWindow : Window
         menu.IsOpen = true;
     }
 
+    /// <summary>Opens the actions of the profile whose card holds the button, selecting it first.</summary>
+    private void ProfileMenuClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: VpnProfileOption profile } button)
+            return;
+
+        _viewModel.SelectedProfile = profile;
+        if (button.ContextMenu is not { } menu)
+            return;
+
+        menu.DataContext = _viewModel;
+        menu.PlacementTarget = button;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        menu.IsOpen = true;
+        e.Handled = true;
+    }
+
+    /// <summary>A right click on the button acts on that card's profile too.</summary>
+    private void ProfileMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (sender is not Button { Tag: VpnProfileOption profile, ContextMenu: { } menu })
+            return;
+
+        _viewModel.SelectedProfile = profile;
+        menu.DataContext = _viewModel;
+    }
+
     private void EditRuleClick(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: AppRule rule } || !rule.IsAddressList)

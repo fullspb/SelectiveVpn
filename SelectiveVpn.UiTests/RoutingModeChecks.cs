@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using SelectiveVpn.Engine;
 using SelectiveVpn.Models;
 using SelectiveVpn.Services;
@@ -17,7 +17,8 @@ internal static class RoutingModeChecks
         ("an empty exclusion list starts a full VPN tunnel", EmptyExclusionsAsync),
         ("live mode changes reconnect with only the selected mode's rules", ReconnectSelectedModeAsync),
         ("elevation restoration replaces one mode snapshot without merging the other", RestoreSessionSelectedModeAsync),
-        ("elevation captures only the selected mode and leaves the other list intact", ElevationSelectedModeAsync)
+        ("elevation captures only the selected mode and leaves the other list intact", ElevationSelectedModeAsync),
+        ("browsing modes or undoing an edit leaves nothing to reconnect", UndoneEditsAreNotPendingAsync)
     ];
 
     private static Task LegacyMigrationAsync()
@@ -212,6 +213,32 @@ internal static class RoutingModeChecks
             "The selected empty exclusion list must generate full VPN routing rather than inheriting the include application's rule.");
         fixture.Model.RoutingModeIndex = 0;
         ExpectApps(fixture, fixture.Executable);
+    }
+
+    private static async Task UndoneEditsAreNotPendingAsync()
+    {
+        await using var fixture = new TestFixture();
+        await fixture.Model.ConnectFromUserAsync();
+        Check.True(fixture.Model.IsConnected && !fixture.Model.HasPendingChanges, "A fresh connection has nothing to apply.");
+
+        fixture.Model.RoutingModeIndex = 1;
+        Check.True(fixture.Model.HasPendingChanges, "Choosing the other mode changes routing and needs a reconnect.");
+        fixture.Model.RoutingModeIndex = 0;
+        Check.True(!fixture.Model.HasPendingChanges && !fixture.Model.ShowRoutingNotice,
+            "Switching the mode and back must not claim that the rules changed.");
+
+        var before = fixture.Model.Apps.Count;
+        fixture.Model.AddFolderCommand.Execute(null);
+        Check.True(fixture.Model.Apps.Count == before + 1 && fixture.Model.HasPendingChanges, "A new rule needs a reconnect.");
+        fixture.Model.SelectedApp = fixture.Model.Apps.Single(app => app.IsFolder && app.ExecutablePath == fixture.Folder);
+        fixture.Model.RemoveCommand.Execute(null);
+        Check.True(fixture.Model.Apps.Count == before && !fixture.Model.HasPendingChanges,
+            "Removing the rule that was just added returns to the applied rules.");
+        Check.Equal(1, fixture.Engine.Starts.Count, "None of this restarts the connection.");
+
+        await fixture.Model.DisconnectFromUserAsync();
+        fixture.Model.RoutingModeIndex = 1;
+        Check.True(!fixture.Model.HasPendingChanges, "Without a connection there is nothing to reconnect.");
     }
 
     private static async Task ReconnectSelectedModeAsync()
