@@ -8,6 +8,9 @@ SelectiveVpn (Linux) here: https://github.com/fullspb/SelectiveVpn-Linux
 
 [![Release](https://img.shields.io/github/v/release/fullspb/SelectiveVpn?label=release)](https://github.com/fullspb/SelectiveVpn/releases/latest)
 
+> **Linux / Avalonia builds** live in a separate repo so the Windows updater is not confused by Linux packages: **[fullspb/SelectiveVpn-Linux](https://github.com/fullspb/SelectiveVpn-Linux)** ([latest Linux release](https://github.com/fullspb/SelectiveVpn-Linux/releases/latest)).
+
+
 <p align="center">
   <img src="docs/screenshots/main-connected.jpg" alt="SelectiveVpn main window — connected" width="900">
 </p>
